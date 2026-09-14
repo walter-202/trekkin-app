@@ -55,7 +55,7 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
   continuar planificando después y confirmar el punto inicial real.
 - Criterios:
   1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
-  2. Mapa interactivo (`react-native-maps`, componente único `PlanMap`).
+  2. Mapa interactivo (WebView + tiles OpenStreetMap, componente único `PlanMap`).
   3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
   4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
   5. Autosave local (`usePlanStore` + AsyncStorage `trekking_plan_autosave`) → no se pierde al salir.
@@ -72,8 +72,17 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
   vistas delgadas en `presentation/views/record/`. La vista no importa `firebase/*`.
 - Seguridad: `firestore.rules` ya cubre crear/actualizar borradores del creador
   (`status:'draft'`); `startPointConfirmed` se conserva localmente (no es key permitida).
-- Dependencias nuevas: `react-native-maps` (mapa, Expo Go) + `expo-location` (T8).
-- Verificación: `npm run lint` (0 errores) y flujo T11–T20 en Expo Go.
+- Feedback del equipo aplicado: el **nombre provisional de la ruta** es obligatorio y se rellena
+  al crear (`CreateRouteView`, campo “NOMBRE PROVISIONAL DE LA RUTA *”, arriba de punto inicial y
+  destino); sin nombre no se guarda el borrador. Misma etiqueta en el editor (`PlanEditorView`).
+- Mapa **sin Google SDK/API key**: `PlanMap.tsx` usa un **WebView con mini-mapa propio (mercator)
+  + tiles OpenStreetMap** (sin librerías externas/CDNs; solo descarga los tiles del servidor de
+  OSM). Funciona en **Expo Go** Android/iOS sin configurar nada (Expo Go dejó de soportar el SDK
+  de Google Maps en Android → con react-native-maps el mapa salía en negro). Tap reporta
+  coordenadas vía postMessage; incluye botones +/- de zoom y “© OpenStreetMap contributors”.
+- Dependencias nuevas: `react-native-maps` (+ `react-native-webview` para el mapa OSM) y
+  `expo-location` (T8).
+- Verificación: `npm run lint` (0 errores) y flujo T11–T20 en Expo Go (iOS o Android).
 
 ## Roadmap (scaffold, no implementado)
 
