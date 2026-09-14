@@ -7,17 +7,20 @@ import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
+import { RecordView } from "./presentation/views/record/RecordView";
 
 /**
- * trekkin-app — V1 scaffold (HU-01 + HU-02 funcionales) + HU-03 Explorar.
- * Con sesión → HomeView / ExploreView (tabs, guest libre: el detalle no exige login).
- * Guest sin sesión (HU-03) → ExploreView catálogo+detalle. Sin sesión ni guest → AuthView.
+ * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
+ * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
+ * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
  * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
  */
+type Screen = "home" | "explore" | "record";
+
 function Gate() {
   const { currentUser, isGuest, loading } = useAuth();
-  const [section, setSection] = useState<"home" | "explore">("home");
-  const isExplore = section === "explore";
+  const [screen, setScreen] = useState<Screen>("home");
+  const isExplore = screen === "explore";
 
   if (loading) {
     return (
@@ -37,16 +40,21 @@ function Gate() {
     return <AuthView />;
   }
 
+  // HU-07: planificación de nueva ruta (borrador) desde el hub.
+  if (screen === "record") {
+    return <RecordView onClose={() => setScreen("home")} />;
+  }
+
   // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
   if (isExplore) {
-    return <ExploreView onBack={() => setSection("home")} />;
+    return <ExploreView onBack={() => setScreen("home")} />;
   }
 
   return (
     <View style={styles.authedWrap}>
       <View style={styles.tabs}>
         <Pressable
-          onPress={() => setSection("home")}
+          onPress={() => setScreen("home")}
           style={[styles.tab, !isExplore && styles.tabActive]}
           accessibilityRole="button"
           accessibilityLabel="Ir al inicio"
@@ -56,7 +64,7 @@ function Gate() {
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => setSection("explore")}
+          onPress={() => setScreen("explore")}
           style={[styles.tab, isExplore && styles.tabActive]}
           accessibilityRole="button"
           accessibilityLabel="Explorar rutas públicas"
@@ -66,7 +74,7 @@ function Gate() {
           </Text>
         </Pressable>
       </View>
-      <HomeView />
+      <HomeView onOpenRecord={() => setScreen("record")} />
     </View>
   );
 }

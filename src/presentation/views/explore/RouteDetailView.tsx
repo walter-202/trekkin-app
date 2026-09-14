@@ -22,7 +22,7 @@ import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSee
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
-import { RouteMap } from "./RouteMap";
+import { PlanMap } from "../../components/map/PlanMap";
 
 interface RouteDetailViewProps {
   routeId: string;
@@ -111,7 +111,23 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       <Text style={styles.region}>{route.region}</Text>
       <Text style={styles.description}>{route.description}</Text>
 
-      <RouteMap route={route} />
+      {/* HU-03 C13–C15: mapa compartido (PlanMap) con trazado + puntos relevantes. */}
+      <PlanMap
+        start={{
+          lat: route.startPoint.lat,
+          lng: route.startPoint.lng,
+          name: route.startPoint.name,
+        }}
+        end={{
+          lat: route.endPoint.lat,
+          lng: route.endPoint.lng,
+          name: route.endPoint.name,
+        }}
+        trail={route.waypoints}
+        pointsOfInterest={route.checkpoints}
+        height={240}
+        accessibilityLabel={`Mapa de ${route.title}`}
+      />
 
       <View style={styles.grid}>
         <View style={styles.metric}>
