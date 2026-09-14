@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -7,14 +7,19 @@ import { AuthProvider, useAuth } from './infrastructure/auth/AuthContext';
 import { AuthView } from './presentation/views/auth/AuthView';
 import { HomeView } from './presentation/views/home/HomeView';
 import { ExploreView } from './presentation/views/explore/ExploreView';
+import { RecordView } from './presentation/views/record/RecordView';
 
 /**
- * trekkin-app — V1 scaffold (HU-01 + HU-02 funcionales).
- * Con sesión → HomeView. Guest sin sesión (HU-03 scaffold, la define el otro dev)
- * → ExploreView genérica. Sin sesión ni guest → AuthView (registro/login).
+ * trekkin-app — V1 (HU-01 + HU-02 + HU-07 funcionales, clean-arch).
+ * Con sesión → HomeView; desde el hub se abre RecordView (HU-07, planificación).
+ * Guest sin sesión (HU-03 scaffold, la define el otro dev) → ExploreView genérica.
+ * Sin sesión ni guest → AuthView (registro/login).
  */
+type Screen = 'home' | 'record';
+
 function Gate() {
   const { currentUser, isGuest, loading } = useAuth();
+  const [screen, setScreen] = useState<Screen>('home');
 
   if (loading) {
     return (
@@ -32,7 +37,11 @@ function Gate() {
     return <AuthView />;
   }
 
-  return <HomeView />;
+  if (screen !== 'home') {
+    return <RecordView onClose={() => setScreen('home')} />;
+  }
+
+  return <HomeView onOpenRecord={() => setScreen('record')} />;
 }
 
 export default function App() {

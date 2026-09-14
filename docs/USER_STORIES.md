@@ -1,8 +1,8 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01 y HU-02 al 100%**. HU-03…HU-08 y HU-10 son roadmap
-con dueños (cada dev detalla sus TAREAS; aquí solo criterios). **HU-09 eliminada por el
-equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
+Alcance real de este repo: **HU-01, HU-02 y HU-07 al 100%**. HU-03…HU-06 y HU-08…HU-10
+son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+**HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
 - **Rol:** Visitante. **Como** usuario nuevo **quiero** registrar una cuenta con mis datos
@@ -78,11 +78,29 @@ equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
   distancia recorrida/restante + tiempo → checkpoints → pausar/reanudar → “Finalizar” →
   completa o incompleta → guarda en historial.
 
-## HU-07: Planificar nueva ruta — dueña: Apaza (scaffold)
-- **Rol:** Usuario autenticado. **Quiero** guardar una ruta como borrador **para** continuar
-  planificando y confirmar el inicio real.
-- Criterios: “Crear nueva ruta” → mapa → inicio/destino provisionales → guardar borrador →
-  salir sin perder → recuperar y modificar → confirmar inicio real → lista para grabar (HU-08).
+## HU-07: Planificar nueva ruta — dueña: Apaza — ✅ 100% implementada
+- **Rol:** Usuario autenticado. **Quiero** guardar una ruta como borrador **para**
+  continuar planificando después y confirmar el punto inicial real.
+- Criterios:
+  1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
+  2. Mapa interactivo (`react-native-maps`, componente único `PlanMap`).
+  3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
+  4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
+  5. Autosave local (`usePlanStore` + AsyncStorage) → no se pierde al salir.
+  6. Recuperar borrador (`DraftsView` + `GetDraftUseCase`).
+  7. Modificar antes de iniciar (`PlanEditorView` + `UpdatePlanUseCase`).
+  8. Confirmar/modificar punto inicial real con ubicación actual (`expo-location`,
+     `StartPointConfirmView` + `ConfirmStartPointUseCase`).
+  9. El sistema actualiza el punto inicial confirmado (`startPointConfirmed` local +
+     `startPoint` en Firestore).
+  10. Ruta lista para grabación GPS (plan local `ready_for_gps` vía `MarkReadyForGpsUseCase`;
+      en Firestore queda `draft` por reglas; handoff a HU-08, `ReadyForGpsView`).
+- Arquitectura: `core/domain/plan.ts` + `plan.schemas.ts` (zod), 8 use cases en
+  `core/application/plan/` (puertos inyectados, sin Firebase/RN), `routeService.ts`
+  (única capa que importa `firebase/firestore`), `usePlanStore.ts` (zustand + autosave),
+  vistas delgadas en `presentation/views/record/`. La vista no importa `firebase/*`.
+- Dependencias nuevas: `react-native-maps` (mapa, Expo Go) + `expo-location` (T8).
+- Verificación: `npm run lint` (0 errores) y flujo T1–T10 en Expo Go.
 
 ## HU-08: Grabar ruta con GPS — dueños: Ramos, Cruz (scaffold)
 - **Rol:** Usuario. **Quiero** grabar una ruta **para** registrar trayecto, distancia,
@@ -100,14 +118,16 @@ equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## Roadmap (scaffold, no implementado)
 
+## Roadmap (scaffold, no implementado)
+
 | ID | Historia | Dueño | Ruta futura | Estado |
 |---|---|---|---|---|
 | HU-03 | Explorar y consultar ruta | Chicho | `views/explore/` + `routeService` | scaffold + guest |
 | HU-04 | Descarga offline | Cusi | `persistence/tileCacheDB` | scaffold |
 | HU-05 | Compartir ruta publicada | Monje | modal en explore | scaffold |
 | HU-06 | Realizar ruta (actividad GPS) | Tapia, Beymar | `views/activity/` + `activityService` | scaffold |
-| HU-07 | Planificar nueva ruta (borrador) | Apaza | `views/record/` modo plan | scaffold |
-| HU-08 | Grabar ruta con GPS | Ramos, Cruz | `views/record/` + `expo-location` | scaffold |
+| HU-07 | Planificar nueva ruta (borrador) | Apaza | `views/record/` | ✅ 100% |
+| HU-08 | Grabar ruta con GPS | Ramos, Cruz | `views/record/` + `expo-location` (lee plan local `ready_for_gps` de HU-07) | scaffold |
 | HU-10 | Gestionar usuarios y roles | Larico | `views/profile/` RBAC admin | scaffold |
 
 Verificación:
