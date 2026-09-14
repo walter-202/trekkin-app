@@ -63,6 +63,22 @@ Antes de codificar CUALQUIER tarea ligada a una HU:
 4. Al terminar: actualiza la evidencia en `docs/USER_STORIES.md` en el mismo commit del cambio.
 
 Regla de oro: doc desactualizado = tarea bloqueada hasta confirmar.
+Regla de validación: se declara siempre el % (90% por defecto; 100% solo con matriz Expo Go
+completa + `/ui-review` sin blockers + OK del usuario).
+
+## Arranque automático de sesión (obligatorio — los devs no gestionan sesiones)
+
+Al iniciar CUALQUIER sesión de trabajo, el agente hace esto solo, sin que se lo pidan:
+
+1. **Declara la HU**: pregunta en qué HU trabaja el dev (tool `question`) y verifícala
+   contra rama (`git branch --show-current`) y dueño en `docs/USER_STORIES.md`. Di en voz
+   alta: “Estamos en HU-0X (dueño Y)”.
+2. **Pide los criterios pegados** si la sección está en scaffold o desactualizada.
+   Sin criterios pegados no hay Fase 1.
+3. **Ejecuta `/hu-checklist HU-0X`** sin saltar fases (planificar → codificar un agente →
+   validar con evidencia → cerrar). Las fases son secuenciales y obligatorias.
+4. **Pide reviews sí o sí** antes de cerrar: validación en dispositivo, correcciones
+   encontradas y revisión humana del diff por un dev. Con correcciones → se vuelve a Fase 2.
 
 Comando del equipo para ejecutar HUs: `/hu-checklist HU-0X` (plantilla de 4 fases: planificar → codificar → validar → cerrar).
 

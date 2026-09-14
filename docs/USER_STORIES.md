@@ -130,11 +130,15 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 | HU-08 | Grabar ruta con GPS | Ramos, Cruz | `views/record/` + `expo-location` (lee plan local `ready_for_gps` de HU-07) | scaffold |
 | HU-10 | Gestionar usuarios y roles | Larico | `views/profile/` RBAC admin | scaffold |
 
-Verificación:
+Verificación y estado (90% — HU-01/02/07):
 ```bash
 npm run lint   # tsc --noEmit → 0 errores
 npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
 ```
+- Verificado: lint 0, suite 16/16, E2E backend 7/7 (registro, perfil, login, reglas),
+  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) OK.
+- Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
+  cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 
 ## Servicios reutilizables HU-01/02 → HU-03… (para los devs)
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
