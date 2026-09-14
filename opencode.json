@@ -8,11 +8,7 @@
     "docs/MODULE_GUIDE.md",
     "docs/USER_STORIES.md"
   ],
-  "lsp": {
-    "typescript": {
-      "enabled": true
-    }
-  },
+  "lsp": true,
   "formatter": {
     "prettier": {
       "command": ["npx", "prettier", "--write", "$FILE"],
