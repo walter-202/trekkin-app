@@ -79,5 +79,7 @@ reescribir seguridad cuando se implemente cada módulo.
   `Xxx.usecase.ts`, `xxx.schemas.ts`, `useXxxStore.ts`.
 - Estilos: `StyleSheet` + `AndeanTheme`; respetar `docs/DESIGN_RULES.md`.
 - Validación siempre con **zod en dominio**, nunca solo en el formulario.
+- Campos nuevos: tipo (`core/domain`) → regla (`firestore.rules`) → tabla (`docs/DATABASE.md`).
+  Sin excepciones (anti-duplicación).
 - Errores de Firestore centralizados en `firestoreErrors.ts`.
 - Sesión bajo la clave `trekkin_auth_user`.
