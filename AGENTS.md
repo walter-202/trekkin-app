@@ -1,6 +1,6 @@
 # AGENTS.md — Trekkin App (Expo SDK 57 + React Native)
 
-> Instrucciones canónicas para agentes OpenCode. Alcance del repo: **scaffold + HU-01, HU-02 y HU-07**.
+> Instrucciones canónicas para agentes OpenCode. Alcance del repo: **scaffold + HU-01, HU-02, HU-03 y HU-07**.
 > Stack: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · TypeScript strict · Zustand + AsyncStorage · Firebase/Firestore · Zod · `expo-location` + `react-native-maps` (HU-07/HU-08).
 
 ## Comandos (usar en este orden)

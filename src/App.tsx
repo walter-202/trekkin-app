@@ -1,31 +1,34 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
-import { Mountain } from 'lucide-react-native';
-import { AuthProvider, useAuth } from './infrastructure/auth/AuthContext';
-import { AuthView } from './presentation/views/auth/AuthView';
-import { HomeView } from './presentation/views/home/HomeView';
-import { ExploreView } from './presentation/views/explore/ExploreView';
-import { RecordView } from './presentation/views/record/RecordView';
+import React, { useState } from "react";
+import { StyleSheet, View, Text, Pressable } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { Mountain } from "lucide-react-native";
+import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
+import { AuthView } from "./presentation/views/auth/AuthView";
+import { HomeView } from "./presentation/views/home/HomeView";
+import { ExploreView } from "./presentation/views/explore/ExploreView";
+import { RecordView } from "./presentation/views/record/RecordView";
 
 /**
- * trekkin-app — V1 (HU-01 + HU-02 + HU-07 funcionales, clean-arch).
- * Con sesión → HomeView; desde el hub se abre RecordView (HU-07, planificación).
- * Guest sin sesión (HU-03 scaffold, la define el otro dev) → ExploreView genérica.
- * Sin sesión ni guest → AuthView (registro/login).
+ * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
+ * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
+ * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
+ * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
  */
-type Screen = 'home' | 'record';
+type Screen = "home" | "explore" | "record";
 
 function Gate() {
   const { currentUser, isGuest, loading } = useAuth();
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreen] = useState<Screen>("home");
+  const isExplore = screen === "explore";
 
   if (loading) {
     return (
       <View style={styles.center}>
         <Mountain size={28} color="#34D399" />
-        <Text style={styles.loadingText}>Conectando con el campamento base…</Text>
+        <Text style={styles.loadingText}>
+          Conectando con el campamento base…
+        </Text>
       </View>
     );
   }
@@ -37,18 +40,50 @@ function Gate() {
     return <AuthView />;
   }
 
-  if (screen !== 'home') {
-    return <RecordView onClose={() => setScreen('home')} />;
+  // HU-07: planificación de nueva ruta (borrador) desde el hub.
+  if (screen === "record") {
+    return <RecordView onClose={() => setScreen("home")} />;
   }
 
-  return <HomeView onOpenRecord={() => setScreen('record')} />;
+  // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
+  if (isExplore) {
+    return <ExploreView onBack={() => setScreen("home")} />;
+  }
+
+  return (
+    <View style={styles.authedWrap}>
+      <View style={styles.tabs}>
+        <Pressable
+          onPress={() => setScreen("home")}
+          style={[styles.tab, !isExplore && styles.tabActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Ir al inicio"
+        >
+          <Text style={[styles.tabText, !isExplore && styles.tabTextActive]}>
+            Inicio
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setScreen("explore")}
+          style={[styles.tab, isExplore && styles.tabActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Explorar rutas públicas"
+        >
+          <Text style={[styles.tabText, isExplore && styles.tabTextActive]}>
+            Explorar
+          </Text>
+        </Pressable>
+      </View>
+      <HomeView onOpenRecord={() => setScreen("record")} />
+    </View>
+  );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
           <StatusBar style="light" />
           <Gate />
         </SafeAreaView>
@@ -58,7 +93,26 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#051712' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  loadingText: { color: '#9CA3AF', fontSize: 12 },
+  container: { flex: 1, backgroundColor: "#051712" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
+  loadingText: { color: "#9CA3AF", fontSize: 12 },
+  authedWrap: { flex: 1 },
+  tabs: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  tab: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#1A4537",
+    backgroundColor: "#0E2E24",
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  tabActive: { backgroundColor: "#06231B" },
+  tabText: { color: "#9CA3AF", fontSize: 12, fontWeight: "800" },
+  tabTextActive: { color: "#34D399" },
 });

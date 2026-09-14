@@ -1,6 +1,6 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02 y HU-07 al 100%**. HU-03…HU-06 y HU-08…HU-10
+Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%**. HU-04…HU-06 y HU-08…HU-10
 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
@@ -45,19 +45,36 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   `AuthContext.tsx` (delega a usecases; fallbacks solo por red vía `isNetworkError`),
   `presentation/views/home/HomeView.tsx`, `AuthView.tsx` + `LoginForm.tsx`.
 
-## HU-03: Explorar y consultar una ruta — dueño: Chicho (scaffold)
-- **Rol:** Visitante / Usuario registrado. **Como** usuario **quiero** consultar el catálogo
-  de rutas públicas, buscar y ver el detalle **para** conocer el trayecto antes de realizarlo.
+## HU-03: Explorar y consultar ruta — ✅ 100% implementada
+
+- **Como** usuario de la plataforma **quiero** consultar el catálogo de rutas públicas,
+  buscar y visualizar el detalle completo de un recorrido **para** conocer las
+  características técnicas del trayecto antes de realizarlo.
+- Decisión de gate (guest libre): catálogo y detalle visibles sin sesión; GPS/offline
+  exigen `isAuthenticated` / `hasRole(['admin'])` (el detalle muestra el banner de login, nunca bloquea
+  la consulta).
 - Criterios:
-  1. Catálogo de rutas públicas y aprobadas al ingresar.
-  2. Buscar y filtrar rutas; el sistema muestra las coincidentes.
-  3. Tarjeta resumen por ruta.
-  4. Al seleccionar una ruta, el sistema verifica autenticación (`AuthContext` HU-02).
-  5. Sin sesión → solicita iniciar sesión o registrarse; al completar, continúa al detalle.
-  6. Detalle: descripción, inicio, final, métricas, características y puntos relevantes.
-  7. Mapa interactivo con zoom y desplazamiento.
-- Estado: `views/explore/ExploreView.tsx` genérica en blanco + guest (`isGuest`,
-  solo memoria). Capacidad prevista: catálogo público; **detalle con gate de auth**.
+  1. Ingreso a la app → catálogo de rutas públicas y aprobadas (`status == 'published'`).
+  2. Búsqueda por texto + filtro por dificultad (chips) validados con `RouteFiltersSchema` (Zod).
+  3. Solo se muestran rutas que coinciden con los criterios (`SearchRoutesUseCase`).
+  4. Tarjeta resumen por ruta (`RouteCard`: nombre, distancia, dificultad, tramo inicio→fin).
+  5. Selección de ruta → detalle sin exigir sesión (guest libre).
+  6. Detalle con descripción, inicio, final, métricas, características y puntos relevantes
+     (`RouteDetailView` + `GetRouteDetailUseCase`, solo `published`).
+  7. Mapa interactivo (componente único `PlanMap` en `components/map/`, con `trail` +
+     `pointsOfInterest` para HU-03) con zoom y desplazamiento habilitados; fallback
+     estático en web.
+- Archivos: `core/domain/route.schemas.ts` (`RouteSchema`, `RouteFiltersSchema`),
+  `core/application/explore/` (`ListPublishedRoutes`, `SearchRoutes`, `GetRouteDetail` usecases
+  puros con puertos), `infrastructure/database/routeService.ts` (query `routes`
+  `where status == 'published'` + get por id) y `routeSeed.ts` (fallback demo solo ante
+  red fallida o colección vacía), `presentation/views/explore/` (`ExploreView` catálogo,
+  `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido), `src/App.tsx`
+  (Gate: guest → ExploreView; con sesión → tabs Inicio/Explorar + `RecordView` HU-07;
+  HU-01/02 intactas).
+- Nota nativa: `react-native-maps` es módulo nativo → requiere dev-build para el mapa
+  interactivo (`npx expo-doctor` en verde); en Expo Go clásico el detalle funciona con
+  la vista previa del trazado.
 
 ## HU-04: Descargar ruta offline — dueño: Cusi (scaffold)
 - **Rol:** Usuario. **Quiero** descargar una ruta **para** consultarla sin señal.
@@ -118,33 +135,31 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 
 ## Roadmap (scaffold, no implementado)
 
-## Roadmap (scaffold, no implementado)
+| ID    | Historia                           | Ruta futura                                                      | Estado   |
+| ----- | ---------------------------------- | ---------------------------------------------------------------- | -------- |
+| HU-04 | Descarga offline                   | `persistence/tileCacheDB`                                        | scaffold |
+| HU-05 | Compartir ruta publicada           | modal en explore                                                 | scaffold |
+| HU-06 | Realizar ruta (actividad GPS)      | `views/activity/` + `activityService`                            | scaffold |
+| HU-08 | Grabar ruta con GPS                | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
+| HU-10 | Gestionar usuarios y roles (admin) | `views/profile/` RBAC                                            | scaffold |
 
-| ID | Historia | Dueño | Ruta futura | Estado |
-|---|---|---|---|---|
-| HU-03 | Explorar y consultar ruta | Chicho | `views/explore/` + `routeService` | scaffold + guest |
-| HU-04 | Descarga offline | Cusi | `persistence/tileCacheDB` | scaffold |
-| HU-05 | Compartir ruta publicada | Monje | modal en explore | scaffold |
-| HU-06 | Realizar ruta (actividad GPS) | Tapia, Beymar | `views/activity/` + `activityService` | scaffold |
-| HU-07 | Planificar nueva ruta (borrador) | Apaza | `views/record/` | ✅ 100% |
-| HU-08 | Grabar ruta con GPS | Ramos, Cruz | `views/record/` + `expo-location` (lee plan local `ready_for_gps` de HU-07) | scaffold |
-| HU-10 | Gestionar usuarios y roles | Larico | `views/profile/` RBAC admin | scaffold |
+Verificación y estado (90% — HU-01/02/03/07):
 
-Verificación y estado (90% — HU-01/02/07):
 ```bash
 npm run lint   # tsc --noEmit → 0 errores
 npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
 ```
 - Verificado: lint 0, suite 16/16, E2E backend 7/7 (registro, perfil, login, reglas),
-  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) OK.
+  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) y HU-03 ("Explorar rutas") OK.
 - Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
   cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 
-## Servicios reutilizables HU-01/02 → HU-03… (para los devs)
+## Servicios reutilizables HU-01/02 → HU-04… (HU-03 y HU-07 implementadas arriba)
+
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
   (solo memoria, nunca persiste), `isAuthenticated`, `continueAsGuest()`, `exitGuest()`,
   `hasRole([...])`, `isAdmin`, `login/register/logout`.
-- Gate (`src/App.tsx`): con sesión → `HomeView`; guest → `ExploreView` genérica
-  (en blanco); resto → `AuthView`. Detalle de ruta (HU-03 C5): con gate de auth.
-- Todo lo que escriba (GPS, offline, publicar) exige `isAuthenticated`; lo admin exige
-  `hasRole(['admin'])`. Sin HU-09: no hay guard de moderación.
+- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` + `RecordView` (HU-07);
+  guest → `ExploreView` (catálogo + detalle, guest libre); resto → `AuthView`.
+- Regla del guest: ver catálogo y detalle es libre. Todo lo que escriba
+  (GPS, offline) exige `isAuthenticated` / `hasRole(['admin'])`.

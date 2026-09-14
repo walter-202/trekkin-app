@@ -9,26 +9,65 @@ import {
   query,
   where,
   orderBy,
-} from 'firebase/firestore';
-import { db } from '../firebase/config';
-import { RouteModel } from '../../core/domain/types';
-import { handleFirestoreError, OperationType } from './firestoreErrors';
+} from "firebase/firestore";
+import { db } from "../firebase/config";
+import type { RouteModel } from "../../core/domain/types";
+import { handleFirestoreError, OperationType } from "./firestoreErrors";
 
-/**
- * HU-07 — Servicio de rutas (colección `routes`).
- * Único archivo que consulta Firestore para los borradores de planificación.
- * Un borrador es un RouteModel con status 'draft' (reglas ya permitidas por el creador).
- */
-const ROUTES_COLLECTION = 'routes';
+const ROUTES_COLLECTION = "routes";
 
-function cleanUpdates(updates: Record<string, unknown>): Record<string, unknown> {
-  return Object.entries(updates).reduce<Record<string, unknown>>((acc, [key, val]) => {
-    if (val !== undefined) acc[key] = val;
-    return acc;
-  }, {});
+function cleanUpdates(
+  updates: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.entries(updates).reduce<Record<string, unknown>>(
+    (acc, [key, val]) => {
+      if (val !== undefined) acc[key] = val;
+      return acc;
+    },
+    {},
+  );
 }
 
+/**
+ * HU-03 + HU-07 — Servicio Firestore `routes` (único lugar con
+ * `firebase/firestore` para este módulo).
+ * HU-03: catálogo público (`where status == 'published'` + get por id).
+ * Filtros de texto/dificultad/distancia se aplican en cliente (usecase)
+ * para evitar índices compuestos.
+ * HU-07: borradores de planificación (`status == 'draft'`, solo creador).
+ */
 export const routeService = {
+  // ---------- HU-03: catálogo público/aprobado ----------
+
+  async listPublishedRoutes(): Promise<RouteModel[]> {
+    try {
+      const q = query(
+        collection(db, ROUTES_COLLECTION),
+        where("status", "==", "published"),
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => ({
+        ...(d.data() as RouteModel),
+        id: d.id,
+      }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, ROUTES_COLLECTION);
+    }
+  },
+
+  async getRouteById(id: string): Promise<RouteModel | null> {
+    const docPath = `${ROUTES_COLLECTION}/${id}`;
+    try {
+      const snapshot = await getDoc(doc(db, ROUTES_COLLECTION, id));
+      if (!snapshot.exists()) return null;
+      return { ...(snapshot.data() as RouteModel), id: snapshot.id };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, docPath);
+    }
+  },
+
+  // ---------- HU-07: borradores de planificación ----------
+
   /**
    * Crea (o reemplaza por id) un borrador de ruta en Firestore.
    */
@@ -67,9 +106,9 @@ export const routeService = {
     try {
       const q = query(
         collection(db, collectionPath),
-        where('creatorId', '==', uid),
-        where('status', '==', 'draft'),
-        orderBy('updatedAt', 'desc')
+        where("creatorId", "==", uid),
+        where("status", "==", "draft"),
+        orderBy("updatedAt", "desc"),
       );
       const snapshot = await getDocs(q);
       return snapshot.docs.map((d) => d.data() as RouteModel);
