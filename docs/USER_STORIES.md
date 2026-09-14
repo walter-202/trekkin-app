@@ -1,7 +1,7 @@
 # trekkin-app — Historias de Usuario (V1 scaffold)
 
-Alcance real de este repo: **HU-01 y HU-02 al 100%**. HU-03…HU-10 son roadmap
-con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
+Alcance real de este repo: **HU-01, HU-02 y HU-07 al 100%**. HU-03…HU-06 y HU-08…HU-10
+son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
 - **Como** visitante **quiero** registrar una cuenta **para** acceder a la plataforma.
@@ -50,6 +50,31 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
   `presentation/views/auth/AuthView.tsx` (compositor) +
   `presentation/views/auth/LoginForm.tsx` (valida con `LoginSchema`).
 
+## HU-07: Planificar una nueva ruta — ✅ 100% implementada
+- **Como** usuario autenticado **quiero** guardar una ruta como borrador **para**
+  continuar planificando después y confirmar el punto inicial real.
+- Criterios:
+  1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
+  2. Mapa interactivo (`react-native-maps`, componente único `PlanMap`).
+  3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
+  4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
+  5. Autosave local (`usePlanStore` + AsyncStorage `trekking_plan_autosave`) → no se pierde al salir.
+  6. Recuperar borrador (`DraftsView` + `GetDraftUseCase`).
+  7. Modificar antes de iniciar (`PlanEditorView` + `UpdatePlanUseCase`).
+  8. Confirmar/modificar punto inicial real con ubicación actual (`expo-location`,
+     `StartPointConfirmView` + `ConfirmStartPointUseCase`).
+  9. El sistema actualiza el punto inicial confirmado (`startPointConfirmed` local + `startPoint` en Firestore).
+  10. Ruta lista para grabación GPS (`MarkReadyForGpsUseCase` → `status:'ready_for_gps'`,
+      handoff a HU-08, `ReadyForGpsView`).
+- Arquitectura: `core/domain/plan.ts` + `plan.schemas.ts` (zod), 8 use cases en
+  `core/application/plan/` (puertos inyectados, sin Firebase/RN), `routeService.ts`
+  (única capa que importa `firebase/firestore`), `usePlanStore.ts` (zustand + autosave),
+  vistas delgadas en `presentation/views/record/`. La vista no importa `firebase/*`.
+- Seguridad: `firestore.rules` ya cubre crear/actualizar borradores del creador
+  (`status:'draft'`); `startPointConfirmed` se conserva localmente (no es key permitida).
+- Dependencias nuevas: `react-native-maps` (mapa, Expo Go) + `expo-location` (T8).
+- Verificación: `npm run lint` (0 errores) y flujo T11–T20 en Expo Go.
+
 ## Roadmap (scaffold, no implementado)
 
 | ID | Historia | Ruta futura | Estado |
@@ -58,8 +83,7 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
 | HU-04 | Descarga offline | `persistence/tileCacheDB` | scaffold |
 | HU-05 | Compartir ruta publicada | modal en explore | scaffold |
 | HU-06 | Realizar ruta (actividad GPS) | `views/activity/` + `activityService` | scaffold |
-| HU-07 | Planificar nueva ruta (borrador) | `views/record/` modo plan | scaffold |
-| HU-08 | Grabar ruta con GPS | `views/record/` + `expo-location` | scaffold |
+| HU-08 | Grabar ruta con GPS | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
 | HU-09 | Aprobar/rechazar ruta (moderador/admin) | `views/moderation/` RBAC | scaffold |
 | HU-10 | Gestionar usuarios y roles (admin) | `views/profile/` RBAC | scaffold |
 

@@ -1,14 +1,19 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Mountain, LogOut, ShieldCheck, User as UserIcon } from 'lucide-react-native';
+import { Mountain, LogOut, ShieldCheck, User as UserIcon, MapPinned } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 
 /**
- * HU-02 — Pantalla post-login (scaffold).
+ * HU-02 — Pantalla post-login.
  * Muestra usuario activo + rol (RBAC) y cierre de sesión seguro.
- * Los futuros módulos (HU-03…HU-10) se montan como tarjetas/secciones aquí.
+ * De aquí se montan los módulos HU-03…HU-10 (botón "Planificar nueva ruta" abre HU-07).
  */
-export const HomeView: React.FC = () => {
+interface HomeViewProps {
+  /** HU-07 — Abre la planificación de una nueva ruta desde el hub. */
+  onOpenRecord?: () => void;
+}
+
+export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
   const { currentUser, logout, isAdmin, isModerator } = useAuth();
 
   if (!currentUser) return null;
@@ -57,11 +62,19 @@ export const HomeView: React.FC = () => {
         </Pressable>
       </View>
 
+      {onOpenRecord && (
+        <Pressable onPress={onOpenRecord} style={styles.hu07Btn}>
+          <MapPinned size={16} color="#34D399" />
+          <Text style={styles.hu07Text}>Planificar nueva ruta</Text>
+        </Pressable>
+      )}
+
       <View style={styles.roadmap}>
         <Text style={styles.roadmapTitle}>PRÓXIMOS MÓDULOS (scaffold)</Text>
         <Text style={styles.roadmapItem}>HU-03 Explorar rutas → src/presentation/views/explore/</Text>
         <Text style={styles.roadmapItem}>HU-04 Offline → src/infrastructure/persistence/</Text>
         <Text style={styles.roadmapItem}>HU-06 Actividad GPS → src/presentation/views/activity/</Text>
+        <Text style={styles.roadmapItem}>HU-07 Planificar nueva ruta → src/presentation/views/record/ ✓ (activo)</Text>
         <Text style={styles.roadmapItem}>HU-09 Moderación (solo moderador/admin, RBAC)</Text>
         <Text style={styles.roadmapItem}>HU-10 Usuarios y roles (solo admin, RBAC)</Text>
       </View>
@@ -125,4 +138,17 @@ const styles = StyleSheet.create({
   },
   roadmapTitle: { color: '#6EE7B7', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
   roadmapItem: { color: '#9CA3AF', fontSize: 11, marginBottom: 4 },
+  hu07Btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  hu07Text: { color: '#6EE7B7', fontSize: 13, fontWeight: '800' },
 });

@@ -1,7 +1,7 @@
 # AGENTS.md — Trekkin App (Expo SDK 57 + React Native)
 
-> Instrucciones canónicas para agentes OpenCode. Alcance del repo: **scaffold + HU-01 y HU-02**.
-> Stack: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · TypeScript strict · Zustand + AsyncStorage · Firebase/Firestore · Zod · `expo-location` (roadmap HU-08).
+> Instrucciones canónicas para agentes OpenCode. Alcance del repo: **scaffold + HU-01, HU-02 y HU-07**.
+> Stack: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · TypeScript strict · Zustand + AsyncStorage · Firebase/Firestore · Zod · `expo-location` + `react-native-maps` (HU-07/HU-08).
 
 ## Comandos (usar en este orden)
 
@@ -30,9 +30,9 @@ src/
 │   └── persistence/       # storage.ts (AsyncStorage)
 ├── presentation/
 │   ├── theme.ts           # AndeanTheme — ÚNICA fuente de color/espaciado/tipo. No hardcodear hex fuera de aquí
-│   ├── components/auth|   # Componentes compartidos (nombres canónicos, sin prefijo Native*)
-│   └── views/auth|home|_template/  # AuthView (HU-01/02), HomeView (post-login), _template (base HU-03…HU-10)
-└── docs/                  # ARCHITECTURE.md, DESIGN_RULES.md, MODULE_GUIDE.md, USER_STORIES.md (HU-01/02 al 100%, resto roadmap)
+│   ├── components/auth|map|plan|ui   # Componentes compartidos (nombres canónicos, sin prefijo Native*)
+│   └── views/auth|home|record|_template/  # AuthView (HU-01/02), HomeView (post-login), record/ (HU-07), _template (base HU-03…HU-10)
+└── docs/                  # ARCHITECTURE.md, DESIGN_RULES.md, MODULE_GUIDE.md, USER_STORIES.md (HU-01/02/07 al 100%, resto roadmap)
 ```
 
 Reglas de dependencia: `presentation → infrastructure → core/{application,domain}`. `core` nunca importa RN/Expo/Firebase. Validación solo con Zod (`core/domain/auth.schemas.ts`). `App.tsx` trae el `Gate`: sin sesión → `AuthView`, con sesión → `HomeView`. Estado global en store Zustand; nada de `localStorage`/`window`/`document` en nativo.
@@ -43,7 +43,9 @@ Reglas de dependencia: `presentation → infrastructure → core/{application,do
 
 - **Expo managed workflow. NO eject.** Módulos nativos solo vía Expo Modules API o config plugins.
 - **UI 100% nativa:** `View/Text/Pressable/TextInput/FlatList` + `StyleSheet` con `AndeanTheme`.
-- **Seguro por defecto:** `expo-location` (cuando llegue HU-08) solo en contexto con justificación. RBAC: `user`, `moderator`, `admin`; fallbacks locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
+- **Seguro por defecto:** `expo-location` solo en contexto con justificación (HU-07 confirma el punto
+  inicial real; HU-08 lo usará en la grabación GPS). RBAC: `user`, `moderator`, `admin`; fallbacks
+  locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
 - **Estilo código:** TypeScript strict, `import type` para tipos, casos de uso puros con puertos, componentes pequeños, nombres en inglés para código y props.
 - **Repo vivo (multi-dev):** el otro dev avanza HU-03… en paralelo y el repo se actualiza
   constantemente. Antes de codificar: `git pull --ff-only`, revisa `git status` y
@@ -90,7 +92,7 @@ Los defaults del sistema (rol `user`, timestamps) no cuentan como campos.
 - `CLEAN_ARCH_RULES.md` — capas, puertos/usecases, screaming/colocalización, Regla de Tres.
 - `docs/ARCHITECTURE.md` + `docs/MODULE_GUIDE.md` — estructura y cómo agregar módulos HU-03…HU-10.
 - `docs/DESIGN_RULES.md` — sistema visual completo.
-- `docs/USER_STORIES.md` — HU-01/02 al 100%, resto roadmap.
+- `docs/USER_STORIES.md` — HU-01/02/07 al 100%, resto roadmap.
 - `app.json` / `firestore.rules` — permisos y reglas antes de cambiar auth/datos.
 
 ## Anti-patrones (fallan review)
