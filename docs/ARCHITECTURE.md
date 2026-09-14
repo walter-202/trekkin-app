@@ -79,4 +79,4 @@ reescribir seguridad cuando se implemente cada módulo.
 - Estilos: `StyleSheet` + `AndeanTheme`; respetar `docs/DESIGN_RULES.md`.
 - Validación siempre con **zod en dominio**, nunca solo en el formulario.
 - Errores de Firestore centralizados en `firestoreErrors.ts`.
-- Sesión bajo la clave `trekking_auth_user`.
+- Sesión bajo la clave `trekkin_auth_user`.

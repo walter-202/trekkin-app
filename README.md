@@ -27,6 +27,16 @@ npx expo start --lan        # Expo Go (misma WiFi) / http://localhost:8081 (web)
 ## Comandos
 
 ```bash
-npm run lint   # verificación TypeScript
-npm start      # expo start
+npm install     # Instala dependencias del proyecto
+npm test        # Ejecuta la suite de pruebas automatizadas HU-01 y HU-02 + verificación Firestore
+npm run lint    # Verificación estricta de TypeScript (0 errores)
+npm start       # Inicia Metro Bundler para Expo Go
 ```
+
+## Configuración Firebase & Firestore
+
+El proyecto se encuentra configurado con Firebase y Cloud Firestore (`ai-studio-trekkingbolivia-1ecbcee3-c0a9-40f1-afd9-79c9d37c0926`):
+- `firebase-applet-config.json`: credenciales del proyecto preconfiguradas.
+- `src/infrastructure/firebase/config.ts`: inicialización con persistencia nativa en `AsyncStorage`.
+- `firestore.rules`: reglas de seguridad activas para la colección `users`, `routes`, `activities` y `reviews`.
+- Ejecuta `npm test` para verificar la conectividad con Firestore y la validez de los casos de uso de autenticación.

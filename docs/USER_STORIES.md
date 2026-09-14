@@ -38,7 +38,7 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
   4. Validación `LoginSchema` + mensajes descriptivos.
   5. Credenciales válidas → sesión + redirección según rol (RBAC: `hasRole`, `isAdmin`, `isModerator`).
   6. Credenciales inválidas → error, sin sesión.
-  7. Sesión persistente (`storage.ts`, clave `trekking_auth_user`, AsyncStorage).
+  7. Sesión persistente (`storage.ts`, clave `trekkin_auth_user`, AsyncStorage).
   8. Rutas privadas protegidas (`Gate` en `App.tsx`).
   9. Usuario activo visible (avatar, nombre verificado, badge de rol en `HomeView`).
   10. Cierre seguro (`LogoutUserUseCase` + botón Salir).

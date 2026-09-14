@@ -33,7 +33,7 @@ interface AuthContextType {
   /**
    * Servicio reutilizable para HU-03…HU-10 (el otro dev define sus criterios).
    * Guest = visitante sin registrar (HU-01/02 no cambian): SOLO memoria, nunca se
-   * persiste en `trekking_auth_user`. Distingue “invitado” de “sin sesión”.
+   * persiste en `trekkin_auth_user`. Distingue “invitado” de “sin sesión”.
    */
   isGuest: boolean;
   isAuthenticated: boolean;
@@ -42,6 +42,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AUTH_STORAGE_KEY = 'trekkin_auth_user';
 
 export interface SeedAdminAccount {
   profile: UserProfile;
@@ -121,7 +123,7 @@ const DEMO_PROFILES: Record<UserRole, UserProfile> = {
   },
   moderator: {
     uid: 'mod-cordillera',
-    email: 'moderador.andes@trekkingbolivia.org',
+    email: 'moderador.andes@trekkinapp.bo',
     displayName: 'Lucía Mendoza (Guía de Montaña)',
     username: 'guia_illimani',
     summitsCount: 32,
@@ -158,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Initialize storage from AsyncStorage
     appStorage.initialize().then(() => {
-      const saved = appStorage.getItemSync('trekking_auth_user');
+      const saved = appStorage.getItemSync(AUTH_STORAGE_KEY);
       if (saved) {
         try {
           setCurrentUser(JSON.parse(saved));
@@ -186,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               if (profileDoc.isBlocked) {
                 setError('Tu cuenta está bloqueada. Contacta al administrador.');
                 setCurrentUser(null);
-                appStorage.removeItem('trekking_auth_user');
+                appStorage.removeItem(AUTH_STORAGE_KEY);
                 firebaseSignOut(auth).catch(() => {});
                 setLoading(false);
                 return;
@@ -198,13 +200,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 role,
               };
               setCurrentUser(syncedProfile);
-              appStorage.setItem('trekking_auth_user', JSON.stringify(syncedProfile));
+              appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(syncedProfile));
             } else {
               // Initial user profile setup if document does not exist yet
               const initialRole = extractRoleFromDoc(undefined, user.email || undefined);
               const newProfile: UserProfile = {
                 uid: user.uid,
-                email: user.email || 'usuario@trekkingbolivia.org',
+                email: user.email || 'usuario@trekkinapp.bo',
                 displayName: user.displayName || user.email?.split('@')[0] || 'Senderista',
                 username: user.email ? user.email.split('@')[0] : 'senderista',
                 summitsCount: 0,
@@ -217,7 +219,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.warn('Initial profile write in Firestore warning:', err);
               });
               setCurrentUser(newProfile);
-              appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
+              appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newProfile));
             }
             setLoading(false);
           },
@@ -263,7 +265,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
           },
           createProfile: (fresh) => userProfileService.createUserProfile(fresh),
-          saveSession: (synced) => appStorage.setItem('trekking_auth_user', JSON.stringify(synced)),
+          saveSession: (synced) => appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced)),
         }
       );
       setCurrentUser(profile);
@@ -286,7 +288,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (adminSeed && adminSeed.passwords.some((p) => p.toLowerCase() === pass.toLowerCase())) {
         setCurrentUser(adminSeed.profile);
         setIsGuest(false);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(adminSeed.profile));
+        appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminSeed.profile));
         return;
       }
       setError('Sin conexión. No se pudo verificar tu sesión. Reintenta con red.');
@@ -313,7 +315,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // ignore offline
       }
       setCurrentUser(null);
-      await appStorage.removeItem('trekking_auth_user');
+      await appStorage.removeItem(AUTH_STORAGE_KEY);
     } catch (err: any) {
       // Registro local SOLO en modo offline (demo aislado, matriz Expo Go modo avión).
       // Errores de validación de Firebase (email-already-in-use, weak-password,
@@ -348,7 +350,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setCurrentUser(localProfile);
       setIsGuest(false);
-      appStorage.setItem('trekking_auth_user', JSON.stringify(localProfile));
+      appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(localProfile));
     }
   };
 
@@ -378,7 +380,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // offline
         }
         setCurrentUser(syncedProfile);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(syncedProfile));
+        appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(syncedProfile));
       } else {
         const initialRole = extractRoleFromDoc(undefined, user.email || undefined);
         const newProfile: UserProfile = {
@@ -399,7 +401,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // offline
         }
         setCurrentUser(newProfile);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
+        appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newProfile));
       }
     } catch (err: any) {
       // Graceful fallback for popup-blocked or simulated environments
@@ -416,7 +418,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: Date.now(),
       };
       setCurrentUser(googleProfile);
-      appStorage.setItem('trekking_auth_user', JSON.stringify(googleProfile));
+      appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(googleProfile));
     }
   };
 
@@ -434,7 +436,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // ignore offline — el usecase igual limpia la sesión local en finally
         }
       },
-      clearSession: () => appStorage.removeItem('trekking_auth_user'),
+      clearSession: () => appStorage.removeItem(AUTH_STORAGE_KEY),
     });
     setCurrentUser(null);
     setIsGuest(false);
@@ -443,7 +445,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchDemoRole = (role: UserRole) => {
     const profile = DEMO_PROFILES[role];
     setCurrentUser(profile);
-    appStorage.setItem('trekking_auth_user', JSON.stringify(profile));
+    appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
   };
 
   const hasRole = (allowedRoles: UserRole[]): boolean => {

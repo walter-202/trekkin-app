@@ -77,7 +77,7 @@ export interface RouteModel {
   estimatedOfflineSizeMB?: number;
 }
 
-export interface TrekkingActivity {
+export interface TrekkinActivity {
   id: string;
   userId: string;
   userName: string;
@@ -94,6 +94,8 @@ export interface TrekkingActivity {
   isSynced: boolean;
   createdAt: number;
 }
+
+export type TrekkingActivity = TrekkinActivity;
 
 export interface UserProfile {
   uid: string;

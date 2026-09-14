@@ -64,7 +64,7 @@ criterio = hallazgo major.
 
 ## 4. Estado, datos y auth
 
-- Sesión persistente en AsyncStorage (`storage.ts`, clave `trekking_auth_user`).
+- Sesión persistente en AsyncStorage (`storage.ts`, clave `trekkin_auth_user`).
 - `Gate` en `App.tsx`: sin sesión → `AuthView`; con sesión → `HomeView`. Las privadas futuras
   (HU-03…HU-10) cuelgan del Gate, nunca de chequeos sueltos en cada vista.
 - RBAC (`user|moderator|admin`) en servicio + `firestore.rules`, no solo en UI.

@@ -49,7 +49,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
         confirmPassword,
         acceptTerms,
       });
-      setSuccessMessage('¡Cuenta creada exitosamente! Bienvenido a Trekking Bolivia.');
+      setSuccessMessage('¡Cuenta creada exitosamente! Bienvenido a Trekkin App.');
       setTimeout(onSuccess, 1000);
     } catch (err: any) {
       setErrorMessage(err?.message || 'Error al crear la cuenta. Intenta nuevamente.');

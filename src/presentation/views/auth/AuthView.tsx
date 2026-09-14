@@ -67,7 +67,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
           <View style={styles.mountainBadge}>
             <Mountain size={12} color="#10b981" />
           </View>
-          <Text style={styles.pillBrand}>TREK-BOLIVIA</Text>
+          <Text style={styles.pillBrand}>TREKKIN APP</Text>
           <View style={styles.pillVersion}>
             <Text style={styles.pillVersionText}>v1.0.0</Text>
           </View>

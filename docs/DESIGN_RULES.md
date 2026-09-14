@@ -1,6 +1,6 @@
-# TREKKING BOLIVIA — DESIGN RULES & EXPO SDK 57 ARCHITECTURE GUIDE
+# TREKKIN APP — DESIGN RULES & EXPO SDK 57 ARCHITECTURE GUIDE
 
-Este documento abstrae la esencia visual y técnica del sistema de diseño de **Trekking Bolivia**, garantizando coherencia estética entre las vistas de autenticación, el sidebar drawer y la futura migración a **Expo SDK 57** (React Native / NativeWind).
+Este documento abstrae la esencia visual y técnica del sistema de diseño de **Trekkin App**, garantizando coherencia estética entre las vistas de autenticación, el sidebar drawer y la futura migración a **Expo SDK 57** (React Native / NativeWind).
 
 ---
 
