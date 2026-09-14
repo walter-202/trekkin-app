@@ -43,7 +43,7 @@ Reglas de dependencia: `presentation → infrastructure → core/{application,do
 
 - **Expo managed workflow. NO eject.** Módulos nativos solo vía Expo Modules API o config plugins.
 - **UI 100% nativa:** `View/Text/Pressable/TextInput/FlatList` + `StyleSheet` con `AndeanTheme`.
-- **Seguro por defecto:** `expo-location` (cuando llegue HU-08) solo en contexto con justificación. RBAC vigente: `user`, `admin` (sin HU-09; `moderator` latente en tipos/reglas hasta acuerdo); fallbacks locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
+- **Seguro por defecto:** `expo-location` (cuando llegue HU-08) solo en contexto con justificación. RBAC vigente: `user`, `admin` (sin HU-09); fallbacks locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
 - **Estilo código:** TypeScript strict, `import type` para tipos, casos de uso puros con puertos, componentes pequeños, nombres en inglés para código y props.
 - **Repo vivo (multi-dev):** el otro dev avanza HU-03… en paralelo y el repo se actualiza
   constantemente. Antes de codificar: `git pull --ff-only`, revisa `git status` y

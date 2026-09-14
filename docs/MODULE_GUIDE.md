@@ -25,7 +25,7 @@ Ejemplo resuelto: **auth (HU-01/HU-02)**. Ejemplo a replicar: **HU-03 Explorar**
    - `zustand` para caché local + flags (`isLoading`, `error`).
 6. **Infraestructura — permisos** → usa `useAuth().hasRole([...])`
    - Público: sin guard. Privado: `['user','admin']`.
-   - Admin: `['admin']`. Sin HU-09 no hay guard de moderación (`moderator` latente).
+   - Admin: `['admin']`. Sin HU-09: no hay guard de moderación.
 7. **Presentación — vista** → `src/presentation/views/<modulo>/<Modulo>View.tsx`
    - Copia `views/_template/ModuleTemplateView.tsx` y renombra.
    - Solo hooks + casos de uso. Estilos con `AndeanTheme` + `DESIGN_RULES.md`.

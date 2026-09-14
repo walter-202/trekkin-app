@@ -68,8 +68,7 @@ Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 | HU-07/08 Planificar + Grabar | `views/record/` | `expo-location` + routeService | `domain/calculations.ts` |
 | HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
 
-(Sin HU-09: eliminada por el equipo; no hay vista de moderación. `moderator` queda
-latente en tipos/reglas hasta acuerdo.)
+(Sin HU-09: eliminada por el equipo; no hay vista de moderación ni rol moderador.)
 
 `firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
 reescribir seguridad cuando se implemente cada módulo.

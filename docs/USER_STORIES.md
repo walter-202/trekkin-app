@@ -2,8 +2,7 @@
 
 Alcance real de este repo: **HU-01 y HU-02 al 100%**. HU-03…HU-08 y HU-10 son roadmap
 con dueños (cada dev detalla sus TAREAS; aquí solo criterios). **HU-09 eliminada por el
-equipo: ya no hay moderador en la figura** (el rol queda latente en tipos/reglas hasta
-acuerdo; ver Nota al final).
+equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
 - **Rol:** Visitante. **Como** usuario nuevo **quiero** registrar una cuenta con mis datos
@@ -97,9 +96,7 @@ acuerdo; ver Nota al final).
 - **Rol:** Administrador. **Quiero** consultar usuarios, bloquear/desbloquear y asignar roles
   **para** controlar seguridad y permisos.
 - Criterios: módulo “Gestión de usuarios” → lista → detalle → bloquear (cuenta bloqueada) →
-  desbloquear (rehabilita) → asignar rol → confirma operación.
-- ⚠️ Nota: la figura aún dice “rol de Moderador” pero HU-09 está eliminada. Pendiente de
-  confirmación del equipo; el código mantiene `moderator` latente (tipos/reglas) sin UI.
+  desbloquear (rehabilita) → asignar rol (`user` / `admin`) → confirma operación.
 
 ## Roadmap (scaffold, no implementado)
 
