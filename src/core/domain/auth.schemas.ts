@@ -22,11 +22,17 @@ export const RegisterSchema = z
     username: z
       .string()
       .trim()
-      .min(3, 'El usuario debe tener al menos 3 caracteres')
-      .max(80, 'El usuario es demasiado largo')
-      .regex(
-        /^[a-zA-Z0-9_.]+$/,
-        'El usuario solo puede contener letras, números, punto y guion bajo'
+      // HU-01 C2: el ejemplo de diseño muestra `@caminante_bolivia`; se acepta y normaliza.
+      .transform((v) => v.replace(/^@/, ''))
+      .pipe(
+        z
+          .string()
+          .min(3, 'El usuario debe tener al menos 3 caracteres')
+          .max(80, 'El usuario es demasiado largo')
+          .regex(
+            /^[a-zA-Z0-9_.]+$/,
+            'El usuario solo puede contener letras, números, punto y guion bajo'
+          )
       ),
     password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(128),
     confirmPassword: z.string(),

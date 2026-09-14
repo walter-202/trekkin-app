@@ -319,9 +319,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Errores de validación de Firebase (email-already-in-use, weak-password,
       // invalid-email) y de Zod se propagan, nunca crean sesión (HU-01 C3).
       if (!isNetworkError(err)) {
+        // HU-01 C3/C4: Zod y Firebase en español descriptivo, nunca sesión parcial.
         const zodMsg = err?.issues?.[0]?.message as string | undefined;
-        setError(zodMsg ?? err?.message ?? 'No se pudo crear la cuenta. Verifica tus datos.');
-        throw err;
+        const code = String(err?.code || '');
+        const friendly =
+          code.includes('email-already-in-use')
+            ? 'Este correo ya está registrado. Inicia sesión.'
+            : code.includes('weak-password')
+              ? 'La contraseña es muy débil. Usa al menos 8 caracteres.'
+              : code.includes('invalid-email')
+                ? 'Introduce un correo electrónico válido.'
+                : undefined;
+        const message = zodMsg ?? friendly ?? err?.message ?? 'No se pudo crear la cuenta. Verifica tus datos.';
+        setError(message);
+        throw new Error(message);
       }
       const cleanFallbackUsername = (args.username || '').trim().replace(/^@/, '') || args.email.split('@')[0];
       const localProfile: UserProfile = {

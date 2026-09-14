@@ -31,8 +31,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       await login(email.trim(), password);
       setSuccessMessage('Sesión iniciada correctamente.');
       setTimeout(onSuccess, 800);
-    } catch {
-      setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.');
+    } catch (err: any) {
+      // HU-02 C4/C6: bloqueada muestra su motivo; resto → credenciales inválidas, sin sesión.
+      const msg = String(err?.message || '');
+      setErrorMessage(
+        msg.includes('bloqueada') ? msg : 'Credenciales inválidas. Verifica tu correo y contraseña.'
+      );
     } finally {
       setIsLoading(false);
     }
