@@ -156,7 +156,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleSelectQuickDemo = (role: 'user' | 'moderator' | 'admin') => {
+  const handleSelectQuickDemo = (role: 'user' | 'admin') => {
     switchDemoRole(role);
     setSuccessMessage(`Sesión iniciada como perfil de prueba (${role}).`);
     setTimeout(() => {

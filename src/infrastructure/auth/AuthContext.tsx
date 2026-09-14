@@ -29,7 +29,6 @@ interface AuthContextType {
   switchDemoRole: (role: UserRole) => void;
   hasRole: (allowedRoles: UserRole[]) => boolean;
   isAdmin: boolean;
-  isModerator: boolean;
   /**
    * Servicio reutilizable para HU-03…HU-10 (el otro dev define sus criterios).
    * Guest = visitante sin registrar (HU-01/02 no cambian): SOLO memoria, nunca se
@@ -121,17 +120,6 @@ const DEMO_PROFILES: Record<UserRole, UserProfile> = {
     isBlocked: false,
     createdAt: 1717000000000,
   },
-  moderator: {
-    uid: 'mod-cordillera',
-    email: 'moderador.andes@trekkinapp.bo',
-    displayName: 'Lucía Mendoza (Guía de Montaña)',
-    username: 'guia_illimani',
-    summitsCount: 32,
-    gpsAccuracy: '±1.8m Preciso',
-    role: 'moderator',
-    isBlocked: false,
-    createdAt: 1717100000000,
-  },
   admin: SEED_ADMIN_ACCOUNTS[0].profile,
 };
 
@@ -146,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const extractRoleFromDoc = (roleValue: unknown, email?: string): UserRole => {
     if (roleValue === 'admin') return 'admin';
-    if (roleValue === 'moderator') return 'moderator';
     if (roleValue === 'user') return 'user';
     const cleanEmail = email?.toLowerCase().trim();
     if (cleanEmail && SEED_ADMIN_ACCOUNTS.some((a) => a.profile.email.toLowerCase() === cleanEmail)) {
@@ -467,7 +454,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = currentUser !== null;
 
   const isAdmin = currentUser?.role === 'admin';
-  const isModerator = currentUser?.role === 'moderator' || isAdmin;
 
   return (
     <AuthContext.Provider
@@ -483,7 +469,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchDemoRole,
         hasRole,
         isAdmin,
-        isModerator,
         isGuest,
         isAuthenticated,
         continueAsGuest,

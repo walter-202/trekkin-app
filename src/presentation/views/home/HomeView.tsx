@@ -56,7 +56,6 @@ export const HomeView: React.FC = () => {
         <Text style={styles.roadmapItem}>HU-03 Explorar rutas → src/presentation/views/explore/</Text>
         <Text style={styles.roadmapItem}>HU-04 Offline → src/infrastructure/persistence/</Text>
         <Text style={styles.roadmapItem}>HU-06 Actividad GPS → src/presentation/views/activity/</Text>
-        <Text style={styles.roadmapItem}>HU-09 Moderación (solo moderador/admin, RBAC)</Text>
         <Text style={styles.roadmapItem}>HU-10 Usuarios y roles (solo admin, RBAC)</Text>
       </View>
     </View>
