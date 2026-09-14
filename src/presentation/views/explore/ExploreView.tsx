@@ -7,7 +7,7 @@ import { useAuth } from '../../../infrastructure/auth/AuthContext';
  * HU-03 Explorar — VISTA GENÉRICA EN BLANCO (scaffold).
  * El otro dev define criterios y la implementa; este archivo es su punto de partida.
  * Ya cableada al servicio de sesión (HU-01/02): distingue invitado / autenticado / rol.
- * Capacidad prevista para guest: ver catálogo y detalle (el resto exige login).
+ * Capacidad prevista para guest: catálogo público; el detalle exige login (HU-03 C4-C5).
  * Prohibido `firebase/*` aquí (ver `views/_template/ModuleTemplateView.tsx` pasos 1-9).
  */
 export const ExploreView: React.FC = () => {
@@ -31,8 +31,9 @@ export const ExploreView: React.FC = () => {
       </Text>
       <Text style={styles.body}>
         Vista genérica en blanco. Catálogo, filtros y detalle los implementa el otro dev con
-        sus criterios de aceptación. Acciones que exigen login: usar `isAuthenticated` /
-        `hasRole([...])` como guard (privado: user; moderación: moderator/admin).
+        sus criterios de aceptación. Catálogo público; detalle con gate de auth y todo lo
+        que escriba exige `isAuthenticated` / `hasRole(['admin'])` para lo admin.
+        Sin HU-09: no hay moderación.
       </Text>
       {isGuest && !isAuthenticated ? (
         <Pressable

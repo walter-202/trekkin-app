@@ -9,16 +9,12 @@ import { useAuth } from '../../../infrastructure/auth/AuthContext';
  * Los futuros módulos (HU-03…HU-10) se montan como tarjetas/secciones aquí.
  */
 export const HomeView: React.FC = () => {
-  const { currentUser, logout, isAdmin, isModerator } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
 
   if (!currentUser) return null;
 
-  const roleLabel =
-    currentUser.role === 'admin'
-      ? 'Administrador'
-      : currentUser.role === 'moderator'
-        ? 'Moderador'
-        : 'Senderista';
+  // Sin HU-09 no hay rol moderador en la figura: admin o usuario.
+  const roleLabel = currentUser.role === 'admin' ? 'Administrador' : 'Senderista';
 
   return (
     <View style={styles.container}>
@@ -43,11 +39,9 @@ export const HomeView: React.FC = () => {
           <UserIcon size={14} color="#9CA3AF" />
           <Text style={styles.infoText}>{currentUser.email}</Text>
         </View>
-        {(isModerator || isAdmin) && (
+        {isAdmin && (
           <Text style={styles.rbacNote}>
-            {isAdmin
-              ? 'Acceso total: verás Moderación y Gestión de Usuarios (HU-09 / HU-10).'
-              : 'Acceso de moderación: verás la Bandeja de Moderación (HU-09).'}
+            Acceso total: verás Gestión de Usuarios (HU-10).
           </Text>
         )}
 

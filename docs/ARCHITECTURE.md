@@ -66,8 +66,10 @@ Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 | HU-05 Compartir | modal en explore | link `https://trekbolivia.bo/r/{id}` | — |
 | HU-06 Actividad GPS | `views/activity/` | `database/activityService.ts` | `domain/activity.schemas.ts` |
 | HU-07/08 Planificar + Grabar | `views/record/` | `expo-location` + routeService | `domain/calculations.ts` |
-| HU-09 Moderación | `views/moderation/` + `hasRole(['moderator','admin'])` | `routeService.updateRoute()` | `ReviewActionSchema` |
 | HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
+
+(Sin HU-09: eliminada por el equipo; no hay vista de moderación. `moderator` queda
+latente en tipos/reglas hasta acuerdo.)
 
 `firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
 reescribir seguridad cuando se implemente cada módulo.
