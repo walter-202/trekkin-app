@@ -40,20 +40,14 @@ service cloud.firestore {
       );
     }
 
-    function isModerator() {
-      return isSignedIn() && (
-        isAdmin() ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         (getUserData().role == 'moderator' || getUserData().role == 'moderador'))
-      );
-    }
+    // Sin HU-09 no hay rol moderador: la revisión de rutas la hace el admin.
 
     // Entity validation blueprints
     function isValidUser(data) {
       return data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
              data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
              data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 150 &&
-             data.role in ['user', 'moderator', 'admin'] &&
+             data.role in ['user', 'admin'] &&
              data.isBlocked is bool &&
              data.createdAt is number &&
              (!('username' in data) || (data.username is string && data.username.size() <= 80)) &&
@@ -96,7 +90,7 @@ service cloud.firestore {
     function isValidReview(data) {
       return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
              data.routeId is string && data.routeId.size() <= 128 &&
-             data.moderatorId is string && data.moderatorId == request.auth.uid &&
+             data.reviewerId is string && data.reviewerId == request.auth.uid &&
              data.status in ['approved', 'rejected'] &&
              (!('observations' in data) || (data.observations is string && data.observations.size() <= 2000));
     }
@@ -125,12 +119,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Routes collection rules (Catalog, Collaboration, Moderation)
+    // Routes collection rules (Catalog, Collaboration, Admin review)
     match /routes/{routeId} {
       allow get: if resource.data.status == 'published' ||
-                     (isSignedIn() && (resource.data.creatorId == request.auth.uid || isModerator()));
+                     (isSignedIn() && (resource.data.creatorId == request.auth.uid || isAdmin()));
       allow list: if resource.data.status == 'published' ||
-                      (isSignedIn() && (resource.data.creatorId == request.auth.uid || isModerator()));
+                      (isSignedIn() && (resource.data.creatorId == request.auth.uid || isAdmin()));
       allow create: if isSignedIn() &&
                        isValidId(routeId) &&
                        isValidRoute(incoming()) &&
@@ -142,10 +136,10 @@ service cloud.firestore {
                        (
                          (resource.data.creatorId == request.auth.uid &&
                           incoming().creatorId == existing().creatorId &&
-                          incoming().id == existing().id &&
-                          (existing().status == 'draft' || existing().status == 'rejected' ||
+                           incoming().id == existing().id &&
+                           (existing().status == 'draft' || existing().status == 'rejected' ||
                            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'status', 'waypoints', 'checkpoints', 'photos', 'updatedAt', 'startPoint', 'endPoint', 'distanceKm', 'durationMinutes', 'difficulty', 'modality', 'region', 'isPrivate'])))
-                         || isModerator()
+                         || isAdmin()
                        );
       allow delete: if isSignedIn() &&
                        ((resource.data.creatorId == request.auth.uid && resource.data.status == 'draft') || isAdmin());
@@ -167,13 +161,13 @@ service cloud.firestore {
                        (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // Reviews collection rules (Auditing & Moderation verdicts)
+    // Reviews collection rules (Auditing — sin HU-09 solo el admin las emite)
     match /reviews/{reviewId} {
       allow get, list: if isSignedIn();
-      allow create: if isModerator() &&
+      allow create: if isAdmin() &&
                        isValidId(reviewId) &&
                        isValidReview(incoming());
-      allow update: if isModerator() &&
+      allow update: if isAdmin() &&
                        isValidId(reviewId) &&
                        isValidReview(incoming());
       allow delete: if isAdmin();
