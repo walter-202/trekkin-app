@@ -110,7 +110,7 @@ export const userProfileService = {
   },
 
   /**
-   * Lists users (e.g. for administration or moderation).
+   * Lists users (e.g. for administration, HU-10).
    */
   async listUsers(max = 50): Promise<UserProfile[]> {
     const collectionPath = USERS_COLLECTION;
