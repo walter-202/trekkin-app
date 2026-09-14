@@ -53,9 +53,10 @@ function buildHtml(region: PlanRegion, points: MarkerData[]): string {
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <style>
-  html, body, #m { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
-  body { background: #0E2E24; font-family: system-ui, sans-serif; }
-  #m { position: relative; touch-action: none; }
+  * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #0E2E24; }
+  body { font-family: system-ui, sans-serif; }
+  #m { position: relative; width: 100%; height: 100%; touch-action: none; }
   #layer { position: absolute; left: 0; top: 0; pointer-events: none; }
   .zoom { position: absolute; left: 10px; z-index: 10; width: 34px; height: 34px; border: none; border-radius: 8px; background: rgba(20,50,40,.92); color: #fff; font-size: 20px; line-height: 34px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
   .zoom:active { background: rgba(16,185,129,.9); }
@@ -72,6 +73,10 @@ function buildHtml(region: PlanRegion, points: MarkerData[]): string {
 </div>
 <script>
 (function () {
+  document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('touchstart', function (e) { if (e.touches.length > 1) { e.preventDefault(); } }, { passive: false });
+
   var map = document.getElementById('m');
   var layer = document.getElementById('layer');
   var Z = ${zoom};
@@ -238,6 +243,9 @@ export const PlanMap: React.FC<PlanMapProps> = ({
         onMessage={handleMessage}
         bounces={false}
         overScrollMode="never"
+        scrollEnabled={false}
+        nestedScrollEnabled={false}
+        allowsLinkPreview={false}
       />
     </View>
   );
