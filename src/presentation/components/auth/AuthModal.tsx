@@ -93,8 +93,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       setIsLoading(true);
       try {
-        await register(name.trim(), email.trim(), password, username.trim());
-        setSuccessMessage('¡Cuenta creada exitosamente! Bienvenido a Trekking Bolivia.');
+        // Demo aislado (no se renderiza en el Gate): misma firma que RegisterForm (HU-01 C2-C6).
+        await register({
+          displayName: name.trim(),
+          email: email.trim(),
+          username: username.trim(),
+          password,
+          confirmPassword,
+          acceptTerms,
+        });
+        setSuccessMessage('¡Cuenta creada exitosamente! Ahora inicia sesión.');
+        setMode('login');
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();

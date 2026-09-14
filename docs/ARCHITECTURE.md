@@ -40,16 +40,22 @@ src/
 ## 2. Flujos implementados
 
 ### HU-01 Registrar Cuenta
-`AuthView` → `RegisterUserUseCase(args, ports)` → valida `RegisterSchema`
-→ `createUserWithEmailAndPassword` → `userProfileService.createUserProfile({role:'user'})`
-→ `storage.setItem('trekking_auth_user')` → mensaje de éxito → redirige a HU-02.
+`AuthView` → `RegisterForm` (Zod) → `AuthContext.register(args)` → `RegisterUserUseCase(args, ports)`
+→ valida `RegisterSchema` → `createUserWithEmailAndPassword` → `userProfileService.createUserProfile({role:'user'})`
+→ `signOut` (sin auto-sesión) → mensaje de éxito → `AuthView` cambia a modo login (HU-02).
 
 ### HU-02 Login / Logout
-`AuthView` → `LoginUserUseCase` → valida `LoginSchema` → `signInWithEmailAndPassword`
-→ `getUserProfile(uid)` (sincroniza **rol RBAC** desde Firestore) → guarda sesión
-→ `HomeView` muestra avatar, nombre, badge de rol y botón **Salir**.
+`AuthView` → `LoginForm` (Zod) → `AuthContext.login()` → `LoginUserUseCase` → valida `LoginSchema`
+→ `signInWithEmailAndPassword` → `getUserProfile(uid)` (sincroniza **rol RBAC** desde Firestore,
+bloquea si `isBlocked`) → guarda sesión → `HomeView` muestra avatar, nombre, badge de rol y botón **Salir**
+(`AuthContext.logout()` → `LogoutUserUseCase`).
 `onAuthStateChanged` + `subscribeToUserProfile` mantienen la sesión en vivo.
 Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
+
+### Guest (HU-03 scaffold, la define el otro dev)
+`AuthView` (“Explorar como invitado”) → `continueAsGuest()` (solo memoria, sin sesión)
+→ Gate muestra `ExploreView` genérica (`views/explore/`), que ya lee `isGuest` /
+`isAuthenticated` / `hasRole`. `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
 
 ## 3. Dónde va cada HU futura
 

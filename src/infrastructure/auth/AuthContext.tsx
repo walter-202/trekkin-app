@@ -11,6 +11,10 @@ import {
 import { auth } from '../firebase/config';
 import { userProfileService } from '../database/userProfileService';
 import { UserRole, UserProfile } from '../../core/domain/types';
+import type { RegisterArgs } from '../../core/application/auth/RegisterUser.usecase';
+import { RegisterUserUseCase } from '../../core/application/auth/RegisterUser.usecase';
+import { LoginUserUseCase } from '../../core/application/auth/LoginUser.usecase';
+import { LogoutUserUseCase } from '../../core/application/auth/LogoutUser.usecase';
 import { appStorage } from '../persistence/storage';
 
 interface AuthContextType {
@@ -19,13 +23,22 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   login: (email: string, pass: string) => Promise<void>;
-  register: (name: string, email: string, pass: string, username?: string) => Promise<void>;
+  register: (args: RegisterArgs) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   switchDemoRole: (role: UserRole) => void;
   hasRole: (allowedRoles: UserRole[]) => boolean;
   isAdmin: boolean;
   isModerator: boolean;
+  /**
+   * Servicio reutilizable para HU-03…HU-10 (el otro dev define sus criterios).
+   * Guest = visitante sin registrar (HU-01/02 no cambian): SOLO memoria, nunca se
+   * persiste en `trekking_auth_user`. Distingue “invitado” de “sin sesión”.
+   */
+  isGuest: boolean;
+  isAuthenticated: boolean;
+  continueAsGuest: () => void;
+  exitGuest: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,11 +134,10 @@ const DEMO_PROFILES: Record<UserRole, UserProfile> = {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    // Check saved session in storage
-    const saved = appStorage.getItemSync('trekking_auth_user');
-    return saved ? JSON.parse(saved) : DEMO_PROFILES.user;
-  });
+  // Sin sesión al compilar: el Gate muestra AuthView hasta login/registro real (HU-01/02).
+  // Los perfiles demo/seed solo se activan vía switchDemoRole o fallback offline (aislados).
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [isGuest, setIsGuest] = useState<boolean>(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +182,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           user.uid,
           (profileDoc) => {
             if (profileDoc) {
+              // HU-02: cuenta bloqueada → sin sesión, nunca entra a HomeView.
+              if (profileDoc.isBlocked) {
+                setError('Tu cuenta está bloqueada. Contacta al administrador.');
+                setCurrentUser(null);
+                appStorage.removeItem('trekking_auth_user');
+                firebaseSignOut(auth).catch(() => {});
+                setLoading(false);
+                return;
+              }
               // Synchronize role automatically from Firestore document
               const role = extractRoleFromDoc(profileDoc.role, user.email || profileDoc.email);
               const syncedProfile: UserProfile = {
@@ -224,41 +245,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, pass: string) => {
     setError(null);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, pass);
-      const user = cred.user;
-
-      // Immediately fetch Firestore user document to synchronize role on login
-      const profileDoc = await userProfileService.getUserProfile(user.uid);
-      if (profileDoc) {
-        const role = extractRoleFromDoc(profileDoc.role, user.email || email);
-        const syncedProfile: UserProfile = {
-          ...profileDoc,
-          role,
-        };
-        setCurrentUser(syncedProfile);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(syncedProfile));
-      } else {
-        const initialRole = extractRoleFromDoc(undefined, user.email || email);
-        const newProfile: UserProfile = {
-          uid: user.uid,
-          email: user.email || email,
-          displayName: user.displayName || email.split('@')[0],
-          username: email.split('@')[0],
-          summitsCount: 0,
-          gpsAccuracy: '±2.4m Preciso',
-          role: initialRole,
-          isBlocked: false,
-          createdAt: Date.now(),
-        };
-        await userProfileService.createUserProfile(newProfile);
-        setCurrentUser(newProfile);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
-      }
+      // HU-02: delega al caso de uso (valida LoginSchema, chequea isBlocked, sincroniza rol).
+      const profile = await LoginUserUseCase(
+        { email, password: pass },
+        {
+          signIn: async (signInEmail, signInPass) => {
+            const cred = await signInWithEmailAndPassword(auth, signInEmail, signInPass);
+            return { uid: cred.user.uid, email: cred.user.email || signInEmail };
+          },
+          getProfile: async (uid) => {
+            const docFound = await userProfileService.getUserProfile(uid);
+            if (!docFound) return null;
+            // Sincroniza rol (incluye seed admin por email) preservando isBlocked.
+            return {
+              ...docFound,
+              role: extractRoleFromDoc(docFound.role, docFound.email),
+            };
+          },
+          createProfile: (fresh) => userProfileService.createUserProfile(fresh),
+          saveSession: (synced) => appStorage.setItem('trekking_auth_user', JSON.stringify(synced)),
+        }
+      );
+      setCurrentUser(profile);
+      setIsGuest(false);
     } catch (err: any) {
       // Fallback offline/dev SOLO si hay fallo de red. Credenciales inválidas
-      // (auth/invalid-credential, user-not-found, wrong-password) siempre son error (HU-02).
+      // (auth/invalid-credential, user-not-found, wrong-password) siempre son error (HU-02 C6).
+      // isBlocked y errores Zod se propagan con su mensaje original, nunca como fallback.
       if (!isNetworkError(err)) {
-        setError('Credenciales inválidas. Verifica tu correo y contraseña.');
+        const blockerMsg = String(err?.message || '');
+        const zodMsg = err?.issues?.[0]?.message as string | undefined;
+        setError(zodMsg ?? (blockerMsg.includes('bloqueada') ? blockerMsg : 'Credenciales inválidas. Verifica tu correo y contraseña.'));
         throw err;
       }
       // Allow simulation / seed login for test credentials (verifica password)
@@ -268,6 +285,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
       if (adminSeed && adminSeed.passwords.some((p) => p.toLowerCase() === pass.toLowerCase())) {
         setCurrentUser(adminSeed.profile);
+        setIsGuest(false);
         appStorage.setItem('trekking_auth_user', JSON.stringify(adminSeed.profile));
         return;
       }
@@ -276,39 +294,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, pass: string, username?: string) => {
+  const register = async (args: RegisterArgs) => {
     setError(null);
-    const cleanUsername = username ? username.replace(/^@/, '') : email.split('@')[0];
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, pass);
-      const user = cred.user;
-      const initialRole = extractRoleFromDoc(undefined, email);
-      const newProfile: UserProfile = {
-        uid: user.uid,
-        email: user.email || email,
-        displayName: name,
-        username: cleanUsername,
-        summitsCount: 0,
-        gpsAccuracy: '±2.8m Preciso',
-        role: initialRole,
-        isBlocked: false,
-        createdAt: Date.now(),
-      };
-      await userProfileService.createUserProfile(newProfile);
-      setCurrentUser(newProfile);
-      appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
+      // HU-01: delega al caso de uso (valida RegisterSchema, rol 'user' automático).
+      await RegisterUserUseCase(args, {
+        createAuthAccount: async (registerEmail, registerPass) => {
+          const cred = await createUserWithEmailAndPassword(auth, registerEmail, registerPass);
+          return { uid: cred.user.uid };
+        },
+        createProfile: (newProfile) => userProfileService.createUserProfile(newProfile),
+      });
+      // HU-01 C6: sin auto-sesión — Firebase auto-loguea al crear cuenta, lo revertimos
+      // para redirigir a login. La vista muestra el mensaje de éxito y cambia de modo.
+      try {
+        await firebaseSignOut(auth);
+      } catch {
+        // ignore offline
+      }
+      setCurrentUser(null);
+      await appStorage.removeItem('trekking_auth_user');
     } catch (err: any) {
-      // Registro local SOLO en modo offline. Errores de validación de Firebase
-      // (email-already-in-use, weak-password, invalid-email) se propagan (HU-01 C3).
+      // Registro local SOLO en modo offline (demo aislado, matriz Expo Go modo avión).
+      // Errores de validación de Firebase (email-already-in-use, weak-password,
+      // invalid-email) y de Zod se propagan, nunca crean sesión (HU-01 C3).
       if (!isNetworkError(err)) {
-        setError(err?.message || 'No se pudo crear la cuenta. Verifica tus datos.');
+        const zodMsg = err?.issues?.[0]?.message as string | undefined;
+        setError(zodMsg ?? err?.message ?? 'No se pudo crear la cuenta. Verifica tus datos.');
         throw err;
       }
+      const cleanFallbackUsername = (args.username || '').trim().replace(/^@/, '') || args.email.split('@')[0];
       const localProfile: UserProfile = {
         uid: `user-${Date.now()}`,
-        email,
-        displayName: name,
-        username: cleanUsername,
+        email: args.email.trim(),
+        displayName: args.displayName.trim(),
+        username: cleanFallbackUsername,
         summitsCount: 0,
         gpsAccuracy: '±3.0m Preciso',
         role: 'user',
@@ -316,6 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: Date.now(),
       };
       setCurrentUser(localProfile);
+      setIsGuest(false);
       appStorage.setItem('trekking_auth_user', JSON.stringify(localProfile));
     }
   };
@@ -393,13 +414,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       profileUnsubRef.current();
       profileUnsubRef.current = null;
     }
-    try {
-      await firebaseSignOut(auth);
-    } catch {
-      // ignore offline
-    }
+    // HU-02 C10: cierre seguro vía caso de uso (signOut Firebase + limpia sesión local).
+    await LogoutUserUseCase({
+      signOut: async () => {
+        try {
+          await firebaseSignOut(auth);
+        } catch {
+          // ignore offline — el usecase igual limpia la sesión local en finally
+        }
+      },
+      clearSession: () => appStorage.removeItem('trekking_auth_user'),
+    });
     setCurrentUser(null);
-    appStorage.removeItem('trekking_auth_user');
+    setIsGuest(false);
   };
 
   const switchDemoRole = (role: UserRole) => {
@@ -412,6 +439,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return false;
     return allowedRoles.includes(currentUser.role);
   };
+
+  /** HU-03 (scaffold): entra como invitado sin crear sesión (solo memoria). */
+  const continueAsGuest = () => {
+    setError(null);
+    setIsGuest(true);
+  };
+
+  /** Vuelve a AuthView (HU-01/02). No toca la sesión persistida. */
+  const exitGuest = () => {
+    setIsGuest(false);
+  };
+
+  const isAuthenticated = currentUser !== null;
 
   const isAdmin = currentUser?.role === 'admin';
   const isModerator = currentUser?.role === 'moderator' || isAdmin;
@@ -431,6 +471,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hasRole,
         isAdmin,
         isModerator,
+        isGuest,
+        isAuthenticated,
+        continueAsGuest,
+        exitGuest,
       }}
     >
       {children}

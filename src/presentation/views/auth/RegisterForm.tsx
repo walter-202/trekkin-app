@@ -39,7 +39,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
     }
     setIsLoading(true);
     try {
-      await register(name.trim(), email.trim(), password, username.trim());
+      // HU-01 C2-C4: pasa los 6 campos al contexto, que delega a RegisterUserUseCase (Zod).
+      // HU-01 C6: sin auto-sesión — onSuccess redirige a login (lo cablea AuthView).
+      await register({
+        displayName: name.trim(),
+        email: email.trim(),
+        username: username.trim(),
+        password,
+        confirmPassword,
+        acceptTerms,
+      });
       setSuccessMessage('¡Cuenta creada exitosamente! Bienvenido a Trekking Bolivia.');
       setTimeout(onSuccess, 1000);
     } catch (err: any) {

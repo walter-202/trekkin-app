@@ -1,20 +1,20 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, Pressable } from 'react-native';
+import React from 'react';
+import { StyleSheet, View, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Mountain } from 'lucide-react-native';
 import { AuthProvider, useAuth } from './infrastructure/auth/AuthContext';
 import { AuthView } from './presentation/views/auth/AuthView';
 import { HomeView } from './presentation/views/home/HomeView';
+import { ExploreView } from './presentation/views/explore/ExploreView';
 
 /**
  * trekkin-app — V1 scaffold (HU-01 + HU-02 funcionales).
- * Sin sesión → AuthView (registro/login). Con sesión → HomeView.
- * Futuros módulos (HU-03…HU-10) se agregan como pestañas/vistas aquí.
+ * Con sesión → HomeView. Guest sin sesión (HU-03 scaffold, la define el otro dev)
+ * → ExploreView genérica. Sin sesión ni guest → AuthView (registro/login).
  */
 function Gate() {
-  const { currentUser, loading } = useAuth();
-  const [mode, setMode] = useState<'register' | 'login'>('register');
+  const { currentUser, isGuest, loading } = useAuth();
 
   if (loading) {
     return (
@@ -25,21 +25,11 @@ function Gate() {
     );
   }
 
+  // Sin sesión ni guest solo existe AuthView (dueña de su modo register/login, HU-01/02).
+  // HU-01 C6: el redirect post-registro a login lo hace AuthView, no el Gate.
   if (!currentUser) {
-    return (
-      <View style={{ flex: 1 }}>
-        <AuthView initialMode={mode} onSuccess={() => {}} />
-        <View style={styles.modeSwitch}>
-          <Pressable onPress={() => setMode(mode === 'register' ? 'login' : 'register')}>
-            <Text style={styles.modeSwitchText}>
-              {mode === 'register'
-                ? '¿Ya tienes cuenta? Inicia sesión'
-                : '¿Aún no eres miembro? Crea tu cuenta'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    );
+    if (isGuest) return <ExploreView />;
+    return <AuthView />;
   }
 
   return <HomeView />;
@@ -62,6 +52,4 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#051712' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   loadingText: { color: '#9CA3AF', fontSize: 12 },
-  modeSwitch: { alignItems: 'center', paddingVertical: 10, backgroundColor: '#051712' },
-  modeSwitchText: { color: '#34D399', fontSize: 12, fontWeight: '700' },
 });

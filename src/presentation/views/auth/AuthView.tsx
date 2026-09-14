@@ -33,7 +33,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
   onBack,
   onSuccess,
 }) => {
-  const { loginWithGoogle, switchDemoRole } = useAuth();
+  const { loginWithGoogle, switchDemoRole, continueAsGuest } = useAuth();
 
   const [mode, setMode] = useState<'register' | 'login'>(initialMode);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -135,7 +135,14 @@ export const AuthView: React.FC<AuthViewProps> = ({
           {noticeMessage ? <Banner tone="success" message={noticeMessage} /> : null}
 
           {mode === 'register' ? (
-            <RegisterForm onSuccess={() => onSuccess?.()} />
+            <RegisterForm
+              onSuccess={() => {
+                // HU-01 C5+C6: mensaje de confirmación + redirección a login (sin auto-sesión).
+                setMode('login');
+                setNoticeError(null);
+                setNoticeMessage('¡Cuenta creada exitosamente! Ahora inicia sesión.');
+              }}
+            />
           ) : (
             <LoginForm onSuccess={() => onSuccess?.()} />
           )}
@@ -231,6 +238,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
                 </Text>
               </Text>
             )}
+            {/* HU-03 scaffold (criterios los define el otro dev): entrada de invitado, sin sesión. */}
+            <Text style={styles.guestText}>
+              ¿Solo quieres mirar?{' '}
+              <Text
+                onPress={continueAsGuest}
+                style={styles.switchModeLink}
+                accessibilityRole="link"
+                accessibilityLabel="Explorar como invitado sin crear cuenta"
+              >
+                Explorar como invitado
+              </Text>
+            </Text>
           </View>
         </ScrollView>
       </View>
@@ -433,6 +452,11 @@ const styles = StyleSheet.create({
   switchModeText: {
     fontSize: 12,
     color: '#64748b',
+  },
+  guestText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
   },
   switchModeLink: {
     color: '#064e3b',

@@ -5,12 +5,12 @@ import type { UserProfile } from '../../domain/types';
  * HU-01 — Registrar Cuenta.
  * Caso de uso puro: valida input y orquesta puertos inyectados.
  * No importa Firebase ni AsyncStorage (inversión de dependencias).
+ * HU-01 C6: NO guarda sesión — el caller redirige a login (HU-02).
  */
 
 export interface RegisterPorts {
   createAuthAccount: (email: string, password: string) => Promise<{ uid: string }>;
   createProfile: (profile: UserProfile) => Promise<void>;
-  saveSession: (profile: UserProfile) => Promise<void>;
 }
 
 export interface RegisterArgs {
@@ -48,6 +48,6 @@ export async function RegisterUserUseCase(
   };
 
   await ports.createProfile(profile);
-  await ports.saveSession(profile);
+  // HU-01 C6: sin saveSession — AuthView redirige a login tras el mensaje de éxito.
   return profile;
 }
