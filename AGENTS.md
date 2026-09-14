@@ -45,6 +45,10 @@ Reglas de dependencia: `presentation → infrastructure → core/{application,do
 - **UI 100% nativa:** `View/Text/Pressable/TextInput/FlatList` + `StyleSheet` con `AndeanTheme`.
 - **Seguro por defecto:** `expo-location` (cuando llegue HU-08) solo en contexto con justificación. RBAC: `user`, `moderator`, `admin`; fallbacks locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
 - **Estilo código:** TypeScript strict, `import type` para tipos, casos de uso puros con puertos, componentes pequeños, nombres en inglés para código y props.
+- **Repo vivo (multi-dev):** el otro dev avanza HU-03… en paralelo y el repo se actualiza
+  constantemente. Antes de codificar: `git pull --ff-only`, revisa `git status` y
+  `git log --oneline -10`, y haz `grep` de lo que necesites — **reutiliza código antes de
+  recrearlo**. Si otro módulo ya resolvió tu necesidad (servicio, vista, primitiva), úsalo.
 - **Commits:** pequeños y entendibles, sin secretos (`.env` jamás se commitea; ver `.env.example`).
 
 ## Protocolo HU (obligatorio — anti-rehacer tareas)

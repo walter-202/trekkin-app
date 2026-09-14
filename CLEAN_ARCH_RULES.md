@@ -45,6 +45,9 @@ prefijo, renombrar al canónico (verificar con grep que no colisione).
 
 ## 3. Reutilizar antes de crear (anti-reinvención)
 
+> El repo se actualiza constantemente (multi-dev): sincroniza (`git pull --ff-only`) y
+> revisa cambios recientes que te favorezcan antes de diseñar. Reutilizar va antes que crear.
+
 Antes de escribir un input, botón, banner o card:
 
 1. Mira si ya existe en `presentation/` — ¿se puede reusar o extraer el común? Úsalo, no copies.
