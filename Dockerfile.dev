@@ -1,0 +1,22 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Deps nativas para expo / metro en alpine
+RUN apk add --no-cache git python3 make g++ libc6-compat
+
+# trekkin-app no commitea package-lock.json → install por rangos de package.json
+COPY package.json ./
+RUN npm install
+
+COPY . .
+
+ENV EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0 \
+    WATCHPACK_POLLING=true \
+    CHOKIDAR_USEPOLLING=true \
+    EXPO_NO_TELEMETRY=1
+
+EXPOSE 8081 19000 19001 19002
+
+# Por defecto Metro LAN (Expo Go). Para solo verificar: docker compose run --rm dev npm run lint
+CMD ["npx", "expo", "start", "--lan"]

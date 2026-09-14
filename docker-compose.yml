@@ -1,0 +1,28 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: trekkin-app-dev:latest
+    container_name: trekkin-app-dev
+    ports:
+      - "8081:8081"   # Metro / Web
+      - "19000:19000" # Expo DevTools
+      - "19001:19001"
+      - "19002:19002"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.expo
+    environment:
+      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+      # IP LAN del host para que el QR de Expo Go apunte al PC (ver .env → LAN_HOST)
+      - REACT_NATIVE_PACKAGER_HOSTNAME=${LAN_HOST}
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - EXPO_NO_TELEMETRY=1
+    stdin_open: true
+    tty: true
+    # Metro LAN para Expo Go. Solo lint: docker compose run --rm dev npm run lint
+    # No correr a la vez que trekking-bolivia (mismos puertos).
+    command: npx expo start --lan
