@@ -17,8 +17,10 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
 - Archivos: `core/domain/auth.schemas.ts`, `core/application/auth/RegisterUser.usecase.ts`,
   `infrastructure/auth/AuthContext.tsx` (`register()` + `isNetworkError`: fallbacks locales
   solo con error de red; duplicados y claves débiles se propagan),
-  `infrastructure/database/userProfileService.ts`, `presentation/views/auth/AuthView.tsx`
-  (valida con `RegisterSchema`, sin reglas manuales).
+  `infrastructure/database/userProfileService.ts`,
+  `presentation/views/auth/AuthView.tsx` (compositor) +
+  `presentation/views/auth/LoginForm.tsx` / `RegisterForm.tsx` (forms colocalizados con Zod) +
+  primitivas `presentation/components/ui/` (`Field`, `Button`, `Banner`).
 
 ## HU-02: Iniciar y Cerrar Sesión — ✅ 100% implementada
 - **Como** usuario registrado **quiero** iniciar/cerrar sesión **para** usar la plataforma.
@@ -36,7 +38,8 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
 - Archivos: `core/application/auth/LoginUser.usecase.ts`, `LogoutUser.usecase.ts`,
   `AuthContext.tsx` (`login()` con fallbacks solo por red, `logout()`, `onAuthStateChanged`,
   `subscribeToUserProfile`), `presentation/views/home/HomeView.tsx`,
-  `presentation/views/auth/AuthView.tsx` (valida con `LoginSchema`).
+  `presentation/views/auth/AuthView.tsx` (compositor) +
+  `presentation/views/auth/LoginForm.tsx` (valida con `LoginSchema`).
 
 ## Roadmap (scaffold, no implementado)
 

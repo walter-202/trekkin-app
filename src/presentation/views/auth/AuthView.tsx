@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -13,22 +12,14 @@ import {
 import {
   ChevronLeft,
   Compass,
-  User,
-  Mail,
-  AtSign,
-  Lock,
-  Shield,
-  Eye,
-  EyeOff,
-  ArrowRight,
   Mountain,
-  CheckCircle2,
-  AlertCircle,
   Sparkles,
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
-import { RegisterSchema, LoginSchema } from '../../../core/domain/auth.schemas';
+import { LoginForm } from './LoginForm';
+import { RegisterForm } from './RegisterForm';
+import { Banner } from '../../components/ui';
 
 interface AuthViewProps {
   initialMode?: 'register' | 'login';
@@ -36,107 +27,49 @@ interface AuthViewProps {
   onSuccess?: () => void;
 }
 
+/** Compositor auth (HU-01/02): header + hero + form + Google + demo. Estado de negocio vive en cada form. */
 export const AuthView: React.FC<AuthViewProps> = ({
   initialMode = 'register',
   onBack,
   onSuccess,
 }) => {
-  const { login, register, loginWithGoogle, switchDemoRole } = useAuth();
+  const { loginWithGoogle, switchDemoRole } = useAuth();
 
   const [mode, setMode] = useState<'register' | 'login'>(initialMode);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    if (mode === 'register') {
-      // HU-01 C3: validación única vía Zod (RegisterSchema), sin reglas manuales duplicadas.
-      const validation = RegisterSchema.safeParse({
-        displayName: name.trim(),
-        email: email.trim(),
-        username: username.trim(),
-        password,
-        confirmPassword,
-        acceptTerms,
-      });
-      if (!validation.success) {
-        setErrorMessage(
-          validation.error.issues[0]?.message ?? 'Revisa los datos ingresados.'
-        );
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        await register(name.trim(), email.trim(), password, username.trim());
-        setSuccessMessage('¡Cuenta creada exitosamente! Bienvenido a Trekking Bolivia.');
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
-        }, 1000);
-      } catch (err: any) {
-        setErrorMessage(err?.message || 'Error al crear la cuenta. Intenta nuevamente.');
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      // HU-02 C4: validación única vía Zod (LoginSchema).
-      const validation = LoginSchema.safeParse({ email: email.trim(), password });
-      if (!validation.success) {
-        setErrorMessage(
-          validation.error.issues[0]?.message ?? 'Revisa los datos ingresados.'
-        );
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        await login(email.trim(), password);
-        setSuccessMessage('Sesión iniciada correctamente.');
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
-        }, 800);
-      } catch (err: any) {
-        setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [noticeError, setNoticeError] = useState<string | null>(null);
 
   const handleGoogleAuth = async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
+    setIsGoogleLoading(true);
+    setNoticeMessage(null);
+    setNoticeError(null);
     try {
       await loginWithGoogle();
-      setSuccessMessage('Sesión autenticada con Google.');
+      setNoticeMessage('Sesión autenticada con Google.');
       setTimeout(() => {
         if (onSuccess) onSuccess();
       }, 900);
     } catch {
-      setErrorMessage('No se pudo completar la autenticación con Google.');
+      setNoticeError('No se pudo completar la autenticación con Google.');
     } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
   const handleSelectQuickDemo = (role: 'user' | 'admin') => {
     switchDemoRole(role);
-    setSuccessMessage(`Sesión iniciada como perfil de prueba (${role === 'admin' ? 'Administrador' : 'Senderista'}).`);
+    setNoticeError(null);
+    setNoticeMessage(`Sesión iniciada como perfil de prueba (${role === 'admin' ? 'Administrador' : 'Senderista'}).`);
     setTimeout(() => {
       if (onSuccess) onSuccess();
     }, 500);
+  };
+
+  const switchFormMode = (next: 'register' | 'login') => {
+    setMode(next);
+    setNoticeMessage(null);
+    setNoticeError(null);
   };
 
   return (
@@ -198,172 +131,40 @@ export const AuthView: React.FC<AuthViewProps> = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {errorMessage && (
-            <View style={styles.errorBanner}>
-              <AlertCircle size={16} color="#e11d48" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          )}
+          {noticeError ? <Banner tone="error" message={noticeError} /> : null}
+          {noticeMessage ? <Banner tone="success" message={noticeMessage} /> : null}
 
-          {successMessage && (
-            <View style={styles.successBanner}>
-              <CheckCircle2 size={16} color="#059669" />
-              <Text style={styles.successText}>{successMessage}</Text>
-            </View>
-          )}
-
-          {/* 1. Nombre Completo */}
-          {mode === 'register' && (
-            <View style={styles.fieldGroup}>
-              <Text style={styles.microLabel}>NOMBRE COMPLETO</Text>
-              <View style={styles.inputContainer}>
-                <User size={16} color="#94a3b8" style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Ej. Mateo Condori"
-                  placeholderTextColor="#94a3b8"
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-          )}
-
-          {/* 2. Correo Electrónico */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.microLabel}>CORREO ELECTRÓNICO</Text>
-            <View style={styles.inputContainer}>
-              <Mail size={16} color="#94a3b8" style={styles.fieldIcon} />
-              <TextInput
-                style={styles.textInput}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="andino@trekbolivia.bo"
-                placeholderTextColor="#94a3b8"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          {/* 3. Usuario */}
-          {mode === 'register' && (
-            <View style={styles.fieldGroup}>
-              <Text style={styles.microLabel}>USUARIO</Text>
-              <View style={styles.inputContainer}>
-                <AtSign size={16} color="#94a3b8" style={styles.fieldIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  value={username}
-                  onChangeText={setUsername}
-                  placeholder="caminante_bolivia"
-                  placeholderTextColor="#94a3b8"
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-          )}
-
-          {/* 4. Contraseña */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.microLabel}>CONTRASEÑA</Text>
-            <View style={styles.inputContainer}>
-              <Lock size={16} color="#94a3b8" style={styles.fieldIcon} />
-              <TextInput
-                style={[styles.textInput, { paddingRight: 40 }]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Mínimo 8 caracteres"
-                placeholderTextColor="#94a3b8"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <Pressable
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.togglePasswordButton}
-              >
-                {showPassword ? <EyeOff size={16} color="#94a3b8" /> : <Eye size={16} color="#94a3b8" />}
-              </Pressable>
-            </View>
-          </View>
-
-          {/* 5. Verificar Contraseña */}
-          {mode === 'register' && (
-            <View style={styles.fieldGroup}>
-              <Text style={styles.microLabel}>VERIFICAR CONTRASEÑA</Text>
-              <View style={styles.inputContainer}>
-                <Shield size={16} color="#94a3b8" style={styles.fieldIcon} />
-                <TextInput
-                  style={[styles.textInput, { paddingRight: 40 }]}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="Repite tu contraseña"
-                  placeholderTextColor="#94a3b8"
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                />
-                <Pressable
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={styles.togglePasswordButton}
-                >
-                  {showConfirmPassword ? <EyeOff size={16} color="#94a3b8" /> : <Eye size={16} color="#94a3b8" />}
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {/* 6. Checkbox de términos */}
           {mode === 'register' ? (
-            <Pressable
-              onPress={() => setAcceptTerms(!acceptTerms)}
-              style={styles.termsRow}
-            >
-              <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}>
-                {acceptTerms && <CheckCircle2 size={14} color="#ffffff" />}
-              </View>
-              <Text style={styles.termsText}>
-                Acepto los <Text style={styles.termsLink}>términos de servicio</Text> y las{' '}
-                <Text style={styles.termsLink}>normas de seguridad en montaña</Text>.
-              </Text>
-            </Pressable>
+            <RegisterForm onSuccess={() => onSuccess?.()} />
           ) : (
+            <LoginForm onSuccess={() => onSuccess?.()} />
+          )}
+
+          {mode === 'login' ? (
             <View style={styles.demoSection}>
               <Text style={styles.demoTitle}>PERFILES DE PRUEBA RÁPIDA:</Text>
               <View style={styles.demoButtonsRow}>
-                <Pressable onPress={() => handleSelectQuickDemo('user')} style={styles.demoButton}>
+                <Pressable
+                  onPress={() => handleSelectQuickDemo('user')}
+                  style={styles.demoButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Probar como senderista"
+                >
                   <Text style={styles.demoButtonText}>🧗 Senderista (User)</Text>
                 </Pressable>
-                <Pressable onPress={() => handleSelectQuickDemo('admin')} style={styles.demoButton}>
+                <Pressable
+                  onPress={() => handleSelectQuickDemo('admin')}
+                  style={styles.demoButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Probar como administrador"
+                >
                   <Text style={styles.demoButtonText}>🛡️ Administrador (Admin)</Text>
                 </Pressable>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {/* 7. Botón CTA CREAR CUENTA → */}
-          <Pressable
-            onPress={handleSubmit}
-            disabled={isLoading}
-            style={({ pressed }) => [
-              styles.ctaButton,
-              pressed && styles.buttonPressed,
-              isLoading && styles.buttonDisabled,
-            ]}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <>
-                <Text style={styles.ctaButtonText}>
-                  {mode === 'register' ? 'CREAR CUENTA' : 'INICIAR SESIÓN'}
-                </Text>
-                <ArrowRight size={16} color="#ffffff" />
-              </>
-            )}
-          </Pressable>
-
-          {/* 8. Separador */}
+          {/* Separador */}
           <View style={styles.dividerContainer}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>
@@ -372,31 +173,39 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 9. Botón social Google */}
+          {/* Botón social Google */}
           <Pressable
             onPress={handleGoogleAuth}
-            disabled={isLoading}
+            disabled={isGoogleLoading}
             style={({ pressed }) => [styles.googleButton, pressed && styles.buttonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar con Google"
           >
-            <Svg width={18} height={18} viewBox="0 0 24 24">
-              <Path
-                fill="#4285F4"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <Path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <Path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-              />
-              <Path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-              />
-            </Svg>
-            <Text style={styles.googleButtonText}>Continuar con Google</Text>
+            {isGoogleLoading ? (
+              <ActivityIndicator color="#334155" size="small" />
+            ) : (
+              <>
+                <Svg width={18} height={18} viewBox="0 0 24 24">
+                  <Path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <Path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <Path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <Path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </Svg>
+                <Text style={styles.googleButtonText}>Continuar con Google</Text>
+              </>
+            )}
           </Pressable>
 
           {/* Mode Switcher */}
@@ -405,10 +214,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               <Text style={styles.switchModeText}>
                 ¿Ya tienes una cuenta registrada?{' '}
                 <Text
-                  onPress={() => {
-                    setMode('login');
-                    setErrorMessage(null);
-                  }}
+                  onPress={() => switchFormMode('login')}
                   style={styles.switchModeLink}
                 >
                   Iniciar Sesión
@@ -418,10 +224,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               <Text style={styles.switchModeText}>
                 ¿Aún no eres miembro de la plataforma?{' '}
                 <Text
-                  onPress={() => {
-                    setMode('register');
-                    setErrorMessage(null);
-                  }}
+                  onPress={() => switchFormMode('register')}
                   style={styles.switchModeLink}
                 >
                   Crear Cuenta
@@ -560,106 +363,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fff1f2',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  errorText: {
-    fontSize: 11,
-    color: '#be123c',
-    flex: 1,
-    fontWeight: '500',
-  },
-  successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#ecfdf5',
-    borderWidth: 1,
-    borderColor: '#a7f3d0',
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  successText: {
-    fontSize: 11,
-    color: '#047857',
-    flex: 1,
-    fontWeight: '600',
-  },
-  fieldGroup: {
-    marginBottom: 12,
-  },
-  microLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748b',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8faf9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 14,
-    height: 46,
-    paddingHorizontal: 12,
-  },
-  fieldIcon: {
-    marginRight: 10,
-  },
-  textInput: {
-    flex: 1,
-    fontSize: 13,
-    color: '#0f172a',
-    height: '100%',
-  },
-  togglePasswordButton: {
-    position: 'absolute',
-    right: 12,
-    padding: 4,
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#cbd5e1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  checkboxChecked: {
-    backgroundColor: '#064e3b',
-    borderColor: '#064e3b',
-  },
-  termsText: {
-    fontSize: 11,
-    color: '#475569',
-    flex: 1,
-    lineHeight: 16,
-  },
-  termsLink: {
-    color: '#064e3b',
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
   demoSection: {
     marginVertical: 10,
   },
@@ -680,6 +383,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -687,30 +392,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#334155',
-  },
-  ctaButton: {
-    backgroundColor: '#064e3b',
-    height: 48,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-    shadowColor: '#064e3b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  ctaButtonText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ffffff',
-    letterSpacing: 1,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
   dividerContainer: {
     flexDirection: 'row',
