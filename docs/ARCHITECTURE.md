@@ -40,11 +40,13 @@ src/
 ## 2. Flujos implementados
 
 ### HU-01 Registrar Cuenta
+
 `AuthView` → `RegisterForm` (Zod) → `AuthContext.register(args)` → `RegisterUserUseCase(args, ports)`
 → valida `RegisterSchema` → `createUserWithEmailAndPassword` → `userProfileService.createUserProfile({role:'user'})`
 → `signOut` (sin auto-sesión) → mensaje de éxito → `AuthView` cambia a modo login (HU-02).
 
 ### HU-02 Login / Logout
+
 `AuthView` → `LoginForm` (Zod) → `AuthContext.login()` → `LoginUserUseCase` → valida `LoginSchema`
 → `signInWithEmailAndPassword` → `getUserProfile(uid)` (sincroniza **rol RBAC** desde Firestore,
 bloquea si `isBlocked`) → guarda sesión → `HomeView` muestra avatar, nombre, badge de rol y botón **Salir**
@@ -52,22 +54,23 @@ bloquea si `isBlocked`) → guarda sesión → `HomeView` muestra avatar, nombre
 `onAuthStateChanged` + `subscribeToUserProfile` mantienen la sesión en vivo.
 Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 
-### Guest (HU-03 scaffold, la define el otro dev)
+### Guest (HU-03 ✅ implementada, guest libre)
+
 `AuthView` (“Explorar como invitado”) → `continueAsGuest()` (solo memoria, sin sesión)
-→ Gate muestra `ExploreView` genérica (`views/explore/`), que ya lee `isGuest` /
+→ Gate muestra `ExploreView` (catálogo + detalle, `views/explore/`), que lee `isGuest` /
 `isAuthenticated` / `hasRole`. `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
 
 ## 3. Dónde va cada HU futura
 
-| HU | Vista | Servicio | Dominio |
-|---|---|---|---|
-| HU-03 Explorar rutas | `views/explore/` | `database/routeService.ts` | `domain/route.schemas.ts` |
-| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` | `domain/offline.ts` |
-| HU-05 Compartir | modal en explore | link `https://trekbolivia.bo/r/{id}` | — |
-| HU-06 Actividad GPS | `views/activity/` | `database/activityService.ts` | `domain/activity.schemas.ts` |
-| HU-07/08 Planificar + Grabar | `views/record/` | `expo-location` + routeService | `domain/calculations.ts` |
-| HU-09 Moderación | `views/moderation/` + `hasRole(['moderator','admin'])` | `routeService.updateRoute()` | `ReviewActionSchema` |
-| HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
+| HU                           | Vista                                                  | Servicio                             | Dominio                      |
+| ---------------------------- | ------------------------------------------------------ | ------------------------------------ | ---------------------------- |
+| HU-03 Explorar rutas         | `views/explore/`                                       | `database/routeService.ts`           | `domain/route.schemas.ts`    |
+| HU-04 Offline                | `views/downloads/`                                     | `persistence/tileCacheDB.ts`         | `domain/offline.ts`          |
+| HU-05 Compartir              | modal en explore                                       | link `https://trekbolivia.bo/r/{id}` | —                            |
+| HU-06 Actividad GPS          | `views/activity/`                                      | `database/activityService.ts`        | `domain/activity.schemas.ts` |
+| HU-07/08 Planificar + Grabar | `views/record/`                                        | `expo-location` + routeService       | `domain/calculations.ts`     |
+| HU-09 Moderación             | `views/moderation/` + `hasRole(['moderator','admin'])` | `routeService.updateRoute()`         | `ReviewActionSchema`         |
+| HU-10 Usuarios y roles       | `views/profile/` + `hasRole(['admin'])`                | `userProfileService`                 | `UserRole`                   |
 
 `firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
 reescribir seguridad cuando se implemente cada módulo.
