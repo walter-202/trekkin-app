@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common security primitives and helpers
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'wfernando.aguilarm@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData().role == 'admin')
+      );
+    }
+
+    function isModerator() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         (getUserData().role == 'moderator' || getUserData().role == 'moderador'))
+      );
+    }
+
+    // Entity validation blueprints
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 150 &&
+             data.role in ['user', 'moderator', 'admin'] &&
+             data.isBlocked is bool &&
+             data.createdAt is number &&
+             (!('username' in data) || (data.username is string && data.username.size() <= 80)) &&
+             (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500)) &&
+             (!('summitsCount' in data) || (data.summitsCount is number && data.summitsCount >= 0)) &&
+             (!('gpsAccuracy' in data) || (data.gpsAccuracy is string && data.gpsAccuracy.size() <= 80));
+    }
+
+    function isValidRoute(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+             data.difficulty in ['facil', 'moderado', 'dificil', 'experto'] &&
+             data.status in ['draft', 'in_review', 'published', 'rejected'] &&
+             data.creatorId is string && data.creatorId.size() > 0 && data.creatorId.size() <= 128 &&
+             data.distanceKm is number && data.distanceKm >= 0 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 5000)) &&
+             (!('region' in data) || (data.region is string && data.region.size() <= 150)) &&
+             (!('modality' in data) || (data.modality in ['solo', 'acompañado'])) &&
+             (!('isPrivate' in data) || data.isPrivate is bool) &&
+             (!('creatorName' in data) || (data.creatorName is string && data.creatorName.size() <= 150)) &&
+             (!('durationMinutes' in data) || (data.durationMinutes is number && data.durationMinutes >= 0)) &&
+             (!('waypoints' in data) || (data.waypoints is list && data.waypoints.size() <= 5000)) &&
+             (!('checkpoints' in data) || (data.checkpoints is list && data.checkpoints.size() <= 100)) &&
+             (!('photos' in data) || (data.photos is list && data.photos.size() <= 50)) &&
+             (!('createdAt' in data) || data.createdAt is number) &&
+             (!('updatedAt' in data) || data.updatedAt is number) &&
+             (!('moderationNotes' in data) || (data.moderationNotes is string && data.moderationNotes.size() <= 2000)) &&
+             (!('reviewedBy' in data) || (data.reviewedBy is string && data.reviewedBy.size() <= 150)) &&
+             (!('reviewedAt' in data) || data.reviewedAt is number);
+    }
+
+    function isValidActivity(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.routeId is string && data.routeId.size() <= 128 &&
+             data.status in ['in_progress', 'paused', 'completed', 'incomplete'] &&
+             data.distanceCoveredKm is number && data.distanceCoveredKm >= 0;
+    }
+
+    function isValidReview(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.routeId is string && data.routeId.size() <= 128 &&
+             data.moderatorId is string && data.moderatorId == request.auth.uid &&
+             data.status in ['approved', 'rejected'] &&
+             (!('observations' in data) || (data.observations is string && data.observations.size() <= 2000));
+    }
+
+    // Users collection rules (PII, Role protection, Self-management)
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUser(incoming()) &&
+                       incoming().uid == request.auth.uid &&
+                       (incoming().role == 'user' || isAdmin()) &&
+                       incoming().isBlocked == false;
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUser(incoming()) &&
+                       (
+                         (isOwner(userId) &&
+                          incoming().uid == existing().uid &&
+                          incoming().role == existing().role &&
+                          incoming().isBlocked == existing().isBlocked &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'username', 'avatarUrl', 'summitsCount', 'gpsAccuracy']))
+                         || isAdmin()
+                       );
+      allow delete: if isAdmin();
+    }
+
+    // Routes collection rules (Catalog, Collaboration, Moderation)
+    match /routes/{routeId} {
+      allow get: if resource.data.status == 'published' ||
+                     (isSignedIn() && (resource.data.creatorId == request.auth.uid || isModerator()));
+      allow list: if resource.data.status == 'published' ||
+                      (isSignedIn() && (resource.data.creatorId == request.auth.uid || isModerator()));
+      allow create: if isSignedIn() &&
+                       isValidId(routeId) &&
+                       isValidRoute(incoming()) &&
+                       incoming().creatorId == request.auth.uid &&
+                       (incoming().status == 'draft' || incoming().status == 'in_review');
+      allow update: if isSignedIn() &&
+                       isValidId(routeId) &&
+                       isValidRoute(incoming()) &&
+                       (
+                         (resource.data.creatorId == request.auth.uid &&
+                          incoming().creatorId == existing().creatorId &&
+                          incoming().id == existing().id &&
+                          (existing().status == 'draft' || existing().status == 'rejected' ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'status', 'waypoints', 'checkpoints', 'photos', 'updatedAt', 'startPoint', 'endPoint', 'distanceKm', 'durationMinutes', 'difficulty', 'modality', 'region', 'isPrivate'])))
+                         || isModerator()
+                       );
+      allow delete: if isSignedIn() &&
+                       ((resource.data.creatorId == request.auth.uid && resource.data.status == 'draft') || isAdmin());
+    }
+
+    // Activities collection rules (User privacy & GPS logs)
+    match /activities/{activityId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       isValidActivity(incoming()) &&
+                       incoming().userId == request.auth.uid;
+      allow update: if isSignedIn() &&
+                       isValidId(activityId) &&
+                       isValidActivity(incoming()) &&
+                       resource.data.userId == request.auth.uid &&
+                       incoming().userId == existing().userId;
+      allow delete: if isSignedIn() &&
+                       (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // Reviews collection rules (Auditing & Moderation verdicts)
+    match /reviews/{reviewId} {
+      allow get, list: if isSignedIn();
+      allow create: if isModerator() &&
+                       isValidId(reviewId) &&
+                       isValidReview(incoming());
+      allow update: if isModerator() &&
+                       isValidId(reviewId) &&
+                       isValidReview(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}

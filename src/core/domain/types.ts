@@ -1,0 +1,111 @@
+/**
+ * Clean Architecture - Core Domain Types
+ * Independent of Framework, UI, and external libraries.
+ * 100% compatible with Expo SDK 57 / React Native.
+ */
+
+export type UserRole = 'user' | 'moderator' | 'admin';
+
+export type RouteDifficulty = 'facil' | 'moderado' | 'dificil' | 'experto';
+
+export type RouteModality = 'solo' | 'acompañado';
+
+export type RouteStatus = 'draft' | 'in_review' | 'published' | 'rejected';
+
+export type CheckpointCategory =
+  | 'agua'
+  | 'camping'
+  | 'peligro'
+  | 'vista'
+  | 'descanso'
+  | 'flora_fauna'
+  | 'refugio';
+
+export type ActivityStatus = 'in_progress' | 'paused' | 'completed' | 'incomplete';
+
+export interface Coordinates {
+  lat: number;
+  lng: number;
+  altitude?: number;
+  timestamp?: number;
+}
+
+export interface Checkpoint {
+  id: string;
+  name: string;
+  category: CheckpointCategory;
+  lat: number;
+  lng: number;
+  notes?: string;
+  photoUrl?: string;
+  createdAt: number;
+}
+
+export interface RouteModel {
+  id: string;
+  title: string;
+  description: string;
+  region: string;
+  startPoint: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
+  endPoint: {
+    name: string;
+    lat: number;
+    lng: number;
+  };
+  distanceKm: number;
+  durationMinutes: number;
+  elevationGainM?: number;
+  difficulty: RouteDifficulty;
+  modality: RouteModality;
+  status: RouteStatus;
+  isPrivate: boolean;
+  creatorId: string;
+  creatorName: string;
+  waypoints: Coordinates[];
+  checkpoints: Checkpoint[];
+  photos: string[];
+  moderationNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  isOfflineCached?: boolean;
+  estimatedOfflineSizeMB?: number;
+}
+
+export interface TrekkingActivity {
+  id: string;
+  userId: string;
+  userName: string;
+  routeId: string;
+  routeTitle: string;
+  status: ActivityStatus;
+  startedAt: number;
+  finishedAt?: number;
+  distanceCoveredKm: number;
+  remainingDistanceKm: number;
+  durationSeconds: number;
+  recordedPoints: Coordinates[];
+  completedCheckpoints: string[];
+  isSynced: boolean;
+  createdAt: number;
+}
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  username?: string;
+  avatarUrl?: string;
+  summitsCount?: number;
+  gpsAccuracy?: string;
+  role: UserRole;
+  isBlocked: boolean;
+  createdAt: number;
+}
+
+export type TabKey = 'explore' | 'activity' | 'record' | 'moderation' | 'profile' | 'auth' | 'tests';

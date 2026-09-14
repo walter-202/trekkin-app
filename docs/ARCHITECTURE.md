@@ -1,0 +1,76 @@
+# trekkin-app — Arquitectura (Clean Architecture + Expo SDK 57)
+
+Scaffold funcional de **HU-01 (Registrar Cuenta)** y **HU-02 (Iniciar/Cerrar Sesión)**.
+Todo lo demás (HU-03…HU-10) existe solo como **estructura + guía**, sin lógica implementada.
+
+## 1. Capas y regla de dependencias
+
+```
+src/
+  core/                    ← DOMINIO + APLICACIÓN (puro, sin Firebase/React)
+    domain/
+      types.ts             ← entidades (UserProfile, UserRole, RouteModel…)
+      auth.schemas.ts      ← validaciones zod HU-01/HU-02 (fuente de verdad)
+    application/
+      auth/
+        RegisterUser.usecase.ts
+        LoginUser.usecase.ts
+        LogoutUser.usecase.ts
+  infrastructure/          ← ADAPTADORES (único lugar con Firebase/AsyncStorage)
+    firebase/config.ts     ← init Firebase (Auth + Firestore)
+    auth/AuthContext.tsx   ← adapter: ejecuta los use cases + sesión en vivo
+    database/
+      userProfileService.ts   ← CRUD `users` (HU-01/HU-02)
+      firestoreErrors.ts
+    persistence/storage.ts ← AsyncStorage + caché en memoria (sesión persistente)
+  presentation/            ← UI (React Native, sin `firebase/*` directo)
+    theme.ts               ← AndeanTheme (colores/espaciados)
+    components/auth/AuthModal.tsx
+    views/auth/AuthView.tsx   ← formulario HU-01/HU-02 (DESIGN_RULES §3.A)
+    views/home/HomeView.tsx   ← post-login: perfil + rol + logout + roadmap
+    views/_template/ModuleTemplateView.tsx ← plantilla de módulo nuevo
+```
+
+**Regla de oro:** las dependencias apuntan hacia adentro.
+
+- `presentation` → `infrastructure` (hooks) → `core/application` → `core/domain`.
+- **Prohibido:** importar `firebase/*` en `presentation` o en `core`.
+- **Prohibido:** importar `react-native` en `core`.
+
+## 2. Flujos implementados
+
+### HU-01 Registrar Cuenta
+`AuthView` → `RegisterUserUseCase(args, ports)` → valida `RegisterSchema`
+→ `createUserWithEmailAndPassword` → `userProfileService.createUserProfile({role:'user'})`
+→ `storage.setItem('trekking_auth_user')` → mensaje de éxito → redirige a HU-02.
+
+### HU-02 Login / Logout
+`AuthView` → `LoginUserUseCase` → valida `LoginSchema` → `signInWithEmailAndPassword`
+→ `getUserProfile(uid)` (sincroniza **rol RBAC** desde Firestore) → guarda sesión
+→ `HomeView` muestra avatar, nombre, badge de rol y botón **Salir**.
+`onAuthStateChanged` + `subscribeToUserProfile` mantienen la sesión en vivo.
+Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
+
+## 3. Dónde va cada HU futura
+
+| HU | Vista | Servicio | Dominio |
+|---|---|---|---|
+| HU-03 Explorar rutas | `views/explore/` | `database/routeService.ts` | `domain/route.schemas.ts` |
+| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` | `domain/offline.ts` |
+| HU-05 Compartir | modal en explore | link `https://trekbolivia.bo/r/{id}` | — |
+| HU-06 Actividad GPS | `views/activity/` | `database/activityService.ts` | `domain/activity.schemas.ts` |
+| HU-07/08 Planificar + Grabar | `views/record/` | `expo-location` + routeService | `domain/calculations.ts` |
+| HU-09 Moderación | `views/moderation/` + `hasRole(['moderator','admin'])` | `routeService.updateRoute()` | `ReviewActionSchema` |
+| HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
+
+`firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
+reescribir seguridad cuando se implemente cada módulo.
+
+## 4. Convenciones
+
+- Nombres: `XxxView.tsx` (vistas), `XxxModal.tsx` (modales), `xxxService.ts`,
+  `Xxx.usecase.ts`, `xxx.schemas.ts`, `useXxxStore.ts`.
+- Estilos: `StyleSheet` + `AndeanTheme`; respetar `docs/DESIGN_RULES.md`.
+- Validación siempre con **zod en dominio**, nunca solo en el formulario.
+- Errores de Firestore centralizados en `firestoreErrors.ts`.
+- Sesión bajo la clave `trekking_auth_user`.
