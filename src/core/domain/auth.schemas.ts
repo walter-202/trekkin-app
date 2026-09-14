@@ -34,10 +34,7 @@ export const RegisterSchema = z
       .boolean()
       .refine((v) => v === true, 'Debes aceptar los términos y las normas de seguridad en montaña'),
   })
-  .refine((v) => v.password === v.confirmPassword, {
-    message: 'Las contraseñas no coinciden',
-    path: ['confirmPassword'],
-  });
+  .refine((v) => v.password === v.confirmPassword, 'Las contraseñas no coinciden');
 
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 

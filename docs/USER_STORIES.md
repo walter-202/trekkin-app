@@ -15,8 +15,10 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
   5. Mensaje de confirmación (“¡Cuenta creada exitosamente!”).
   6. Redirección a login (HU-02).
 - Archivos: `core/domain/auth.schemas.ts`, `core/application/auth/RegisterUser.usecase.ts`,
-  `infrastructure/auth/AuthContext.tsx` (`register()`),
-  `infrastructure/database/userProfileService.ts`, `presentation/views/auth/AuthView.tsx`.
+  `infrastructure/auth/AuthContext.tsx` (`register()` + `isNetworkError`: fallbacks locales
+  solo con error de red; duplicados y claves débiles se propagan),
+  `infrastructure/database/userProfileService.ts`, `presentation/views/auth/AuthView.tsx`
+  (valida con `RegisterSchema`, sin reglas manuales).
 
 ## HU-02: Iniciar y Cerrar Sesión — ✅ 100% implementada
 - **Como** usuario registrado **quiero** iniciar/cerrar sesión **para** usar la plataforma.
@@ -32,8 +34,9 @@ con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
   9. Usuario activo visible (avatar, nombre verificado, badge de rol en `HomeView`).
   10. Cierre seguro (`LogoutUserUseCase` + botón Salir).
 - Archivos: `core/application/auth/LoginUser.usecase.ts`, `LogoutUser.usecase.ts`,
-  `AuthContext.tsx` (`login()`, `logout()`, `onAuthStateChanged`,
-  `subscribeToUserProfile`), `presentation/views/home/HomeView.tsx`.
+  `AuthContext.tsx` (`login()` con fallbacks solo por red, `logout()`, `onAuthStateChanged`,
+  `subscribeToUserProfile`), `presentation/views/home/HomeView.tsx`,
+  `presentation/views/auth/AuthView.tsx` (valida con `LoginSchema`).
 
 ## Roadmap (scaffold, no implementado)
 

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
+import { RegisterSchema, LoginSchema } from '../../../core/domain/auth.schemas';
 
 interface AuthViewProps {
   initialMode?: 'register' | 'login';
@@ -61,28 +62,19 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setSuccessMessage(null);
 
     if (mode === 'register') {
-      if (!name.trim()) {
-        setErrorMessage('Por favor introduce tu nombre completo.');
-        return;
-      }
-      if (!email.trim() || !email.includes('@')) {
-        setErrorMessage('Introduce un correo electrónico válido.');
-        return;
-      }
-      if (!username.trim()) {
-        setErrorMessage('Elige un nombre de usuario.');
-        return;
-      }
-      if (password.length < 8) {
-        setErrorMessage('La contraseña debe tener al menos 8 caracteres.');
-        return;
-      }
-      if (password !== confirmPassword) {
-        setErrorMessage('Las contraseñas no coinciden.');
-        return;
-      }
-      if (!acceptTerms) {
-        setErrorMessage('Debes aceptar los términos y las normas de seguridad en montaña.');
+      // HU-01 C3: validación única vía Zod (RegisterSchema), sin reglas manuales duplicadas.
+      const validation = RegisterSchema.safeParse({
+        displayName: name.trim(),
+        email: email.trim(),
+        username: username.trim(),
+        password,
+        confirmPassword,
+        acceptTerms,
+      });
+      if (!validation.success) {
+        setErrorMessage(
+          validation.error.issues[0]?.message ?? 'Revisa los datos ingresados.'
+        );
         return;
       }
 
@@ -99,12 +91,12 @@ export const AuthView: React.FC<AuthViewProps> = ({
         setIsLoading(false);
       }
     } else {
-      if (!email.trim()) {
-        setErrorMessage('Introduce tu correo electrónico.');
-        return;
-      }
-      if (!password) {
-        setErrorMessage('Introduce tu contraseña.');
+      // HU-02 C4: validación única vía Zod (LoginSchema).
+      const validation = LoginSchema.safeParse({ email: email.trim(), password });
+      if (!validation.success) {
+        setErrorMessage(
+          validation.error.issues[0]?.message ?? 'Revisa los datos ingresados.'
+        );
         return;
       }
 

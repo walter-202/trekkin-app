@@ -255,7 +255,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
       }
     } catch (err: any) {
-      // Allow simulation / seed login for test credentials
+      // Fallback offline/dev SOLO si hay fallo de red. Credenciales inválidas
+      // (auth/invalid-credential, user-not-found, wrong-password) siempre son error (HU-02).
+      if (!isNetworkError(err)) {
+        setError('Credenciales inválidas. Verifica tu correo y contraseña.');
+        throw err;
+      }
+      // Allow simulation / seed login for test credentials (verifica password)
       const normalizedEmail = email.toLowerCase().trim();
       const adminSeed = SEED_ADMIN_ACCOUNTS.find(
         (a) => a.profile.email.toLowerCase() === normalizedEmail
@@ -265,12 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         appStorage.setItem('trekking_auth_user', JSON.stringify(adminSeed.profile));
         return;
       }
-      if (email === DEMO_PROFILES.user.email) {
-        setCurrentUser(DEMO_PROFILES.user);
-        appStorage.setItem('trekking_auth_user', JSON.stringify(DEMO_PROFILES.user));
-        return;
-      }
-      setError(err?.message || 'Error al iniciar sesión');
+      setError('Sin conexión. No se pudo verificar tu sesión. Reintenta con red.');
       throw err;
     }
   };
@@ -297,7 +298,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(newProfile);
       appStorage.setItem('trekking_auth_user', JSON.stringify(newProfile));
     } catch (err: any) {
-      // In offline / fallback mode, register locally
+      // Registro local SOLO en modo offline. Errores de validación de Firebase
+      // (email-already-in-use, weak-password, invalid-email) se propagan (HU-01 C3).
+      if (!isNetworkError(err)) {
+        setError(err?.message || 'No se pudo crear la cuenta. Verifica tus datos.');
+        throw err;
+      }
       const localProfile: UserProfile = {
         uid: `user-${Date.now()}`,
         email,
@@ -438,4 +444,21 @@ export const useAuth = (): AuthContextType => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+/** Fallbacks locales SOLO ante fallos de conectividad, nunca ante credenciales inválidas (HU-02). */
+export const isNetworkError = (err: any): boolean => {
+  const code = String(err?.code || '').toLowerCase();
+  const msg = String(err?.message || '').toLowerCase();
+  return (
+    code.includes('network') ||
+    code.includes('timeout') ||
+    code.includes('unavailable') ||
+    code.includes('deadline') ||
+    code.includes('offline') ||
+    msg.includes('network') ||
+    msg.includes('offline') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('load failed')
+  );
 };
