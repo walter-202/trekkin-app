@@ -54,12 +54,14 @@ bloquea si `isBlocked`) → guarda sesión → `HomeView` muestra avatar, nombre
 `onAuthStateChanged` + `subscribeToUserProfile` mantienen la sesión en vivo.
 Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 
-### Guest + gate HU-03 (oficial: detalle con sesión)
+### Gate oficial (figura del equipo): catálogo público; el detalle exige sesión activa.
 
-`AuthView` (“Explorar como invitado”) → `continueAsGuest()` (solo memoria, sin sesión)
-→ Gate muestra `ExploreView` (catálogo público). Al seleccionar ruta sin sesión, el
-Gate guarda el `routeId` pendiente y va a `AuthView`; tras login continúa al detalle
-(`RouteDetailView`). `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
+Sin sesión, seleccionar una ruta guarda el `routeId` pendiente y continúa al
+detalle automáticamente tras login/registro (`pendingRouteId` en el Gate).
+GPS/offline exigen `isAuthenticated`; lo admin exige `hasRole(['admin'])`.
+Sin HU-09: no hay guard de moderación.
+Navegación: sidebar recortado (`components/nav/Drawer.tsx`, solo INICIO/PERFIL),
+hamburguesa flotante desde cualquier pantalla, con o sin sesión.
 
 ## 3. Dónde va cada HU futura
 

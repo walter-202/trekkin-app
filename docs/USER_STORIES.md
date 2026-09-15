@@ -1,8 +1,7 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100% de código**.
-HU-04…HU-06 y HU-08…HU-10 son roadmap con dueños (cada dev detalla sus TAREAS;
-aquí solo criterios).
+Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%**. HU-04…HU-06 y HU-08…HU-10
+son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
@@ -32,7 +31,6 @@ aquí solo criterios).
 
 - **Rol:** Usuario / Administrador. **Como** usuario registrado **quiero** iniciar/cerrar
   sesión **para** acceder de forma segura y gestionar mi información.
-
 - Criterios:
   1. Acceso desde `AuthView` (modo `login`) o funcionalidad que requiera autenticación.
   2. Correo + contraseña de HU-01.
@@ -60,11 +58,14 @@ aquí solo criterios).
   detalle automáticamente tras login/registro (`pendingRouteId` en el Gate).
   GPS/offline exigen `isAuthenticated`; lo admin exige `hasRole(['admin'])`.
   Sin HU-09: no hay guard de moderación.
+
 - Criterios:
-  1. Ingreso a la app → catálogo de rutas públicas y aprobadas (`status == 'published'`).
+  1. Ingreso a la app (con o sin sesión) → catálogo de rutas públicas y aprobadas
+     (`status == 'published'`). La entrada nunca es login.
   2. Búsqueda por texto + filtro por dificultad (chips) validados con `RouteFiltersSchema` (Zod).
   3. Solo se muestran rutas que coinciden con los criterios (`SearchRoutesUseCase`).
-  4. Tarjeta resumen por ruta (`RouteCard`: nombre, distancia, dificultad, tramo inicio→fin).
+  4. Tarjeta resumen por ruta (`RouteCard`: nombre, distancia, dificultad, tramo inicio→fin,
+     foto si `photos[0]` existe).
   5. Selección de ruta sin sesión → `onRequireAuth(routeId)`: el Gate guarda el
      pendiente y va a `AuthView`; tras login continúa al detalle automáticamente.
   6. Detalle con descripción, inicio, final, métricas, características y puntos relevantes
@@ -73,13 +74,17 @@ aquí solo criterios).
      tiles OpenStreetMap, con `trail` + `pointsOfInterest` para HU-03) con zoom y
      desplazamiento habilitados. Funciona en Expo Go sin API key (requiere internet
      para los tiles).
+  8. Sidebar recortado (`components/nav/Drawer.tsx`): visible con o sin sesión, se abre
+     con hamburguesa superior; solo INICIO (→ catálogo) y PERFIL (reutiliza HU-01/02,
+     con pendiente de perfil si no hay sesión). Sin Descargas/Nueva Ruta/Capas/SOS.
 - Archivos: `core/domain/route.schemas.ts` (`RouteSchema`, `RouteFiltersSchema`),
   `core/application/explore/` (`ListPublishedRoutes`, `SearchRoutes`, `GetRouteDetail` usecases
   puros con puertos), `infrastructure/database/routeService.ts` (query `routes`
   `where status == 'published'` + get por id) y `routeSeed.ts` (fallback demo solo ante
   red fallida o colección vacía), `presentation/views/explore/` (`ExploreView` catálogo,
-  `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido), `src/App.tsx`
-  (Gate: guest → ExploreView; con sesión → tabs Inicio/Explorar + `RecordView` HU-07;
+  `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido),
+  `presentation/components/nav/Drawer.tsx` (sidebar), `src/App.tsx`
+  (Gate: entrada catálogo; con sesión → catálogo/perfil/record; pendientes ruta/perfil;
   HU-01/02 intactas).
 - Nota de mapa: `PlanMap` usa WebView + tiles OSM (sin Google SDK/API key) y funciona
   en Expo Go con internet; `react-native-maps` queda como dependencia sin uso directo
@@ -170,18 +175,18 @@ npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
 ```
 
 - Verificado: lint 0, suite 16/16, E2E backend 7/7 (registro, perfil, login, reglas),
-  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) OK.
+  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) y HU-03 ("Explorar rutas") OK.
 - Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
   cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 
-## Servicios reutilizables HU-01/02 → HU-03… (para los devs)
+## Servicios reutilizables HU-01/02 → HU-04… (HU-03 y HU-07 implementadas arriba)
 
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
   (solo memoria, nunca persiste), `isAuthenticated`, `continueAsGuest()`, `exitGuest()`,
   `hasRole([...])`, `isAdmin`, `login/register/logout`.
-- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` + `RecordView` (HU-07);
-  guest → `ExploreView` (catálogo público); resto → `AuthView`.
-  Detalle de ruta (HU-03 C5): con gate de auth — sin sesión se guarda el `routeId`
-  pendiente y se continúa al detalle tras login.
+- Gate (`src/App.tsx`): con sesión → catálogo/perfil/record; sin sesión → catálogo
+  público; `AuthView` solo ante acción gated. Detalle de ruta (HU-03 C5): con gate
+  de auth — sin sesión se guarda el `routeId` pendiente y se continúa al detalle
+  tras login. Sidebar (`components/nav/Drawer.tsx`): INICIO/PERFIL, con o sin sesión.
 - Todo lo que escriba (GPS, offline, publicar) exige `isAuthenticated`; lo admin exige
   `hasRole(['admin'])`. Sin HU-09: no hay guard de moderación.

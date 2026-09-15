@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
-import { Compass, Search } from "lucide-react-native";
+import { Search } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import type { RouteModel, RouteDifficulty } from "../../../core/domain/types";
 import { ListPublishedRoutesUseCase } from "../../../core/application/explore/ListPublishedRoutes.usecase";
@@ -152,17 +152,13 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <Compass size={14} color={AndeanTheme.colors.primaryLight} />
-          <Text style={styles.badgeText}>HU-03 · EXPLORAR</Text>
-        </View>
-        {onBack ? (
+      {onBack ? (
+        <View style={styles.header}>
           <Pressable onPress={onBack} accessibilityLabel="Volver al inicio">
             <Text style={styles.link}>Inicio</Text>
           </Pressable>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       <Text style={styles.title}>Catálogo de rutas públicas</Text>
       {usingDemo ? (
@@ -240,29 +236,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AndeanTheme.colors.background,
     padding: 16,
+    paddingTop: 64,
     gap: 10,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: AndeanTheme.colors.primaryLight,
+    justifyContent: "flex-end",
   },
   link: {
     color: AndeanTheme.colors.primaryLight,
