@@ -1,259 +1,219 @@
 # trekkin-app — Historias de Usuario (Figura Oficial del Equipo)
 
-> **Alcance del Repositorio:**
-> - **✅ 100% Implementadas y Verificadas:** HU-01, HU-02, HU-03, HU-05, HU-07 y HU-10.
-> - **📋 Roadmap con Scaffold y Criterios Claros:** HU-04, HU-06 y HU-08.
-> - **🚫 HU-09 Eliminada Definitivamente:** El equipo resolvió prescindir del rol moderador. Roles vigentes en toda la plataforma: estrictamente `user` y `admin`.
+> **Revisión técnica 2026-09-15 (auditoría doc vs código).**
+> Regla de validación vigente: **100% solo con matriz Expo Go + dev-build completa + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
+>
+> **Modelo de mapa en dos capas (aplica a HU-03/04/06/07/08):**
+> - **Capa Usuario:** GPX (canónico) ↔ GeoJSON (render) | KML/KMZ/TCX/CSV/PLT/FIT solo import. Guarda la línea, waypoints, altitud y tiempo. Sin mapa base se dibuja sobre gris.
+> - **Capa Base:** vector tiles MBTiles/PMTiles + style JSON (OpenFreeMap, sin keys). Ríos, calles, curvas de nivel. Nada de carpetas PNG ni teselas en AsyncStorage.
+>
+> **Alcance real:**
+> - **🟢 Sólidas (≥85%):** HU-01, HU-02, HU-05, HU-10.
+> - **🟡 Parciales (50–70%, bloqueadas por mapa/offline):** HU-03, HU-06, HU-07, HU-08.
+> - **🔴 No funcional como offline real:** HU-04 (35%).
+> - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
 
 ---
 
-## HU-01: Registrar Cuenta — ✅ 100% implementada
+## HU-01: Registrar Cuenta — 🟢 95% funcional
 
-- **Rol:** Visitante (usuario nuevo no autenticado).
-- **Narrativa:** **Como** usuario nuevo de la plataforma **quiero** registrar una cuenta con mis datos personales y de acceso **para** ingresar a las funcionalidades protegidas de la aplicación y gestionar mi perfil de senderista.
+- **Rol:** Visitante.
+- **Narrativa:** **Como** usuario nuevo **quiero** registrar una cuenta con mis datos y acceso **para** ingresar a las funciones protegidas y gestionar mi perfil de senderista.
 - **Criterios de Aceptación (DoD):**
-  1. **Acceso al formulario:** Selección del modo "Registrarse" en [`AuthView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/AuthView.tsx) o desde el botón de registro en el Drawer.
-  2. **Campos obligatorios:** Nombre Completo, Correo Electrónico, Nombre de Usuario (alias), Contraseña, Confirmación de Contraseña y Checkbox de Aceptación de Normas de Seguridad en Montaña.
-  3. **Validación Zod estricta (`RegisterSchema`):**
-     - Correo con formato válido.
-     - Contraseña con longitud mínima de 8 caracteres.
-     - Coincidencia exacta entre contraseña y confirmación.
-     - Normalización automática del alias (remueve `@` inicial y espacios).
-     - Validación obligatoria de la casilla de términos de montaña.
-  4. **Unicidad de cuenta:** Detección de correos ya registrados contra Firebase Auth (`auth/email-already-in-use`) con propagación de mensaje amigable en español.
-  5. **Asignación automática de rol:** Todo usuario registrado se inicializa exclusivamente con el rol básico `user`, `summitsCount: 0` y `isBlocked: false`.
-  6. **Confirmación y flujo post-registro:** Mensaje de éxito ("¡Cuenta creada exitosamente!") y redirección automática al formulario de inicio de sesión (`signOut` inmediato sin sesión automática espuria).
+  1. ✅ Acceso al formulario: modo "Registrarse" en `src/presentation/views/auth/AuthView.tsx` o botón de registro en el Drawer.
+  2. ✅ Campos obligatorios: Nombre Completo, Correo, Alias, Contraseña, Confirmación y Checkbox de Normas de Seguridad en Montaña.
+  3. ✅ Validación Zod estricta (`RegisterSchema`): formato correo, mín. 8 caracteres, coincidencia exacta, normalización de alias (sin `@`/espacios), términos obligatorios.
+  4. ✅ Unicidad: `auth/email-already-in-use` con mensaje amigable en español.
+  5. ✅ Rol automático `user`, `summitsCount: 0`, `isBlocked: false`.
+  6. ✅ Post-registro: éxito + `signOut` inmediato + retorno a login (sin sesión espuria).
+- **Estado real y brecha (5%):** flujo verificado en Expo Go + suites. Falta: verificación de email y matriz en dev-build limpio.
 - **Mapeo Técnico:**
-  - *Dominio:* [`src/core/domain/auth.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/auth.schemas.ts) (`RegisterSchema`, `UserProfileSchema`).
-  - *Aplicación:* [`src/core/application/auth/RegisterUser.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/auth/RegisterUser.usecase.ts).
-  - *Infraestructura:* [`src/infrastructure/database/userProfileService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/userProfileService.ts), Firebase Authentication y Firestore (`users/{uid}`).
-  - *Presentación:* [`src/presentation/views/auth/RegisterForm.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/RegisterForm.tsx), [`AuthView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/AuthView.tsx).
+  - *Dominio:* `src/core/domain/auth.schemas.ts` (`RegisterSchema`, `UserProfileSchema`).
+  - *Aplicación:* `src/core/application/auth/RegisterUser.usecase.ts`.
+  - *Infraestructura:* `src/infrastructure/database/userProfileService.ts`, Firebase Auth + Firestore (`users/{uid}`).
+  - *Presentación:* `src/presentation/views/auth/RegisterForm.tsx`, `AuthView.tsx`.
 
 ---
 
-## HU-02: Sesión, Perfil e Identidad de Usuario — 🔄 En refinamiento / ampliación
+## HU-02: Sesión, Perfil e Identidad — 🟢 90% (refinamiento)
 
 - **Rol:** Usuario registrado / Administrador.
-- **Narrativa:** **Como** usuario registrado **quiero** gestionar mi sesión, consultar mi perfil de senderista y actualizar mis datos personales **para** mantener mi identidad al día, resguardar mi seguridad y visualizar mis métricas de montaña.
+- **Narrativa:** **Como** usuario registrado **quiero** gestionar mi sesión, consultar mi perfil y actualizar mis datos **para** mantener mi identidad al día y visualizar mis métricas.
 - **Criterios de Aceptación (DoD):**
-  1. **Acceso:** Desde el modo "Iniciar Sesión" en [`AuthView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/AuthView.tsx) o ante cualquier acción protegida que solicite autenticación.
-  2. **Campos requeridos:** Correo electrónico y contraseña.
-  3. **Seguridad visual:** Campo de contraseña con visibilidad protegida y botón de alternancia mostrar/ocultar contraseña (`Eye` / `EyeOff`).
-  4. **Validación de credenciales:** Evaluación con `LoginSchema`. Si las credenciales son inválidas, se muestra error informativo y no se establece sesión.
-  5. **Clasificación de fallos:** Discriminación técnica entre credenciales inválidas (error de autenticación) y fallas de conectividad de red (`isNetworkError`).
-  6. **Bloqueo preventivo de cuentas suspendidas:** Si el perfil tiene `isBlocked === true`, el login es rechazado inmediatamente con error explicativo ("Tu cuenta se encuentra suspendida").
-  7. **Sesión persistente y canónica:** Guardado seguro en AsyncStorage bajo la clave `trekkin_auth_user` (sin referencias a proyectos anteriores).
-  8. **Identidad visible:** Avatar con inicial, nombre y badge de rol (`ADMINISTRADOR` o `SENDERISTA`) en Drawer y pantalla de inicio [`HomeView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/home/HomeView.tsx).
-  9. **Cierre seguro:** Acción "Cerrar sesión" en [`HomeView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/home/HomeView.tsx) y en la vista de perfil que ejecuta `signOut`, purga la sesión local de AsyncStorage y devuelve al estado visitante.
-  10. **Consulta de Perfil (`ProfileView`):**
-      - Vista de perfil accesible desde el Drawer o desde la cabecera de identidad en [`HomeView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/home/HomeView.tsx).
-      - Muestra avatar con inicial o foto, nombre completo, alias público (`@username`) y badge de rol (`SENDERISTA` / `ADMINISTRADOR`).
-      - Barra de métricas de montaña: Cumbres alcanzadas (`summitsCount`), Km totales de ruta y Rutas grabadas.
-      - Sección de datos de cuenta: correo electrónico visible en modo **solo lectura** con badge "Verificado" (no editable).
-      - Acciones directas de seguridad (cambio de contraseña), personalización de tema visual y cierre de sesión.
-  11. **Modificación de Datos de Usuario (`EditProfileView`):**
-      - Formulario de edición con campos permitidos: Nombre Completo (`displayName`) y Nombre de Usuario / Alias (`username`).
-      - **Inmutabilidad y restricciones estrictas:**
-        - El correo electrónico es informativo y de **solo lectura** (previene desincronización con el proveedor de autenticación).
-        - El número telefónico / celular **no se recolecta ni se almacena** en el sistema por definición de alcance y privacidad.
-      - **Validación con `UpdateProfileSchema` (Zod):**
-        - Nombre Completo: obligatorio, mínimo 3 caracteres, máximo 150 caracteres.
-        - Nombre de Usuario: obligatorio, mínimo 3 caracteres, normalizado sin `@`, solo caracteres alfanuméricos, puntos y guiones bajos (`/^[a-zA-Z0-9_.]+$/`).
-      - **Acciones y persistencia:**
-        - Botón "Guardar cambios": valida campos con `UpdateProfileSchema`, ejecuta `UpdateUserProfile` use case, persiste en Firestore (`users/{uid}`), actualiza `AuthContext` y refresca AsyncStorage.
-        - Botón "Descartar modificaciones": cancela los cambios locales pendientes y retorna a la vista de perfil sin mutar datos.
+  1. ✅ Acceso desde "Iniciar Sesión" o ante acción protegida.
+  2. ✅ Campos: correo + contraseña.
+  3. ✅ Contraseña con toggle `Eye`/`EyeOff`.
+  4. ✅ `LoginSchema`; credencial inválida = error sin sesión.
+  5. ✅ Discriminación credencial inválida vs `isNetworkError`.
+  6. ✅ `isBlocked === true` rechaza login con mensaje "suspendida".
+  7. ✅ Sesión persistente en AsyncStorage `trekkin_auth_user`.
+  8. ✅ Avatar con inicial + nombre + badge (`ADMINISTRADOR`/`SENDERISTA`) en Drawer y `HomeView`.
+  9. ✅ Cierre seguro: `signOut` + purga local + retorno a visitante.
+  10. ⚠️ `ProfileView`: muestra avatar, alias, rol, métricas (`summitsCount`, Km, rutas) y correo solo lectura. Pendiente: cambio de contraseña y preferencia de tema cableados a backend.
+  11. ✅ `EditProfileView`: edita `displayName`/`username` con `UpdateProfileSchema` (3–150 / regex `/^[a-zA-Z0-9_.]+$/`), email solo lectura, sin teléfono (alcance/privacidad), Guardar/Descartar.
+- **Estado real y brecha (10%):** auth sólida. Falta cerrar acciones de `ProfileView` (password/theme) y matriz dev-build.
 - **Mapeo Técnico:**
-  - *Dominio:* `LoginSchema`, `UpdateProfileSchema` en [`src/core/domain/auth.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/auth.schemas.ts), `UserProfile` en [`types.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/types.ts).
-  - *Aplicación:* [`LoginUser.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/auth/LoginUser.usecase.ts), [`LogoutUser.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/auth/LogoutUser.usecase.ts), `UpdateUserProfile.usecase.ts`.
-  - *Infraestructura:* [`AuthContext.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/auth/AuthContext.tsx), [`userProfileService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/userProfileService.ts), Firebase Authentication y Firestore (`users/{uid}`).
-  - *Presentación:* [`LoginForm.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/LoginForm.tsx), [`HomeView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/home/HomeView.tsx), `ProfileView.tsx`, `EditProfileView.tsx`.
+  - *Dominio:* `LoginSchema`, `UpdateProfileSchema` en `src/core/domain/auth.schemas.ts`; `UserProfile` en `types.ts`.
+  - *Aplicación:* `LoginUser` / `LogoutUser` / `UpdateUserProfile` usecases.
+  - *Infraestructura:* `src/infrastructure/auth/AuthContext.tsx`, `userProfileService.ts`.
+  - *Presentación:* `LoginForm.tsx`, `HomeView.tsx`, `ProfileView.tsx`, `EditProfileView.tsx`.
 
 ---
 
-## HU-03: Explorar y Consultar Rutas Públicas — ✅ 100% implementada
+## HU-03: Explorar y Consultar Rutas — 🟡 70% (bloqueada por mapa base)
 
-- **Rol:** Visitante / Senderista autenticado.
-- **Narrativa:** **Como** senderista o visitante **quiero** explorar el catálogo de rutas públicas, buscar recorridos y consultar el detalle técnico completo con mapa interactivo **para** conocer las características técnicas (distancia, desnivel, tiempo, checkpoints) antes de realizar la excursión.
+- **Rol:** Visitante / Senderista.
+- **Narrativa:** **Como** senderista o visitante **quiero** explorar el catálogo público, buscar y ver el detalle técnico con mapa **para** evaluar la excursión antes de salir.
 - **Criterios de Aceptación (DoD):**
-  1. **Acceso libre sin fricción (Guest Libre):** Al abrir la app, la pantalla principal de entrada es el catálogo de rutas públicas [`ExploreView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/ExploreView.tsx). Tanto visitantes como usuarios logueados tienen acceso total a la consulta.
-  2. **Filtrado y búsqueda reactiva:**
-     - Búsqueda por texto (nombre de ruta, región o tramo).
-     - Filtro por chips de dificultad: `Todas`, `Fácil`, `Moderado`, `Difícil`, `Experto`.
-     - Validación Zod con `RouteFiltersSchema`.
-  3. **Tarjeta resumen de ruta ([`RouteCard`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteCard.tsx)):**
-     - Nombre de la ruta y tramo (inicio → final).
-     - Distancia en km y duración estimada en horas.
-     - Badge de dificultad y miniatura fotográfica (`route.photos[0]`) con fallback al icono de montaña.
-  4. **Detalle completo de ruta ([`RouteDetailView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteDetailView.tsx)):**
-     - Header con branding andino y botón de retorno al catálogo.
-     - Badge flotante de desnivel sobre el mapa (`+XX m`).
-     - Tarjeta horizontal de métricas divididas: Distancia, Desnivel, Tiempo (`Xh Ym`), Modalidad (`Solo` o `Acompañado`).
-     - Tarjeta de detalle de itinerario y descripción técnica.
-     - Listado de puntos de interés y checkpoints con categoría y notas.
-  5. **Mapa 100% nativo interactivo ([`PlanMap`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/PlanMap.tsx)):**
-     - Slippy Map propio implementado con primitivas puras de React Native (`View`, `Image`, `PanResponder`, `react-native-svg`), sin WebViews ni inyección de DOM HTML.
-     - Trazado de ruta (`trail`) con polilínea SVG y marcadores (`pointsOfInterest`).
-     - ~85 teselas pre-empaquetadas de La Paz en `assets/tflat/` que operan **100% offline** sin depender de servidores externos.
-  6. **Gate flexible y amigable:**
-     - Ver catálogo y ver detalle de cualquier ruta es **100% público**.
-     - Al presionar acciones que exigen sesión (ej: "Iniciar sesión / Crear cuenta" o futuras de grabación GPS), se abre [`AuthView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/auth/AuthView.tsx) pudiendo cancelar para retornar a la ruta sin perder el contexto.
+  1. ✅ Guest libre: `ExploreView` es la entrada; catálogo + detalle públicos.
+  2. ✅ Búsqueda texto + chips dificultad (`Todas/Fácil/Moderado/Difícil/Experto`) con `RouteFiltersSchema`.
+  3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, `photos[0]` con fallback.
+  4. ✅ `RouteDetailView`: header andino, badge desnivel, métricas (distancia/desnivel/tiempo/modalidad), itinerario, checkpoints con categoría/notas.
+  5. ❌ Mapa base vectorial offline: hoy `PlanMap` (slippy raster propio `View/Image/PanResponder` + SVG) golpea `tile.openstreetmap.org` → **403 en celular** (`<Image>` no envía `User-Agent`; viola Tile Usage Policy que prohíbe bulk/prefetch). Solo ~85 PNGs La Paz z9–12 en `assets/tflat/` (~1 MB); fuera de eso o en z13–19 = placeholder gris. `react-native-maps@1.27.2` declarado pero sin uso. **Destino: `TrekMap` MapLibre + style OpenFreeMap (sin keys) + GeoJSON.**
+  6. ✅ Gate amigable: acciones con sesión abren `AuthView` cancelable sin perder contexto.
+- **Estado real y brecha (30%):** catálogo/detalle/filtros OK. Mapa no es producción ni offline. Ver `docs/BACKLOG.md` F0–F1.
 - **Mapeo Técnico:**
-  - *Dominio:* [`route.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/route.schemas.ts) (`RouteSchema`, `RouteFiltersSchema`).
-  - *Aplicación:* [`ListPublishedRoutes.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/explore/ListPublishedRoutes.usecase.ts), [`SearchRoutes.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/explore/SearchRoutes.usecase.ts), [`GetRouteDetail.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/explore/GetRouteDetail.usecase.ts).
-  - *Infraestructura:* [`routeService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/routeService.ts), [`routeSeed.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/routeSeed.ts), [`tileCache.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/persistence/tileCache.ts).
-  - *Presentación:* [`ExploreView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/ExploreView.tsx), [`RouteCard.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteCard.tsx), [`RouteDetailView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteDetailView.tsx), [`Drawer.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/nav/Drawer.tsx).
+  - *Dominio:* `src/core/domain/route.schemas.ts`.
+  - *Aplicación:* `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` usecases.
+  - *Infraestructura:* `src/infrastructure/database/routeService.ts`, `routeSeed.ts`. Destino: `src/infrastructure/map/mapStyle.ts` + `offlinePacks.ts`.
+  - *Presentación:* `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `Drawer.tsx`. Destino: `components/map/TrekMap.tsx` (`PlanMap` queda solo fallback dev).
 
 ---
 
-## HU-04: Descargar Ruta Offline — ✅ 100% implementada
+## HU-04: Descargar Ruta Offline — 🔴 35% (no es offline de mapas)
 
 - **Rol:** Senderista autenticado.
-- **Narrativa:** **Como** senderista que va a zonas sin cobertura **quiero** descargar la información técnica y teselas de mapa de una ruta **para** consultarla en campo sin conexión a internet.
+- **Narrativa:** **Como** senderista sin cobertura **quiero** descargar ruta + mapa base **para** consultarla en campo sin internet.
 - **Criterios de Aceptación (DoD):**
-  1. **Punto de activación:** Botón "Descargar ruta" en el panel de acciones de [`RouteDetailView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteDetailView.tsx).
-  2. **Cálculo de almacenamiento:** El sistema calcula y muestra en un modal el peso aproximado de descarga (datos de ruta + checkpoints + teselas del bounding box del recorrido).
-  3. **Descarga y guardado local:**
-     - Almacenamiento en base de datos local / filesystem (`expo-file-system` o SQLite local).
-     - Progreso de descarga visual (indicador porcentual).
-  4. **Modo offline verificado:** Una vez completada la descarga, la ruta queda marcada con badge "Disponible offline" y puede consultarse en modo avión sin error de red.
+  1. ✅ Botón "Descargar ruta" en `RouteDetailView`.
+  2. ⚠️ Estimación: hoy `JSON.stringify().length` + fórmula `4096 + area*5120` — arbitraria, no mide tiles. Destino: bbox × zooms 12–16 × ~30 KB vector.
+  3. ❌ Guardado real: hoy 3 JSONs en AsyncStorage (`tileCacheDB.ts`) + teselas base64 en AsyncStorage (`tileCache.ts`, tope 1500 → ~50 MB teóricos vs límite ~6 MB Android = `QuotaExceeded` silencioso). Sin `expo-file-system`, sin MBTiles/PMTiles, sin progreso en bytes, sin resume/cancel/cuota/versionado. Destino: `OfflineManager.createPack({mapStyle, bounds, minZoom, maxZoom})` en DB nativa.
+  4. ❌ Modo avión: `OfflineRouteMap` es esquema SVG (retícula + línea), no mapa. Destino: `NetworkManager.setConnected(false)` + pack = mapa+ruta visibles.
+- **Estado real y brecha (65%):** flujo UI/existe, persistencia de mapa inexistente. Es la HU más sobrestimada del doc anterior.
+- **Mapeo Técnico (actual → destino):**
+  - Actual: `src/core/domain/offline.ts`, `DownloadRouteOffline` / `EstimateRouteDownloadSize` usecases, `tileCacheDB.ts`, `DownloadRouteModal.tsx`, `DownloadsView.tsx`.
+  - Destino: `CreatePack/DeletePack/InvalidatePack` usecases + `offlinePacks.ts` (MapLibre) + `packSpec` en Firestore.
 
 ---
 
-## HU-05: Compartir Ruta Publicada — ✅ 100% implementada
+## HU-05: Compartir Ruta Publicada — 🟢 85% funcional
 
-- **Rol:** Senderista / Usuario de la plataforma.
-- **Narrativa:** **Como** usuario de la aplicación **quiero** compartir una ruta pública mediante un enlace directo y redes sociales/mensajería **para** difundirla con amigos y compañeros de expedición.
+- **Rol:** Senderista / Usuario.
+- **Narrativa:** **Como** usuario **quiero** compartir una ruta pública por enlace y mensajería **para** difundirla con mi grupo.
 - **Criterios de Aceptación (DoD):**
-  1. **Acceso desde el detalle:** Botón de compartir en el panel de acciones de [`RouteDetailView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteDetailView.tsx).
-  2. **Validación de publicación:** `ShareRouteUseCase` valida en dominio que `status === 'published'`. Rutas en borrador (`draft`) o rechazadas no pueden compartirse.
-  3. **Enlace determinístico sin duplicación:** Construcción de URL canónica `trekkin-app://r/{routeId}` (o `exp://.../--/r/{routeId}`) basada en el `routeId` único de Firestore. No se duplican colecciones ni modelos de datos.
-  4. **Modal de difusión ([`ShareModal`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/ShareModal.tsx)):**
-     - Muestra el resumen de la ruta (título, región, distancia, tiempo, dificultad).
-     - Caja con el enlace generado.
-     - Botón "Copiar enlace": Copia al portapapeles con feedback visual ("Enlace copiado") vía `expo-clipboard`.
-     - Botón "Compartir…": Abre el Share Sheet nativo del dispositivo (WhatsApp, Telegram, etc.) con mensaje compuesto y enlace.
-  5. **Deep Linking reactivo:** Recepción y resolución automática de enlaces compartidos en [`App.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/App.tsx) (`Linking.addEventListener`), abriendo directamente el detalle de la ruta para cualquier usuario.
+  1. ✅ Botón compartir en `RouteDetailView`.
+  2. ✅ `ShareRouteUseCase` exige `status === 'published'`.
+  3. ✅ URL canónica `trekkin-app://r/{routeId}` por `routeId` Firestore, sin duplicar colecciones.
+  4. ✅ `ShareModal`: resumen + caja enlace + "Copiar enlace" (`expo-clipboard` + feedback) + Share Sheet nativo.
+  5. ✅ Deep link en `App.tsx` (`Linking.addEventListener`) abre el detalle.
+- **Estado real y brecha (15%):** flujo verificado. Falta: adjuntar `.gpx` al sheet y matriz dev-build. Futuro: compartir incluye pack offline disponible.
 - **Mapeo Técnico:**
-  - *Dominio:* [`src/core/domain/share.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/share.schemas.ts) (`SharePayloadSchema`, `SharedRouteLinkSchema`, `parseShareLink`).
-  - *Aplicación:* [`ShareRoute.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/share/ShareRoute.usecase.ts), [`CopyShareLink.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/share/CopyShareLink.usecase.ts), [`PublishShareLink.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/share/PublishShareLink.usecase.ts).
-  - *Infraestructura:* [`src/infrastructure/share/shareService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/share/shareService.ts) (`expo-clipboard`, `expo-linking`, `Share.share`).
-  - *Presentación:* [`ShareModal.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/ShareModal.tsx), [`RouteDetailView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteDetailView.tsx).
+  - *Dominio:* `src/core/domain/share.schemas.ts` (`SharePayloadSchema`, `parseShareLink`).
+  - *Aplicación:* `ShareRoute` / `CopyShareLink` / `PublishShareLink` usecases.
+  - *Infraestructura:* `src/infrastructure/share/shareService.ts`.
+  - *Presentación:* `ShareModal.tsx`, `RouteDetailView.tsx`.
 
 ---
 
-## HU-06: Realizar una Ruta Existente — ✅ 100% implementada
+## HU-06: Realizar una Ruta Existente — 🟡 60% (guía sin base offline ni background)
 
 - **Rol:** Senderista registrado.
-- **Narrativa:** **Como** senderista en campo **quiero** seguir una ruta publicada registrando mi actividad en tiempo real **para** guiarme con el trazado oficial, chequear checkpoints y guardar mi historial de ascenso.
+- **Narrativa:** **Como** senderista en campo **quiero** seguir una ruta con GPS en vivo **para** guiarme por el trazado oficial, chequear checkpoints y guardar mi historial.
 - **Criterios de Aceptación (DoD):**
-  1. **Vista de preparación ([`PrepareView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/PrepareView.tsx)):** Desde el detalle de la ruta o hub de actividades → botón "Iniciar recorrido" → verificación de señal GPS y distancia al punto inicial.
-  2. **Modo guía activo ([`TrackingView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/TrackingView.tsx)):**
-     - Visualización del trazado oficial superpuesto con la posición GPS en vivo del usuario en el mapa nativo [`PlanMap`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/PlanMap.tsx).
-     - Métricas en tiempo real: distancia recorrida, distancia restante, tiempo transcurrido y ritmo.
-  3. **Checkpoints interactivos:** Registro o confirmación de paso por paradas clave (fuentes de agua, zonas de descanso, pasos técnicos).
-  4. **Pausa y finalización:** Opciones de pausar, reanudar y finalizar actividad (guardando estado `completed` o `incomplete` en el historial personal con autosave dual local/Firestore).
+  1. ⚠️ `PrepareView`: muestra ruta + GPS + distancia al inicio, pero con badge "PROVISIONAL · primera ruta" (catálogo HU-03 no enlazado) y `getCurrentPosition` sin umbral de accuracy.
+  2. ⚠️ `TrackingView`: trazado oficial + posición + HUD (distancia/tiempo/restante) OK en foreground; sin follow-me, sin snap-to-route (`projectOnPolyline` existe en `calculations.ts` pero no se usa en vivo), sin off-route, sin círculo de accuracy. `fitTo` solo al montar.
+  3. ✅ Checkpoints auto-visitados por radio (hoy 120 m fijo, generoso) + manual.
+  4. ✅ Pausa/reanuda/finaliza con `completed`/`incomplete` + autosave local + Firestore al final. Sin subida incremental ni reintento real de `unsynced`; sin background (`expo-task-manager` + `ACCESS_BACKGROUND_LOCATION` ausentes → pantalla bloqueada corta el track; `Balanced` en vez de `High`).
+- **Estado real y brecha (40%):** máquina de estados + métricas OK. Guía de campo real pendiente de F0/F3. Ver `docs/BACKLOG.md` F3.
 - **Mapeo Técnico:**
-  - *Dominio:* [`src/core/domain/activity.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/activity.ts), [`activity.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/activity.schemas.ts), [`calculations.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/calculations.ts).
-  - *Aplicación:* [`StartActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/StartActivity.usecase.ts), [`BeginTracking.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/BeginTracking.usecase.ts), [`RecordPoint.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/RecordPoint.usecase.ts), [`PauseActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/PauseActivity.usecase.ts), [`ResumeActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/ResumeActivity.usecase.ts), [`FinishActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/FinishActivity.usecase.ts), [`ListActivities.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/ListActivities.usecase.ts), [`GetActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/GetActivity.usecase.ts).
-  - *Infraestructura:* [`activityService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/activityService.ts), [`locationService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/location/locationService.ts), [`useActivityStore.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/persistence/useActivityStore.ts).
-  - *Presentación:* [`ActivityView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/ActivityView.tsx), [`PrepareView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/PrepareView.tsx), [`TrackingView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/TrackingView.tsx), [`ResultView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/ResultView.tsx), [`HistoryView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/HistoryView.tsx), [`ActivityDetailView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/ActivityDetailView.tsx).
+  - *Dominio:* `src/core/domain/activity.ts`, `activity.schemas.ts`, `calculations.ts`.
+  - *Aplicación:* `Start/Begin/RecordPoint/Pause/Resume/Finish/List/GetActivity` usecases.
+  - *Infraestructura:* `activityService.ts`, `locationService.ts`, `useActivityStore.ts`. Destino: tracking sobre `TrekMap` + task background.
+  - *Presentación:* `ActivityView/PrepareView/TrackingView/ResultView/HistoryView/ActivityDetailView`.
 
 ---
 
-## HU-07: Planificar Nueva Ruta (Borrador) — ✅ 100% implementada
+## HU-07: Planificar Nueva Ruta (Borrador) — 🟡 70% (borrador OK, mapa e import pendientes)
 
 - **Rol:** Senderista autenticado.
-- **Narrativa:** **Como** explorador **quiero** trazar y planificar una nueva ruta estableciendo puntos provisionales en el mapa y guardándola como borrador **para** consolidar los datos técnicos antes de realizar la expedición.
+- **Narrativa:** **Como** explorador **quiero** trazar puntos provisionales y guardar borrador **para** consolidar datos antes de la expedición.
 - **Criterios de Aceptación (DoD):**
-  1. **Creación de borrador:** Acceso desde "Planificar Ruta" en el Drawer o en [`HomeView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/home/HomeView.tsx).
-  2. **Nombre provisional obligatorio:** Entrada obligatoria del nombre provisional antes del guardado.
-  3. **Selección de puntos en mapa:** Taps en el mapa nativo [`PlanMap`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/PlanMap.tsx) para fijar punto inicial provisional (verde) y punto destino provisional (ámbar).
-  4. **Persistencia dual (Nube y Local):**
-     - Guardado en Firestore (`routes/{id}`) con estado estricto `status: 'draft'`.
-     - Autosave local reactivo en AsyncStorage vía Zustand (`usePlanStore`) para no perder datos ante salidas de la app.
-  5. **Edición y recuperación de borradores:** Listado de borradores en [`DraftsView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/record/DraftsView.tsx) y edición de metadatos en [`PlanEditorView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/record/PlanEditorView.tsx).
-  6. **Confirmación de punto inicial real:** Captura de ubicación GPS del dispositivo (`expo-location`) para confirmar o ajustar el punto de partida real antes del handoff a grabación.
+  1. ✅ Acceso desde Drawer / `HomeView`.
+  2. ✅ Nombre provisional obligatorio.
+  3. ⚠️ Taps en `PlanMap` fijan inicio (verde)/destino (ámbar); sin undo/clear/drag, tap frágil (`measureInWindow`+`PanResponder` vs `ScrollView`).
+  4. ✅ Dual: Firestore `routes/{id}` `status:'draft'` + autosave Zustand/AsyncStorage.
+  5. ✅ `DraftsView` + `PlanEditorView` (listar/editar metadatos).
+  6. ⚠️ Confirmación GPS del inicio con `expo-location`, sin accuracy visible. Pendiente: `ImportTrackFile` (GPX/KML/KMZ/CSV/PLT) como punto de partida.
+- **Estado real y brecha (30%):** CRUD borrador sólido; edición geométrica e import pendientes.
 - **Mapeo Técnico:**
-  - *Dominio:* [`src/core/domain/plan.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/plan.ts), `plan.schemas.ts`.
-  - *Aplicación:* Casos de uso en [`src/core/application/plan/`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/plan/) (`SaveDraft`, `GetDraft`, `UpdatePlan`, `ConfirmStartPoint`, `MarkReadyForGps`).
-  - *Infraestructura:* [`routeService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/routeService.ts), [`usePlanStore.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/persistence/usePlanStore.ts).
-  - *Presentación:* [`RecordView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/record/RecordView.tsx), [`CreateRouteView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/record/CreateRouteView.tsx), [`PlanEditorView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/record/PlanEditorView.tsx).
+  - *Dominio:* `src/core/domain/plan.ts`, `plan.schemas.ts`. Destino: `trackFormats.ts`.
+  - *Aplicación:* `SaveDraft/GetDraft/UpdatePlan/ConfirmStartPoint/MarkReadyForGps`. Destino: `ImportTrackFile`.
+  - *Infraestructura:* `routeService.ts`, `usePlanStore.ts`. Destino: `trackFileService.ts` (`expo-document-picker`).
+  - *Presentación:* `RecordView/CreateRouteView/PlanEditorView/DraftsView`.
 
 ---
 
-## HU-08: Grabar Ruta con GPS — ✅ 100% implementada
+## HU-08: Grabar Ruta con GPS — 🟡 60% (registro OK, exportación y fondo pendientes)
 
 - **Rol:** Senderista autenticado.
-- **Narrativa:** **Como** montañista en ruta **quiero** registrar el trayecto mediante el sensor GPS del teléfono **para** medir la distancia real, registrar paradas y publicar una ruta auténtica en la plataforma.
+- **Narrativa:** **Como** montañista **quiero** registrar el trayecto con GPS **para** medir distancia real, paradas y publicar una ruta auténtica.
 - **Criterios de Aceptación (DoD):**
-  1. **Permisos y precisión:** Solicitud transparente de permisos de geolocalización en primer plano (`expo-location` vía `locationService`) con informe de precisión en metros.
-  2. **Grabación de waypoints:** Muestreo periódico de coordenadas (latitud, longitud, altitud) generando el arreglo ordenado de waypoints filtrado contra jitter (`cleanTrack`).
-  3. **Añadir paradas intermedias (checkpoints):** Registro de puntos de interés con categoría validada por Zod (agua, camping, peligro, vista panorámica, descanso, flora/fauna, refugio) y notas vía [`AddCheckpointUseCase`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/AddCheckpoint.usecase.ts).
-  4. **Resumen de fin de ruta:** Al pulsar "Finalizar", cálculo de distancia total, tiempo transcurrido, ritmo (min/km), velocidad (km/h), desnivel acumulado y persistencia en Firestore / local.
+  1. ⚠️ Permiso foreground con justificación OK; precisión reportada pero sin umbral de descarte (`accuracy<25 m` pendiente) ni `High`.
+  2. ✅ Muestreo lat/lng/alt + `cleanTrack` (jitter/saltos). Pendiente filtro altimetría.
+  3. ✅ Checkpoints con categoría Zod (agua/camping/peligro/vista/descanso/flora_fauna/refugio) + notas vía `AddCheckpointUseCase`.
+  4. ⚠️ Resumen (distancia/tiempo/ritmo/velocidad/desnivel) + persistencia local/Firestore OK; **sin export `.gpx`** (criterio real de "ruta auténtica" para Garmin/Wikiloc). TCX/FIT redundantes sin pulsómetro: solo import opcional.
+- **Estado real y brecha (40%):** graba bien en foreground; le falta fondo + GPX.
 - **Mapeo Técnico:**
-  - *Dominio:* [`activity.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/activity.schemas.ts), [`calculations.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/calculations.ts).
-  - *Aplicación:* [`AddCheckpoint.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/AddCheckpoint.usecase.ts), [`RecordPoint.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/RecordPoint.usecase.ts), [`FinishActivity.usecase.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/FinishActivity.usecase.ts).
-  - *Infraestructura:* [`locationService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/location/locationService.ts), [`useActivityStore.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/persistence/useActivityStore.ts).
-  - *Presentación:* [`TrackingView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/TrackingView.tsx), [`ResultView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/activity/ResultView.tsx).
+  - *Dominio:* `activity.schemas.ts`, `calculations.ts`. Destino: `trackFormats.ts` (`buildGPX11`).
+  - *Aplicación:* `AddCheckpoint/RecordPoint/FinishActivity`. Destino: `ExportTrackFile`.
+  - *Infraestructura:* `locationService.ts`, `useActivityStore.ts`. Destino: `expo-sharing`/`Share`.
+  - *Presentación:* `TrackingView.tsx`, `ResultView.tsx`.
 
 ---
 
-## HU-09: Moderación y Validación de Rutas — 🚫 ELIMINADA POR EL EQUIPO
+## HU-09: Moderación — 🚫 ELIMINADA
 
-> **Resolución Oficial:** El equipo de desarrollo eliminó formalmente el rol `moderator` y la historia de usuario HU-09.
-> - **Razones técnicas y de negocio:** Simplificación del modelo de autorización (RBAC) y foco en el MVP.
-> - **Roles del sistema vigentes:** Estrictamente `'user'` y `'admin'`.
-> - **Reglas Firestore y TypeScript:** No existe el valor `'moderator'` en `UserRole`, `firestore.rules` ni en los esquemas de dominio.
+Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin. Sin cambios.
 
 ---
 
-## HU-10: Gestionar Usuarios y Roles — ✅ 100% implementada
+## HU-10: Gestionar Usuarios y Roles — 🟢 90% funcional
 
-- **Rol:** Administrador de la plataforma.
-- **Narrativa:** **Como** administrador **quiero** listar los usuarios registrados, consultar su detalle, bloquear/desbloquear cuentas y cambiar roles con bitácora de auditoría **para** garantizar la seguridad de la plataforma y el control de accesos.
+- **Rol:** Administrador.
+- **Narrativa:** **Como** admin **quiero** listar, detallar, bloquear/desbloquear y cambiar roles con bitácora **para** asegurar la plataforma.
 - **Criterios de Aceptación (DoD):**
-  1. **Control de acceso estricto (RBAC):** La opción "Gestión Usuarios" en el Drawer solo se renderiza si `currentUser.role === 'admin'`. Acceso denegado a usuarios estándar.
-  2. **Búsqueda y filtros reactivos (`UserFiltersSchema`):**
-     - Búsqueda por texto (nombre, correo o alias).
-     - Filtro por estado: `Todos`, `Activos`, `Bloqueados`.
-     - Filtro por rol: `Todos`, `Usuarios`, `Administradores` (rechazo explícito de cualquier mención a moderador).
-  3. **Detalle de usuario ([`UserDetailView`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/UserDetailView.tsx)):** Visualización de UID, nombre completo, alias, correo, rol actual, estado de bloqueo y fecha de registro.
-  4. **Bloqueo y desbloqueo seguro:**
-     - Confirmación obligatoria vía [`ConfirmActionModal`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/ConfirmActionModal.tsx).
-     - `BlockUserUseCase` establece `isBlocked: true` y genera registro en `accountLogs`.
-     - `UnblockUserUseCase` restituye `isBlocked: false` y rehabilita el acceso.
-     - **Regla anti-autobloqueo:** Un administrador no puede bloquear su propia cuenta.
-     - **Regla de idempotencia:** Bloquear una cuenta ya bloqueada lanza error controlado.
-  5. **Asignación de roles:**
-     - Cambio de rol únicamente entre `user` y `admin`.
-     - **Regla anti-lockout:** Un administrador no puede degradar el rol de su propia cuenta.
-     - Registro auditado en `accountLogs` con `previousRole` y `newRole`.
-  6. **Bitácora de seguridad (`accountLogs`):** Toda acción administrativa (bloqueo, desbloqueo, cambio de rol) genera un documento inmutable en Firestore con actor, target, timestamp y detalle.
+  1. ✅ "Gestión Usuarios" solo si `role === 'admin'`.
+  2. ✅ Filtros texto + estado (`Todos/Activos/Bloqueados`) + rol (`Todos/Usuarios/Admins`, sin moderador) con `UserFiltersSchema`.
+  3. ✅ `UserDetailView`: UID, nombre, alias, correo, rol, bloqueo, registro.
+  4. ✅ Bloqueo/desbloqueo con `ConfirmActionModal` + `accountLogs`; anti-autobloqueo; idempotencia.
+  5. ✅ Roles solo `user`↔`admin`; anti-lockout propio; auditoría `previousRole/newRole`.
+  6. ✅ `accountLogs` inmutable, solo admin, `actorId === auth.uid`.
+- **Estado real y brecha (10%):** RBAC + bitácora verificados. Falta paginación/cursor en lista grande y matriz dev-build.
 - **Mapeo Técnico:**
-  - *Dominio:* [`userManagement.schemas.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/userManagement.schemas.ts), tipos `AccountLogEntry` y `AccountAction` en [`types.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/types.ts).
-  - *Aplicación:* Casos de uso en [`src/core/application/admin/`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/admin/) (`ListUsers`, `GetUserDetail`, `BlockUser`, `UnblockUser`, `AssignRole`).
-  - *Infraestructura:* [`accountLogService.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/infrastructure/database/accountLogService.ts), reglas de seguridad `isAdmin()` en `firestore.rules`.
-  - *Presentación:* [`UserManagementView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/UserManagementView.tsx), [`UserCard.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/UserCard.tsx), [`UserDetailView.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/UserDetailView.tsx), [`ConfirmActionModal.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/profile/ConfirmActionModal.tsx).
+  - *Dominio:* `userManagement.schemas.ts`, `AccountLogEntry` en `types.ts`.
+  - *Aplicación:* `ListUsers/GetUserDetail/BlockUser/UnblockUser/AssignRole`.
+  - *Infraestructura:* `accountLogService.ts`, `isAdmin()` en `firestore.rules`.
+  - *Presentación:* `UserManagementView/UserCard/UserDetailView/ConfirmActionModal`.
 
 ---
 
-## Matriz de Estado y Verificación Automatizada
+## Matriz de Estado Real y Suites
 
-| Historia | Módulo / Funcionalidad | Estado | Suite de Pruebas |
+| HU | Módulo | Estado real | Suite |
 | :--- | :--- | :---: | :--- |
-| **HU-01** | Registro de cuenta | ✅ 100% | `auth_hu1_hu2.test.ts` (casos de validación, duplicados y rol) |
-| **HU-02** | Inicio y cierre de sesión | ✅ 100% | `auth_hu1_hu2.test.ts` (casos de login, bloqueo y storage) |
-| **HU-03** | Explorar y consultar rutas | ✅ 100% | `ExploreView`, `RouteDetailView`, `PlanMap` offline |
-| **HU-04** | Descarga offline | ✅ 100% | `offline_hu4.test.ts` (11 pruebas de estimación, descarga e invariantes) |
-| **HU-05** | Compartir ruta publicada | ✅ 100% | `share_hu5.test.ts` (11 casos de enlace, copia y sheet) |
-| **HU-06** | Realizar ruta en vivo | ✅ 100% | `activity_hu6.test.ts` (31 pruebas de máquina de estados, GPS, use cases e historial) |
-| **HU-07** | Planificar nueva ruta | ✅ 100% | `plan_hu7.test.ts` (19 pruebas de schemas, use cases y tile cache) |
-| **HU-08** | Grabar ruta con GPS | ✅ 100% | `activity_hu8.test.ts` (10 pruebas de checkpoints, schemas, ritmo y desnivel) |
-| **HU-09** | Moderación de rutas | 🚫 Eliminada | N/A (rol moderador purgado) |
-| **HU-10** | Gestión de usuarios y roles | ✅ 100% | `user_management_hu10.test.ts` (22 casos T1–T17) |
+| HU-01 | Registro | 🟢 95% | `auth_hu1_hu2.test.ts` |
+| HU-02 | Sesión/perfil | 🟢 90% | `auth_hu1_hu2.test.ts` |
+| HU-03 | Explorar | 🟡 70% | catálogo/detalle OK; mapa 403 |
+| HU-04 | Offline | 🔴 35% | `offline_hu4.test.ts` (estima/descarga JSON, no tiles) |
+| HU-05 | Compartir | 🟢 85% | `share_hu5.test.ts` |
+| HU-06 | Realizar | 🟡 60% | `activity_hu6.test.ts` (máquina/GPS/historial, sin fondo) |
+| HU-07 | Planificar | 🟡 70% | `plan_hu7.test.ts` |
+| HU-08 | Grabar GPS | 🟡 60% | `activity_hu8.test.ts` |
+| HU-09 | Moderación | 🚫 — | N/A |
+| HU-10 | Admin/roles | 🟢 90% | `user_management_hu10.test.ts` |
 
-### Comando de Verificación Global:
 ```bash
-npm test
+npm run lint   # tsc --noEmit — 0 errores para cerrar
+npm test       # 7 suites en serie (120 casos)
+npx expo-doctor # obligatorio si tocas app.json/nativas/permisos
 ```
-> Ejecuta en serie las **7 suites de aceptación automatizadas**, validando un total de **120 pruebas automatizadas al 100%** de éxito sin dependencias mockeadas de runtime.
