@@ -7,17 +7,18 @@ import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
-import { RecordView } from "./presentation/views/record/RecordView";
+import { ActivityView } from "./presentation/views/activity/ActivityView";
 import { UserManagementView } from "./presentation/views/profile/UserManagementView";
 
 /**
- * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 + HU-10 funcionales.
- * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07)
+ * trekkin-app — HU-01 + HU-02 + HU-03 + HU-05 + HU-06 + HU-10 funcionales.
+ * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + Realizar ruta (HU-06)
  * + Gestión de Usuarios (HU-10, tab SOLO admin).
  * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
  * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
+ * HU-07 (planificar ruta) no vive en esta rama: se desarrolla sobre main.
  */
-type Screen = "home" | "explore" | "record" | "users";
+type Screen = "home" | "explore" | "activity" | "users";
 
 function Gate() {
   const { currentUser, isGuest, loading, isAdmin } = useAuth();
@@ -42,9 +43,9 @@ function Gate() {
     return <AuthView />;
   }
 
-  // HU-07: planificación de nueva ruta (borrador) desde el hub.
-  if (screen === "record") {
-    return <RecordView onClose={() => setScreen("home")} />;
+  // HU-06: realizar una ruta existente (actividad GPS) desde el hub.
+  if (screen === "activity") {
+    return <ActivityView onClose={() => setScreen("home")} />;
   }
 
   // HU-10: gestión de usuarios y roles — solo para rol admin (T9/T13).
@@ -98,7 +99,7 @@ function Gate() {
           </Pressable>
         ) : null}
       </View>
-      <HomeView onOpenRecord={() => setScreen("record")} />
+      <HomeView onOpenActivity={() => setScreen("activity")} />
     </View>
   );
 }

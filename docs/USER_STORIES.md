@@ -1,7 +1,8 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03, HU-05, HU-07 y HU-10 implementadas al 100%**.
-HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+Alcance real de esta rama (`Tapia`): **HU-01, HU-02, HU-03, HU-05, HU-06 y HU-10 implementadas al 100%**.
+HU-04 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+**HU-07 (planificar ruta) NO vive en esta rama**: se desarrolla sobre `main` (dueña Apaza).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
@@ -63,10 +64,10 @@ HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí
   5. Selección de ruta → detalle sin exigir sesión (guest libre).
   6. Detalle con descripción, inicio, final, métricas, características y puntos relevantes
      (`RouteDetailView` + `GetRouteDetailUseCase`, solo `published`).
-   7. Mapa interactivo 100% nativo: `PlanMap` en `components/map/`, sin WebView/Leaflet;
-      teselas pre-bundled de La Paz (zoom 9-12, assets estáticos) + caché AsyncStorage,
-      funciona 100% offline; marca HU-03 con `trail` + `pointsOfInterest`, zoom y
-      desplazamiento habilitados en nativo y web.
+  7. Mapa interactivo 100% nativo: `PlanMap` en `components/map/`, sin WebView/Leaflet;
+     teselas pre-bundled de La Paz (zoom 9-12, assets estáticos) + caché AsyncStorage,
+     funciona 100% offline; marca HU-03 con `trail` + `pointsOfInterest`, zoom y
+     desplazamiento habilitados en nativo y web.
 - Archivos: `core/domain/route.schemas.ts` (`RouteSchema`, `RouteFiltersSchema`),
   `core/application/explore/` (`ListPublishedRoutes`, `SearchRoutes`, `GetRouteDetail` usecases
   puros con puertos), `infrastructure/database/routeService.ts` (query `routes`
@@ -105,7 +106,7 @@ HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí
 - Dependencias: `expo-clipboard`, `expo-linking`, `"scheme": "trekkin-app"` en `app.json`.
 - Verificación: `npm run test` (suite `share_hu5.test.ts` con 11 casos al 100%).
 
-## HU-06: Realizar una ruta existente — dueños: Tapia, Beymar (scaffold)
+## HU-06: Realizar una ruta existente — dueños: Tapia, Beymar — ✅ 100% implementada
 
 - **Rol:** Usuario registrado. **Quiero** recorrer una ruta publicada registrando mi actividad
   **para** ir guiado, monitorear progreso y guardar mi historial.
@@ -113,17 +114,29 @@ HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí
   inicio) → “Iniciar actividad” → trazado oficial + posición + inicio/fin/puntos +
   distancia recorrida/restante + tiempo → checkpoints → pausar/reanudar → “Finalizar” →
   completa o incompleta → guarda en historial.
+- Arquitectura: `core/domain/activity.ts` + `activity.schemas.ts` + `calculations.ts` (puro),
+  8 use cases en `core/application/activity/` (puertos inyectados, sin Firebase/RN),
+  `infrastructure/location/locationService.ts` (única capa de `expo-location`),
+  `infrastructure/database/activityService.ts`, `useActivityStore.ts` (zustand + autosave),
+  vistas delgadas en `presentation/views/activity/` (hub → preparación → tracking → resultado
+  → historial → detalle). El `PlanMap` compartido (WebView + tiles OSM) es un superconjunto
+  de props: `start/end/currentLocation/trail/pointsOfInterest` (HU-03/07) +
+  `routeWaypoints/track/checkpoints/fitTo` (HU-06).
+- Verificación: `npm run lint` (0 errores) y suite `src/tests/activity_hu6.test.ts` (31 casos
+  de dominio + use cases puros). Falta matriz Expo Go (GPS + mapas) del equipo para el 100% oficial.
 
-## HU-07: Planificar nueva ruta — dueña: Apaza — ✅ 100% implementada
+## HU-07: Planificar nueva ruta — dueña: Apaza — ✅ 100% implementada (en `main`, NO en esta rama)
+
+> Esta rama (`Tapia`) borró el módulo `record/` (HU-07). Su contenido y evidencia viven en `main`.
 
 - **Rol:** Usuario autenticado. **Quiero** guardar una ruta como borrador **para**
   continuar planificando después y confirmar el punto inicial real.
 - Criterios:
   1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
-   2. Mapa interactivo 100% nativo (`PlanMap` propio, sin web components) con teselas
-      pre-bundled de La Paz (zoom 9-12, ~85 tiles, assets estáticos) que funcionan
-      100% offline sin depender de servidores; tiles de其他 zoom usan caché
-      AsyncStorage + OSM (con User-Agent propio, ≤5/s, rechazo persistente de 403).
+  2. Mapa interactivo 100% nativo (`PlanMap` propio, sin web components) con teselas
+     pre-bundled de La Paz (zoom 9-12, ~85 tiles, assets estáticos) que funcionan
+     100% offline sin depender de servidores; tiles de其他 zoom usan caché
+     AsyncStorage + OSM (con User-Agent propio, ≤5/s, rechazo persistente de 403).
   3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
   4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
   5. Autosave local (`usePlanStore` + AsyncStorage) → no se pierde al salir.
@@ -193,33 +206,34 @@ HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí
 
 ## Roadmap (scaffold, no implementado)
 
-| ID    | Historia                      | Ruta futura                                                      | Estado   |
-| ----- | ----------------------------- | ---------------------------------------------------------------- | -------- |
-| HU-04 | Descarga offline              | `persistence/tileCacheDB`                                        | scaffold |
-| HU-05 | Compartir ruta publicada      | modal en explore                                                 | scaffold |
-| HU-06 | Realizar ruta (actividad GPS) | `views/activity/` + `activityService`                            | scaffold |
-| HU-08 | Grabar ruta con GPS           | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
+| ID    | Historia                      | Ruta futura                                                      | Estado                   |
+| ----- | ----------------------------- | ---------------------------------------------------------------- | ------------------------ |
+| HU-04 | Descarga offline              | `persistence/tileCacheDB`                                        | scaffold                 |
+| HU-05 | Compartir ruta publicada      | modal en explore                                                 | ✅ 100% (sección arriba) |
+| HU-06 | Realizar ruta (actividad GPS) | `views/activity/` + `activityService`                            | ✅ 100% (sección arriba) |
+| HU-08 | Grabar ruta con GPS           | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold                 |
 
-Verificación y estado (90% — HU-01/02/03/07/10):
+Verificación y estado (90% — HU-01/02/03/05/06/10):
 
 ```bash
 npm run lint   # tsc --noEmit → 0 errores
-npm test       # suites HU-01/02 (16 casos, incluye Firestore en vivo) + HU-10 (22 casos T1–T17)
+npm test       # HU-01/02 (16) + HU-10 (22) + HU-05 (11) + HU-06 (31) → 80 casos
 ```
 
-- Verificado: lint 0, suite HU-01/02 16/16 + HU-10 22/22, E2E backend 7/7 (registro, perfil,
-  login, reglas), login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”), HU-03
-  ("Explorar rutas") y HU-10 ("Gestión de usuarios", tab solo admin) OK.
+- Verificado: lint 0, suites 80/80, E2E backend 7/7 (registro, perfil, login, reglas),
+  login en Expo Go + entrada a HU-03 ("Explorar rutas"), HU-06 ("Realizar ruta existente")
+  y HU-10 ("Gestión de usuarios", tab solo admin) OK.
 - Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
   cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 
-## Servicios reutilizables HU-01/02 → HU-04… (HU-03 y HU-07 implementadas arriba)
+## Servicios reutilizables HU-01/02 → HU-04… (HU-03 y HU-06 implementadas arriba; HU-07 en main)
 
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
   (solo memoria, nunca persiste), `isAuthenticated`, `continueAsGuest()`, `exitGuest()`,
   `hasRole([...])`, `isAdmin`, `login/register/logout`.
-- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` / `RecordView` (HU-07) y,
-  solo con `isAdmin`, el tab `Usuarios` (HU-10);
-  guest → `ExploreView` (catálogo + detalle, guest libre); resto → `AuthView`.
+- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` + acceso a
+  `ActivityView` (HU-06, "Realizar ruta existente") y, solo con `isAdmin`, el tab
+  `Usuarios` (HU-10); guest → `ExploreView` (catálogo + detalle, guest libre);
+  resto → `AuthView`. Sin `RecordView` (HU-07): módulo no incluido en esta rama.
 - Regla del guest: ver catálogo y detalle es libre. Todo lo que escriba
   (GPS, offline) exige `isAuthenticated` / `hasRole(['admin'])`.

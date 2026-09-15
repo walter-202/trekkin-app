@@ -1,35 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Image,
-  PanResponder,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type LayoutChangeEvent,
-  type PanResponderInstance,
-} from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
-import { Minus, Plus } from 'lucide-react-native';
-import type { PlannedPoint } from '../../../core/domain/plan';
-import {
-  tileCache,
-  ensureTilesReady,
-  fetchTileAsDataUri,
-} from '../../../infrastructure/persistence/tileCache';
-import {
-  TILE_SIZE,
-  MIN_ZOOM,
-  MAX_ZOOM,
-  clamp,
-  latLngToWorldPoint,
-  worldPointToLatLng,
-  zoomForBounds,
-  zoomForRegion,
-} from './mercator';
-import { AndeanTheme } from '../../theme';
-import LOCAL_TILES from '../../../assets/tileRegistry';
+import React, { useEffect, useMemo, useRef } from "react";
+import { StyleSheet, View } from "react-native";
+import { WebView } from "react-native-webview";
+import type { PlannedPoint } from "../../../core/domain/plan";
+import type { Checkpoint, Coordinates } from "../../../core/domain/types";
 
 /** Punto genérico del trazado (waypoints de HU-03, futuro track GPS de HU-08). */
 export interface TrailPoint {
@@ -46,655 +19,476 @@ export interface PointOfInterest {
   notes?: string;
 }
 
-/** Sustituye al `Region` de react-native-maps (mismo contrato). */
-export interface MapRegion {
+/**
+ * HU-07 + HU-03 + HU-06 — Mapa compartido (WebView + tiles OpenStreetMap, sin librerías externas).
+ * Mini slippy map propio (mercator) pintado en el WebView: no depende de Google ni de CDNs.
+ * Funciona en Expo Go (Android/iOS) sin API key (react-native-maps salía en negro:
+ * Expo Go dejó de soportar el SDK de Google Maps en Android).
+ * HU-07: tap en el mapa reporta coordenadas vía postMessage (`onPressCoordinate`).
+ * HU-03: visualización de trazado completo (`trail` → polyline SVG,
+ * `pointsOfInterest` → marcadores). Ambas props son opcionales: HU-07
+ * funciona igual sin pasarlas. Requiere internet (tiles remotos OSM).
+ * HU-06: trazado oficial (`routeWaypoints` verde), recorrido realizado
+ * (`track` azul, se actualiza en vivo), checkpoints publicados (marcadores
+ * dorados) y encuadre automático de cámara (`fitTo`).
+ */
+interface PlanRegion {
   latitude: number;
   longitude: number;
   latitudeDelta: number;
   longitudeDelta: number;
 }
 
-/**
- * Mapa compartido — HU-07 + HU-03.
- *
- * Renderiza teselas de OpenStreetMap con primitivas nativas de React Native
- * (View/Image/PanResponder + react-native-svg para el trazado): NO usa
- * WebView, iframes, Leaflet ni ninguna dependencia web. Funciona en nativo y
- * en web (Metro), y sobrevive sin internet: las teselas se cachean en
- * AsyncStorage (tileCache.ts) y, si fallan, la capa de puntos/trazado sigue
- * operativa sobre un lienzo neutro. Cumple la política de uso de OSM tiles.
- *
- * HU-07: selector de puntos (tap reporta coordenadas vía onPressCoordinate).
- * HU-03: visualización de trazado completo (`trail` → Polyline,
- * `pointsOfInterest` → marcadores).
- */
+interface PlanMapOverlay {
+  markers: MarkerData[];
+  trail: TrailPoint[];
+  route: Coordinates[];
+  track: Coordinates[];
+  checkpoints: Checkpoint[];
+}
+
 interface PlanMapProps {
   start?: PlannedPoint | null;
   end?: PlannedPoint | null;
   currentLocation?: PlannedPoint | null;
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;
-  initialRegion?: MapRegion;
+  initialRegion?: PlanRegion;
   height?: number;
   trail?: TrailPoint[];
   pointsOfInterest?: PointOfInterest[];
   accessibilityLabel?: string;
+  /** Trazado oficial de la ruta (polyline verde). */
+  routeWaypoints?: Coordinates[];
+  /** Recorrido realizado por el usuario (polyline azul). */
+  track?: Coordinates[];
+  /** Checkpoints publicados de la ruta (marcadores pequeños). */
+  checkpoints?: Checkpoint[];
+  /** Coordenadas a ajustar en la vista inicial de la cámara. */
+  fitTo?: Coordinates[];
 }
 
-interface ViewState {
+interface MarkerData {
   lat: number;
   lng: number;
-  zoom: number;
+  color: string;
+  title?: string;
 }
 
-interface Viewport {
-  w: number;
-  h: number;
+const DEFAULT_REGION: PlanRegion = {
+  latitude: -16.499,
+  longitude: -68.146,
+  latitudeDelta: 0.5,
+  longitudeDelta: 0.5,
+};
+
+function regionToZoom(region: PlanRegion): number {
+  const delta = Math.max(region.latitudeDelta, 0.0001);
+  return Math.max(1, Math.min(19, Math.round(Math.log2(360 / delta))));
 }
 
-interface TileCell {
-  z: number;
-  x: number;
-  y: number;
-  sx: number;
-  sy: number;
-}
-
-const DEFAULT_VIEW: ViewState = { lat: -16.499, lng: -68.146, zoom: 9 };
-const TAP_RADIUS = 12;
-// Teselas de OpenStreetMap: gratuitas, sin API key, con cumplimiento estricto
-// de la política de uso (User-Agent propio, ≤5/s, caché, sin reintentar 403).
-// https://operations.osmfoundation.org/policies/tiles/
-const TILE_URL = (z: number, x: number, y: number): string =>
-  `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
-const tileKeyStr = (z: number, x: number, y: number): string => `${z}/${x}/${y}`;
-
-const COLOR_START = '#10B981';
-const COLOR_END = '#F59E0B';
-const COLOR_CURRENT = '#3B82F6';
-const COLOR_TRAIL = '#10B981';
-
-function resolveInitialView(p: PlanMapProps): ViewState {
-  if (p.initialRegion) {
-    return {
-      lat: p.initialRegion.latitude,
-      lng: p.initialRegion.longitude,
-      zoom: clamp(
-        Math.round(zoomForRegion(p.initialRegion)),
-        MIN_ZOOM,
-        MAX_ZOOM,
-      ),
-    };
-  }
-  const pts: Array<{ lat: number; lng: number }> = [
-    ...(p.trail ?? []),
-    ...(p.pointsOfInterest ?? []),
-    ...(p.currentLocation ? [p.currentLocation] : []),
-    ...(p.start ? [p.start] : []),
-    ...(p.end ? [p.end] : []),
-  ];
-  if (pts.length === 0) return DEFAULT_VIEW;
-  const lats = pts.map((q) => q.lat);
-  const lngs = pts.map((q) => q.lng);
+/** Encuadre por bounds (HU-03): centra inicio/fin/waypoints con margen. */
+function boundsRegion(
+  points: Array<{ lat: number; lng: number }>,
+): PlanRegion | null {
+  if (points.length === 0) return null;
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
   const minLat = Math.min(...lats);
   const maxLat = Math.max(...lats);
   const minLng = Math.min(...lngs);
   const maxLng = Math.max(...lngs);
-  const zoom = clamp(
-    Math.round(
-      zoomForBounds(maxLat - minLat, maxLng - minLng, (minLat + maxLat) / 2, 340, 260),
-    ),
-    MIN_ZOOM,
-    MAX_ZOOM,
-  );
-  return { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2, zoom };
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.6),
+    longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.6),
+  };
 }
 
-const distance = (ax: number, ay: number, bx: number, by: number): number =>
-  Math.hypot(bx - ax, by - ay);
-
-export const PlanMap: React.FC<PlanMapProps> = (props) => {
-  const {
-    start,
-    end,
-    currentLocation,
-    onPressCoordinate,
-    height = 300,
-    trail,
-    pointsOfInterest,
-    accessibilityLabel,
-  } = props;
-
-  const [viewport, setViewport] = useState<Viewport>({ w: 0, h: 0 });
-  const [view, setView] = useState<ViewState>(() => resolveInitialView(props));
-  const [uris, setUris] = useState<Record<string, string>>({});
-  const [failed, setFailed] = useState<Record<string, boolean>>({});
-
-  const viewRef = useRef<ViewState>(view);
-  const viewportRef = useRef<Viewport>(viewport);
-  const originRef = useRef({ x: 0, y: 0 });
-  const pressRef = useRef(onPressCoordinate);
-  const wrapRef = useRef<View | null>(null);
-  const urisRef = useRef<Record<string, string>>({});
-  const inFlight = useRef<Set<string>>(new Set());
-  const attemptsRef = useRef<Record<string, number>>({});
-  const gesture = useRef({
-    mode: 'idle' as 'idle' | 'pan' | 'pinch',
-    lastDx: 0,
-    lastDy: 0,
-    pinchDist: 0,
-    baseZoom: DEFAULT_VIEW.zoom,
-    baseLat: 0,
-    baseLng: 0,
-  }).current;
-
-  pressRef.current = onPressCoordinate;
-
-  useEffect(() => {
-    void ensureTilesReady();
-  }, []);
-
-  const updateView = (next: ViewState): void => {
-    viewRef.current = next;
-    setView(next);
+/** Encuadre automático del recorrido realizado (HU-06). */
+function fitRegion(points: Coordinates[]): PlanRegion {
+  if (points.length === 0) return DEFAULT_REGION;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLng = Infinity;
+  let maxLng = -Infinity;
+  for (const p of points) {
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng);
+    maxLng = Math.max(maxLng, p.lng);
+  }
+  const latitudeDelta = Math.max(maxLat - minLat, 0.02) * 1.35;
+  const longitudeDelta = Math.max(maxLng - minLng, 0.02) * 1.35;
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta,
+    longitudeDelta,
   };
+}
 
-  const zoomBy = (delta: number): void => {
-    const v = viewRef.current;
-    updateView({
-      lat: v.lat,
-      lng: v.lng,
-      zoom: clamp(v.zoom + delta, MIN_ZOOM, MAX_ZOOM),
-    });
-  };
+function buildHtml(region: PlanRegion, initial: PlanMapOverlay): string {
+  const lat = region.latitude.toFixed(6);
+  const lng = region.longitude.toFixed(6);
+  const zoom = regionToZoom(region);
+  const markersJs = JSON.stringify(initial.markers);
+  const trailJs = JSON.stringify(initial.trail);
+  const routeJs = JSON.stringify(initial.route);
+  const trackJs = JSON.stringify(initial.track);
+  const checkpointsJs = JSON.stringify(
+    initial.checkpoints.map((cp) => ({ lat: cp.lat, lng: cp.lng })),
+  );
 
-  const panBy = (dx: number, dy: number): void => {
-    const v = viewRef.current;
-    if (!viewportRef.current.w || !viewportRef.current.h) return;
-    const world = latLngToWorldPoint(v.lat, v.lng, v.zoom);
-    const ll = worldPointToLatLng(world.x + dx, world.y + dy, v.zoom);
-    updateView({ lat: ll.lat, lng: ll.lng, zoom: v.zoom });
-  };
+  return `<!DOCTYPE html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<style>
+  * { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; background: #0E2E24; }
+  body { font-family: system-ui, sans-serif; }
+  #m { position: relative; width: 100%; height: 100%; touch-action: none; }
+  #layer { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .zoom { position: absolute; left: 10px; z-index: 10; width: 34px; height: 34px; border: none; border-radius: 8px; background: rgba(20,50,40,.92); color: #fff; font-size: 20px; line-height: 34px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+  .zoom:active { background: rgba(16,185,129,.9); }
+  #zin { bottom: 48px; }
+  #zout { bottom: 10px; }
+  #attribution { position: absolute; right: 6px; bottom: 4px; font-size: 10px; background: rgba(255,255,255,.85); color: #1F2937; padding: 0 4px; border-radius: 4px; }
+  .ckpt { position:absolute; width:12px; height:12px; border-radius:50%; background:#D97706; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.5); transform:translate(-6px,-6px); }
+</style>
+</head><body>
+<div id="m">
+  <div id="layer"></div>
+  <button class="zoom" id="zin">+</button>
+  <button class="zoom" id="zout">&ndash;</button>
+  <div id="attribution">&copy; OpenStreetMap contributors</div>
+</div>
+<script>
+(function () {
+  document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  document.addEventListener('touchstart', function (e) { if (e.touches.length > 1) { e.preventDefault(); } }, { passive: false });
 
-  const screenToLatLng = (px: number, py: number): { lat: number; lng: number } => {
-    const v = viewRef.current;
-    const world = latLngToWorldPoint(v.lat, v.lng, v.zoom);
-    return worldPointToLatLng(
-      world.x - viewportRef.current.w / 2 + px,
-      world.y - viewportRef.current.h / 2 + py,
-      v.zoom,
-    );
-  };
+  var map = document.getElementById('m');
+  var layer = document.getElementById('layer');
+  var Z = ${zoom};
+  var CX = ${lat};
+  var CY = ${lng};
+  var markers = ${markersJs};
+  var trail = ${trailJs};
+  var route = ${routeJs};
+  var track = ${trackJs};
+  var checkpoints = ${checkpointsJs};
+  var baseTx = 0, baseTy = 0, curTx = 0, curTy = 0;
 
-  const storeUri = (key: string, uri: string): void => {
-    if (urisRef.current[key]) return;
-    urisRef.current[key] = uri;
-    setUris({ ...urisRef.current });
-  };
+  function clampLat(v) { return Math.max(-85, Math.min(85, v)); }
+  function clampLng(v) { return ((v + 180) % 360 + 360) % 360 - 180; }
 
-  const loadTile = async (z: number, x: number, y: number): Promise<void> => {
-    const key = tileKeyStr(z, x, y);
-    if (urisRef.current[key] || inFlight.current.has(key)) return;
-    if (LOCAL_TILES[key]) return; // skip — asset local, no network needed
-    if (tileCache.isDenied(z, x, y)) return;
-    inFlight.current.add(key);
-    try {
-      await ensureTilesReady();
-      if (tileCache.isDenied(z, x, y)) return;
-      const cached = await tileCache.get(z, x, y);
-      if (cached) {
-        storeUri(key, cached);
-        return;
-      }
-      const res = await fetchTileAsDataUri(TILE_URL(z, x, y));
-      if (res.blocked) {
-        void tileCache.markDenied(z, x, y);
-        return;
-      }
-      if (res.dataUri) {
-        void tileCache.put(z, x, y, res.dataUri);
-        storeUri(key, res.dataUri);
-        return;
-      }
-      // Fallo transitorio (sin red/timeout): reintentar para no dejar cuadros grises.
-      const attempts = (attemptsRef.current[key] ?? 0) + 1;
-      attemptsRef.current[key] = attempts;
-      if (attempts <= 3) {
-        setTimeout(() => {
-          void loadTile(z, x, y);
-        }, 5000);
-      }
-    } finally {
-      inFlight.current.delete(key);
-    }
-  };
-
-  const panResponder = useRef<PanResponderInstance | null>(null);
-  if (panResponder.current === null) {
-    const onGrant = (evt: { nativeEvent: { touches: { pageX: number; pageY: number }[] } }): void => {
-      if (wrapRef.current && typeof wrapRef.current.measureInWindow === 'function') {
-        wrapRef.current.measureInWindow((x, y) => {
-          originRef.current = { x, y };
-        });
-      }
-      const touches = evt.nativeEvent.touches;
-      if (touches.length >= 2) {
-        gesture.mode = 'pinch';
-        gesture.pinchDist = distance(
-          touches[0].pageX,
-          touches[0].pageY,
-          touches[1].pageX,
-          touches[1].pageY,
-        );
-        const v = viewRef.current;
-        gesture.baseZoom = v.zoom;
-        gesture.baseLat = v.lat;
-        gesture.baseLng = v.lng;
-      } else {
-        gesture.mode = 'pan';
-        gesture.lastDx = 0;
-        gesture.lastDy = 0;
-      }
-    };
-
-    panResponder.current = PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: onGrant,
-      onPanResponderMove: (evt, gs) => {
-        const touches = evt.nativeEvent.touches;
-        if (touches.length >= 2) {
-          const a = touches[0];
-          const b = touches[1];
-          const d = distance(a.pageX, a.pageY, b.pageX, b.pageY);
-          if (gesture.mode !== 'pinch') {
-            gesture.mode = 'pinch';
-            gesture.pinchDist = d;
-            const v = viewRef.current;
-            gesture.baseZoom = v.zoom;
-            gesture.baseLat = v.lat;
-            gesture.baseLng = v.lng;
-            return;
-          }
-          if (gesture.pinchDist > 0) {
-            const ratio = d / gesture.pinchDist;
-            const nextZoom = clamp(
-              Math.round(gesture.baseZoom + Math.log2(ratio)),
-              MIN_ZOOM,
-              MAX_ZOOM,
-            );
-            if (nextZoom !== viewRef.current.zoom) {
-              updateView({
-                lat: gesture.baseLat,
-                lng: gesture.baseLng,
-                zoom: nextZoom,
-              });
-            }
-          }
-        } else {
-          if (gesture.mode === 'pinch') {
-            gesture.mode = 'pan';
-            gesture.lastDx = gs.dx;
-            gesture.lastDy = gs.dy;
-            return;
-          }
-          const dx = gs.dx - gesture.lastDx;
-          const dy = gs.dy - gesture.lastDy;
-          gesture.lastDx = gs.dx;
-          gesture.lastDy = gs.dy;
-          if (dx !== 0 || dy !== 0) panBy(dx, dy);
-        }
-      },
-      onPanResponderRelease: (_evt, gs) => {
-        const moved = Math.hypot(gs.dx, gs.dy);
-        if (gesture.mode === 'pan' && moved <= TAP_RADIUS) {
-          pressRef.current?.(
-            screenToLatLng(
-              gs.x0 - originRef.current.x,
-              gs.y0 - originRef.current.y,
-            ),
-          );
-        }
-        gesture.mode = 'idle';
-      },
-      onPanResponderTerminate: () => {
-        gesture.mode = 'idle';
-      },
-    });
+  function m2p(lat, lng, z) {
+    var n = Math.pow(2, z) * 256;
+    var x = (lng + 180) / 360 * n;
+    var latRad = lat * Math.PI / 180;
+    var y = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n;
+    return { x: x, y: y };
   }
 
-  const { tiles, topLeft } = useMemo(() => {
-    if (!viewport.w || !viewport.h) return { tiles: [] as TileCell[], topLeft: { x: 0, y: 0 } };
-    const world = latLngToWorldPoint(view.lat, view.lng, view.zoom);
-    const tl = { x: world.x - viewport.w / 2, y: world.y - viewport.h / 2 };
-    const maxIndex = Math.pow(2, view.zoom) - 1;
-    const x0 = Math.floor(tl.x / TILE_SIZE);
-    const y0 = Math.floor(tl.y / TILE_SIZE);
-    const x1 = Math.floor((tl.x + viewport.w) / TILE_SIZE);
-    const y1 = Math.floor((tl.y + viewport.h) / TILE_SIZE);
-    const out: TileCell[] = [];
-    for (let x = x0; x <= x1; x++) {
-      if (x < 0 || x > maxIndex) continue;
-      for (let y = y0; y <= y1; y++) {
-        if (y < 0 || y > maxIndex) continue;
-        out.push({
-          z: view.zoom,
-          x,
-          y,
-          sx: x * TILE_SIZE - tl.x,
-          sy: y * TILE_SIZE - tl.y,
-        });
+  function p2m(x, y, z) {
+    var n = Math.pow(2, z) * 256;
+    var lng = x / n * 360 - 180;
+    var latRad = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n)));
+    return { lat: latRad * 180 / Math.PI, lng: lng };
+  }
+
+  function render() {
+    var c = m2p(CX, CY, Z);
+    var w = map.clientWidth, h = map.clientHeight;
+    var n = Math.pow(2, Z);
+    var tx = c.x / 256, ty = c.y / 256;
+    var x0 = Math.floor(tx - w / 512), x1 = Math.ceil(tx + w / 512);
+    var y0 = Math.floor(ty - h / 512), y1 = Math.ceil(ty + h / 512);
+    var baseX = Math.floor(x0), baseY = Math.floor(y0);
+    baseTx = w / 2 - c.x + baseX * 256;
+    baseTy = h / 2 - c.y + baseY * 256;
+
+    layer.innerHTML = '';
+    for (var X = x0; X <= x1; X++) {
+      var ix = ((X % n) + n) % n;
+      for (var Y = y0; Y <= y1; Y++) {
+        if (Y < 0 || Y >= n) continue;
+        var img = document.createElement('img');
+        img.src = 'https://tile.openstreetmap.org/' + Z + '/' + ix + '/' + Y + '.png';
+        img.style.cssText = 'position:absolute;left:' + ((X - baseX) * 256) + 'px;top:' + ((Y - baseY) * 256) + 'px;width:256px;height:256px;';
+        img.addEventListener('error', function () { this.style.background = '#223D33'; });
+        layer.appendChild(img);
       }
     }
-    return { tiles: out, topLeft: tl };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, viewport]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    tiles.forEach((t) => {
-      void loadTile(t.z, t.x, t.y);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiles]);
+    var svgW = (x1 - x0 + 1) * 256, svgH = (y1 - y0 + 1) * 256;
 
-  const onLayout = (e: LayoutChangeEvent): void => {
-    const { width, height: h } = e.nativeEvent.layout;
-    if (!width || !h) return;
-    viewportRef.current = { w: width, h };
-    setViewport({ w: width, h });
-    if (wrapRef.current && typeof wrapRef.current.measureInWindow === 'function') {
-      wrapRef.current.measureInWindow((x, y) => {
-        originRef.current = { x, y };
+    function addPolyline(pts, color, width) {
+      if (!pts || pts.length < 2) return;
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', svgW);
+      svg.setAttribute('height', svgH);
+      svg.style.cssText = 'position:absolute;left:0;top:0;pointer-events:none;';
+      var coords = [];
+      for (var t = 0; t < pts.length; t++) {
+        var tp = m2p(pts[t].lat, pts[t].lng, Z);
+        coords.push((tp.x - baseX * 256).toFixed(1) + ',' + (tp.y - baseY * 256).toFixed(1));
+      }
+      var pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+      pl.setAttribute('points', coords.join(' '));
+      pl.setAttribute('fill', 'none');
+      pl.setAttribute('stroke', color);
+      pl.setAttribute('stroke-width', width);
+      pl.setAttribute('stroke-linejoin', 'round');
+      pl.setAttribute('stroke-linecap', 'round');
+      pl.setAttribute('opacity', '0.9');
+      svg.appendChild(pl);
+      layer.appendChild(svg);
+    }
+
+    // Inicio > final > oficial > realizado: orden de pila (realizado arriba).
+    addPolyline(route, '#10B981', 4);
+    addPolyline(track, '#3B82F6', 3);
+    addPolyline(trail, '#34D399', 3);
+
+    for (var i = 0; i < checkpoints.length; i++) {
+      var ck = checkpoints[i];
+      var pc = m2p(ck.lat, ck.lng, Z);
+      var c = document.createElement('div');
+      c.className = 'ckpt';
+      c.style.left = (pc.x - baseX * 256) + 'px';
+      c.style.top = (pc.y - baseY * 256) + 'px';
+      layer.appendChild(c);
+    }
+
+    for (var k = 0; k < markers.length; k++) {
+      var mkv = markers[k];
+      var p = m2p(mkv.lat, mkv.lng, Z);
+      var d = document.createElement('div');
+      d.style.cssText = 'position:absolute;left:' + (p.x - baseX * 256) + 'px;top:' + (p.y - baseY * 256) + 'px;width:16px;height:16px;border-radius:50%;background:' + mkv.color + ';border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.5);transform:translate(-8px,-8px);';
+      if (mkv.title) { d.setAttribute('title', mkv.title); }
+      layer.appendChild(d);
+    }
+
+    layer.style.transform = 'translate(' + baseTx + 'px,' + baseTy + 'px)';
+  }
+
+  window.__setState = function (s) {
+    if (!s) { render(); return; }
+    if (Array.isArray(s.markers)) markers = s.markers;
+    if (Array.isArray(s.trail)) trail = s.trail;
+    if (Array.isArray(s.route)) route = s.route;
+    if (Array.isArray(s.track)) track = s.track;
+    if (Array.isArray(s.checkpoints)) checkpoints = s.checkpoints;
+    render();
+  };
+  window.__setMarkers = function (list) { markers = list || []; render(); };
+
+  map.addEventListener('pointerdown', function (e) {
+    if (e.target && e.target.tagName === 'BUTTON') return;
+    curTx = 0;
+    curTy = 0;
+    if (map.setPointerCapture) { try { map.setPointerCapture(e.pointerId); } catch (err) {} }
+    layer.style.transition = 'none';
+    window.__down = { x: e.clientX, y: e.clientY, moved: 0, baseTx: baseTx, baseTy: baseTy };
+  });
+
+  map.addEventListener('pointermove', function (e) {
+    var d = window.__down;
+    if (!d) return;
+    d.moved = Math.max(d.moved, Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y));
+    curTx = e.clientX - d.x;
+    curTy = e.clientY - d.y;
+    layer.style.transform = 'translate(' + (d.baseTx + curTx) + 'px,' + (d.baseTy + curTy) + 'px)';
+  });
+
+  function handleUp(e) {
+    var d = window.__down;
+    if (!d) return;
+    window.__down = null;
+    var rect = map.getBoundingClientRect();
+    var px = e.clientX - rect.left, py = e.clientY - rect.top;
+    if (d.moved < 6) {
+      var ll = p2m(px - (d.baseTx + curTx), py - (d.baseTy + curTy), Z);
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'press', lat: ll.lat, lng: ll.lng }));
+      }
+    } else {
+      var nc = p2m(map.clientWidth / 2 - (d.baseTx + curTx), map.clientHeight / 2 - (d.baseTy + curTy), Z);
+      CX = clampLat(nc.lat);
+      CY = clampLng(nc.lng);
+      render();
+    }
+  }
+  map.addEventListener('pointerup', handleUp);
+  map.addEventListener('pointercancel', handleUp);
+
+  document.getElementById('zin').addEventListener('click', function () { Z = Math.min(19, Z + 1); render(); });
+  document.getElementById('zout').addEventListener('click', function () { Z = Math.max(1, Z - 1); render(); });
+  window.addEventListener('resize', render);
+  render();
+})();
+</script>
+</body></html>`;
+}
+
+export const PlanMap: React.FC<PlanMapProps> = ({
+  start,
+  end,
+  currentLocation,
+  onPressCoordinate,
+  initialRegion,
+  height = 300,
+  trail,
+  pointsOfInterest,
+  accessibilityLabel,
+  routeWaypoints,
+  track,
+  checkpoints,
+  fitTo,
+}) => {
+  const webRef = useRef<WebView>(null);
+
+  // Encuadre: initialRegion > fitTo (HU-06) > trazado (HU-03) > La Paz (HU-07).
+  const region = useMemo(() => {
+    if (initialRegion) return initialRegion;
+    if (fitTo && fitTo.length > 0) return fitRegion(fitTo);
+    if (trail && trail.length > 0) {
+      const pts: Array<{ lat: number; lng: number }> = [...trail];
+      if (start) pts.push({ lat: start.lat, lng: start.lng });
+      if (end) pts.push({ lat: end.lat, lng: end.lng });
+      return boundsRegion(pts) ?? DEFAULT_REGION;
+    }
+    return DEFAULT_REGION;
+  }, [initialRegion, fitTo, trail, start, end]);
+
+  const points = useMemo<MarkerData[]>(() => {
+    const list: MarkerData[] = [];
+    if (start) {
+      list.push({
+        lat: start.lat,
+        lng: start.lng,
+        color: "#10B981",
+        title: start.name ?? "Punto inicial",
       });
     }
-  };
-
-  const toScreen = (p: { lat: number; lng: number }): { x: number; y: number } => {
-    const w = latLngToWorldPoint(p.lat, p.lng, view.zoom);
-    return { x: w.x - topLeft.x, y: w.y - topLeft.y };
-  };
-
-  const linePoints = useMemo(() => {
-    if (!trail || trail.length < 2) return '';
-    return trail
-      .map((p) => {
-        const s = toScreen(p);
-        return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
-      })
-      .join(' ');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trail, view, viewport]);
-
-  const renderTile = (t: TileCell) => {
-    const key = tileKeyStr(t.z, t.x, t.y);
-    // 1) Asset local pre-bundled (La Paz zoom 9-12) — funciona 100% offline
-    const localAsset = LOCAL_TILES[key];
-    if (localAsset) {
-      return (
-        <View
-          key={key}
-          pointerEvents="none"
-          style={[styles.tile, { left: t.sx, top: t.sy }]}
-        >
-          <Image
-            source={localAsset}
-            style={styles.tileImage}
-            fadeDuration={0}
-          />
-        </View>
-      );
+    if (end) {
+      list.push({
+        lat: end.lat,
+        lng: end.lng,
+        color: "#F59E0B",
+        title: end.name ?? "Destino",
+      });
     }
-    // 2) Cacheado en memoria (AsyncStorage — data URI)
-    // 3) Network (solo si no hay bloqueo OSM)
-    const uriSource = uris[key] ?? (
-      Platform.OS === 'web' && failed[key] ? null : TILE_URL(t.z, t.x, t.y)
-    );
-    return (
-      <View
-        key={key}
-        pointerEvents="none"
-        style={[styles.tile, { left: t.sx, top: t.sy }]}
-      >
-        {uriSource ? (
-          <Image
-            source={{ uri: uriSource }}
-            style={styles.tileImage}
-            onError={
-              Platform.OS === 'web'
-                ? () => {
-                    setFailed((prev) => ({ ...prev, [key]: true }));
-                    const attempts = (attemptsRef.current[key] ?? 0) + 1;
-                    attemptsRef.current[key] = attempts;
-                    if (attempts <= 3) {
-                      setTimeout(() => {
-                        setFailed((prev) => {
-                          if (!prev[key]) return prev;
-                          const next = { ...prev };
-                          delete next[key];
-                          return next;
-                        });
-                      }, 5000);
-                    }
-                  }
-                : undefined
-            }
-            fadeDuration={0}
-          />
-        ) : (
-          <View style={styles.tilePlaceholder} />
-        )}
-      </View>
-    );
-  };
+    if (currentLocation) {
+      list.push({
+        lat: currentLocation.lat,
+        lng: currentLocation.lng,
+        color: "#3B82F6",
+        title: currentLocation.name ?? "Ubicación actual",
+      });
+    }
+    for (const poi of pointsOfInterest ?? []) {
+      list.push({
+        lat: poi.lat,
+        lng: poi.lng,
+        color: "#10B981",
+        title: poi.name ?? "Punto relevante",
+      });
+    }
+    return list;
+  }, [start, end, currentLocation, pointsOfInterest]);
 
-  const MarkerDot: React.FC<{
-    p: { x: number; y: number };
-    color: string;
-    label?: string;
-  }> = ({ p, color, label }) => (
-    <View
-      pointerEvents="none"
-      style={[styles.markerWrap, { left: p.x - 9, top: p.y - 9 }]}
-    >
-      <View style={[styles.marker, { backgroundColor: color }]} />
-      {label ? (
-        <Text style={styles.markerLabel} numberOfLines={1}>
-          {label}
-        </Text>
-      ) : null}
-    </View>
+  // El HTML es estático por región; los overlays se actualizan en vivo vía __setState.
+  const html = useMemo(
+    () =>
+      buildHtml(region, {
+        markers: points,
+        trail: trail ?? [],
+        route: routeWaypoints ?? [],
+        track: track ?? [],
+        checkpoints: checkpoints ?? [],
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [region],
   );
+
+  const overlayState = useMemo(
+    () => ({
+      markers: points,
+      trail: trail ?? [],
+      route: routeWaypoints ?? [],
+      track: track ?? [],
+      checkpoints: (checkpoints ?? []).map((cp) => ({
+        lat: cp.lat,
+        lng: cp.lng,
+      })),
+    }),
+    [points, trail, routeWaypoints, track, checkpoints],
+  );
+
+  const injectOverlays = useMemo(
+    () => `window.__setState(${JSON.stringify(overlayState)}); true;`,
+    [overlayState],
+  );
+
+  useEffect(() => {
+    webRef.current?.injectJavaScript(injectOverlays);
+  }, [injectOverlays]);
+
+  const handleMessage = (event: { nativeEvent: { data: string } }) => {
+    if (!onPressCoordinate) return;
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (
+        data &&
+        data.type === "press" &&
+        typeof data.lat === "number" &&
+        typeof data.lng === "number"
+      ) {
+        onPressCoordinate({ lat: data.lat, lng: data.lng });
+      }
+    } catch {
+      // mensajes no estructurados se ignoran
+    }
+  };
 
   return (
     <View
-      ref={wrapRef}
-      onLayout={onLayout}
       style={[styles.wrap, { height }]}
-      accessibilityLabel={accessibilityLabel ?? 'Mapa de ruta'}
+      accessibilityLabel={accessibilityLabel ?? "Mapa de ruta"}
     >
-      {viewport.w > 0 && viewport.h > 0 ? (
-        <View
-          style={styles.viewport}
-          {...panResponder.current?.panHandlers}
-        >
-          {tiles.map(renderTile)}
-
-          {linePoints ? (
-            <Svg
-              width={viewport.w}
-              height={viewport.h}
-              style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            >
-              <Polyline
-                points={linePoints}
-                fill="none"
-                stroke={COLOR_TRAIL}
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={0.9}
-              />
-            </Svg>
-          ) : null}
-
-          {start ? (
-            <MarkerDot
-              p={toScreen(start)}
-              color={COLOR_START}
-              label={start.name ?? 'Inicio'}
-            />
-          ) : null}
-          {end ? (
-            <MarkerDot
-              p={toScreen(end)}
-              color={COLOR_END}
-              label={end.name ?? 'Destino'}
-            />
-          ) : null}
-          {currentLocation ? (
-            <MarkerDot
-              p={toScreen(currentLocation)}
-              color={COLOR_CURRENT}
-              label={currentLocation.name ?? 'Ubicación actual'}
-            />
-          ) : null}
-          {(pointsOfInterest ?? []).map((poi) => (
-            <MarkerDot
-              key={poi.id}
-              p={toScreen(poi)}
-              color={COLOR_START}
-              label={poi.name}
-            />
-          ))}
-        </View>
-      ) : null}
-
-      {viewport.w > 0 && viewport.h > 0 ? (
-        <View pointerEvents="box-none" style={styles.overlay}>
-          <View style={styles.controls}>
-            <Pressable
-              onPress={() => zoomBy(1)}
-              style={({ pressed }) => [styles.controlBtn, pressed && styles.controlBtnPressed]}
-              accessibilityLabel="Acercar mapa"
-            >
-              <Plus size={16} color={AndeanTheme.colors.primaryLight} />
-            </Pressable>
-            <Pressable
-              onPress={() => zoomBy(-1)}
-              style={({ pressed }) => [styles.controlBtn, pressed && styles.controlBtnPressed]}
-              accessibilityLabel="Alejar mapa"
-            >
-              <Minus size={16} color={AndeanTheme.colors.primaryLight} />
-            </Pressable>
-          </View>
-          <View pointerEvents="none" style={styles.attributionRow}>
-            <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
-          </View>
-        </View>
-      ) : null}
+      <WebView
+        ref={webRef}
+        source={{ html }}
+        style={styles.map}
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        onMessage={handleMessage}
+        onLoadEnd={() => webRef.current?.injectJavaScript(injectOverlays)}
+        bounces={false}
+        overScrollMode="never"
+        scrollEnabled={false}
+        nestedScrollEnabled={false}
+        allowsLinkPreview={false}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   wrap: {
-    width: '100%',
+    width: "100%",
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
+    borderColor: "#1A4537",
   },
-  viewport: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  tile: {
-    position: 'absolute',
-    width: TILE_SIZE,
-    height: TILE_SIZE,
-  },
-  tileImage: {
-    width: TILE_SIZE,
-    height: TILE_SIZE,
-  },
-  tilePlaceholder: {
-    width: TILE_SIZE,
-    height: TILE_SIZE,
-    backgroundColor: '#0A241C',
-    borderColor: '#153E32',
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    padding: 8,
-  },
-  controls: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  controlBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: 'rgba(6, 35, 27, 0.92)',
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlBtnPressed: {
-    opacity: 0.6,
-  },
-  attributionRow: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(6, 35, 27, 0.8)',
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  attribution: {
-    color: AndeanTheme.colors.textMuted,
-    fontSize: 9,
-  },
-  markerWrap: {
-    position: 'absolute',
-    width: 18,
-    alignItems: 'center',
-  },
-  marker: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#F9FAFB',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 4,
-  },
-  markerLabel: {
-    color: AndeanTheme.colors.text,
-    fontSize: 9,
-    fontWeight: '800',
-    marginTop: 2,
-    backgroundColor: 'rgba(6, 35, 27, 0.85)',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    overflow: 'hidden',
+  map: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#0E2E24",
   },
 });

@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
-    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts && npx tsx src/tests/user_management_hu10.test.ts && npx tsx src/tests/share_hu5.test.ts",
+    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts && npx tsx src/tests/user_management_hu10.test.ts && npx tsx src/tests/share_hu5.test.ts && npx tsx src/tests/activity_hu6.test.ts",
     "seed:test": "node scripts/seed-firestore.mjs",
     "seed:routes": "node scripts/seed-routes-propuesta.mjs"
   },
@@ -30,6 +30,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.2",
+    "react-native-webview": "13.16.1",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
