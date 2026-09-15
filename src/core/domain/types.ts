@@ -4,24 +4,25 @@
  * 100% compatible with Expo SDK 57 / React Native.
  */
 
-export type UserRole = 'user' | 'admin';
+export type UserRole = "user" | "admin";
 
-export type RouteDifficulty = 'facil' | 'moderado' | 'dificil' | 'experto';
+export type RouteDifficulty = "facil" | "moderado" | "dificil" | "experto";
 
-export type RouteModality = 'solo' | 'acompañado';
+export type RouteModality = "solo" | "acompañado";
 
-export type RouteStatus = 'draft' | 'in_review' | 'published' | 'rejected';
+export type RouteStatus = "draft" | "in_review" | "published" | "rejected";
 
 export type CheckpointCategory =
-  | 'agua'
-  | 'camping'
-  | 'peligro'
-  | 'vista'
-  | 'descanso'
-  | 'flora_fauna'
-  | 'refugio';
+  | "agua"
+  | "camping"
+  | "peligro"
+  | "vista"
+  | "descanso"
+  | "flora_fauna"
+  | "refugio";
 
-export type ActivityStatus = 'in_progress' | 'paused' | 'completed' | 'incomplete';
+export type ActivityStatus =
+  "in_progress" | "paused" | "completed" | "incomplete";
 
 export interface Coordinates {
   lat: number;
@@ -110,4 +111,20 @@ export interface UserProfile {
   createdAt: number;
 }
 
-export type TabKey = 'explore' | 'activity' | 'record' | 'profile' | 'auth' | 'tests';
+/** HU-10 — Acciones de administración registradas en bitácora (T7). */
+export type AccountAction = "block" | "unblock" | "role_change";
+
+/** HU-10 — Entrada de bitácora de gestión de cuentas (T7). */
+export interface AccountLogEntry {
+  id: string;
+  userId: string;
+  action: AccountAction;
+  actorId: string;
+  actorName?: string;
+  previousRole?: UserRole;
+  newRole?: UserRole;
+  createdAt: number;
+}
+
+export type TabKey =
+  "explore" | "activity" | "record" | "profile" | "auth" | "tests";
