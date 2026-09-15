@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Image } from "react-native";
 import { Mountain, Clock, Ruler } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -28,7 +28,15 @@ export const RouteCard: React.FC<{
     >
       <View style={styles.header}>
         <View style={styles.thumb}>
-          <Mountain size={18} color={AndeanTheme.colors.primaryLight} />
+          {route.photos?.[0] ? (
+            <Image
+              source={{ uri: route.photos[0] }}
+              style={styles.thumbImage}
+              accessibilityLabel={`Foto de ${route.title}`}
+            />
+          ) : (
+            <Mountain size={18} color={AndeanTheme.colors.primaryLight} />
+          )}
         </View>
         <View style={styles.titleWrap}>
           <Text style={styles.title} numberOfLines={1}>
@@ -84,7 +92,9 @@ const styles = StyleSheet.create({
     borderColor: AndeanTheme.colors.border,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  thumbImage: { width: 40, height: 40, borderRadius: 12 },
   titleWrap: { flex: 1 },
   title: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: "800" },
   region: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
