@@ -11,11 +11,12 @@ import { ExploreView } from "./presentation/views/explore/ExploreView";
 import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
 import { UserManagementView } from "./presentation/views/profile/UserManagementView";
+import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
 import { Drawer, type DrawerRoute } from "./presentation/components/nav/Drawer";
 import { AndeanTheme } from "./presentation/theme";
 import { parseShareLink } from "./core/domain/share.schemas";
 
-type Screen = "explore" | "profile" | "record" | "users";
+type Screen = "explore" | "profile" | "record" | "users" | "downloads";
 
 function Gate() {
   const { currentUser, loading, isAdmin } = useAuth();
@@ -54,6 +55,8 @@ function Gate() {
         setAuthRedirectScreen("record");
         setAuthOpen(true);
       }
+    } else if (route === "descargas") {
+      setScreen("downloads");
     } else if (route === "perfil") {
       if (currentUser) {
         setScreen("profile");
@@ -76,22 +79,29 @@ function Gate() {
     setAuthRedirectScreen(null);
   };
 
+  const handleAuthSuccess = () => {
+    setAuthOpen(false);
+    if (authRedirectScreen) {
+      setScreen(authRedirectScreen);
+      setAuthRedirectScreen(null);
+    }
+  };
+
   const activeDrawerRoute: DrawerRoute =
     screen === "users"
       ? "usuarios"
       : screen === "record"
         ? "record"
-        : screen === "profile"
-          ? "perfil"
-          : "inicio";
+        : screen === "downloads"
+          ? "descargas"
+          : screen === "profile"
+            ? "perfil"
+            : "inicio";
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <Mountain size={28} color={AndeanTheme.colors.primaryLight} />
-        <Text style={styles.loadingText}>
-          Conectando con el campamento base…
-        </Text>
+        <Mountain size={36} color={AndeanTheme.colors.primary} />
       </View>
     );
   }
@@ -100,17 +110,12 @@ function Gate() {
     return (
       <AuthView
         onBack={cancelAuth}
-        onSuccess={() => {
-          setAuthOpen(false);
-          if (authRedirectScreen) {
-            setScreen(authRedirectScreen);
-            setAuthRedirectScreen(null);
-          }
-        }}
+        onSuccess={handleAuthSuccess}
       />
     );
   }
 
+  // Vista activa principal
   let mainContent: React.ReactNode;
   if (pendingRouteId) {
     mainContent = (
@@ -125,10 +130,17 @@ function Gate() {
     );
   } else if (screen === "record") {
     mainContent = <RecordView onClose={() => setScreen("explore")} />;
+  } else if (screen === "downloads") {
+    mainContent = <DownloadsView onBack={() => setScreen("explore")} />;
   } else if (screen === "users" && isAdmin) {
     mainContent = <UserManagementView onBack={() => setScreen("explore")} />;
   } else if (screen === "profile" && currentUser) {
-    mainContent = <HomeView onOpenRecord={() => setScreen("record")} />;
+    mainContent = (
+      <HomeView
+        onOpenRecord={() => setScreen("record")}
+        onOpenDownloads={() => setScreen("downloads")}
+      />
+    );
   } else {
     mainContent = <ExploreView key={catalogKey} />;
   }

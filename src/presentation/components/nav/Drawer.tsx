@@ -7,11 +7,18 @@ import {
   ShieldCheck,
   LogIn,
   X,
+  HardDrive,
 } from "lucide-react-native";
 import type { UserProfile } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
 
-export type DrawerRoute = "inicio" | "record" | "perfil" | "usuarios" | "login";
+export type DrawerRoute =
+  | "inicio"
+  | "record"
+  | "descargas"
+  | "perfil"
+  | "usuarios"
+  | "login";
 
 interface DrawerProps {
   open: boolean;
@@ -68,7 +75,7 @@ export const Drawer: React.FC<DrawerProps> = ({
   });
   const backdropOpacity = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 1],
+    outputRange: [0, 0.6],
   });
 
   return (
@@ -164,6 +171,34 @@ export const Drawer: React.FC<DrawerProps> = ({
               PLANIFICAR RUTA
             </Text>
             <Text style={styles.itemSub}>Trazado y puntos provisionales</Text>
+          </View>
+        </Pressable>
+
+        {/* 3. Rutas descargadas (HU-04) */}
+        <Pressable
+          onPress={() => go("descargas")}
+          style={[styles.item, active === "descargas" && styles.itemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Ver rutas descargadas offline"
+        >
+          <HardDrive
+            size={18}
+            color={
+              active === "descargas"
+                ? AndeanTheme.colors.primaryLight
+                : AndeanTheme.colors.textSecondary
+            }
+          />
+          <View style={styles.itemTextWrap}>
+            <Text
+              style={[
+                styles.itemTitle,
+                active === "descargas" && styles.itemTitleActive,
+              ]}
+            >
+              DESCARGAS OFFLINE
+            </Text>
+            <Text style={styles.itemSub}>Rutas disponibles sin conexión</Text>
           </View>
         </Pressable>
 
