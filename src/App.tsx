@@ -1,80 +1,256 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { Mountain } from "lucide-react-native";
+import * as Linking from "expo-linking";
+import { Mountain, Menu, LogIn, User as UserIcon } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
+import { ProfileView, EditProfileView } from "./presentation/views/profile";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
+import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
+import { UserManagementView } from "./presentation/views/profile/UserManagementView";
+import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
+import { ActivityView } from "./presentation/views/activity/ActivityView";
+import { Drawer, type DrawerRoute } from "./presentation/components/nav/Drawer";
+import { AndeanTheme } from "./presentation/theme";
+import { parseShareLink } from "./core/domain/share.schemas";
+import type { RouteModel } from "./core/domain/types";
+import { useActivityStore } from "./infrastructure/persistence/useActivityStore";
 
-/**
- * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
- * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
- * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
- * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
- */
-type Screen = "home" | "explore" | "record";
+type Screen =
+  | "explore"
+  | "profile"
+  | "edit-profile"
+  | "record"
+  | "users"
+  | "downloads"
+  | "activity";
 
 function Gate() {
-  const { currentUser, isGuest, loading } = useAuth();
-  const [screen, setScreen] = useState<Screen>("home");
-  const isExplore = screen === "explore";
+  const { currentUser, loading, isAdmin } = useAuth();
+  const [screen, setScreen] = useState<Screen>("explore");
+  const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authRedirectScreen, setAuthRedirectScreen] =
+    useState<Screen | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [catalogKey, setCatalogKey] = useState(0);
+
+  // HU-05 C7 — Resolver enlaces compartidos r/{routeId}
+  useEffect(() => {
+    const handleUrl = (url: string) => {
+      const parsed = parseShareLink(url);
+      if (!parsed) return;
+      setPendingRouteId(parsed.routeId);
+      setScreen("explore");
+    };
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+    const sub = Linking.addEventListener("url", (e) => handleUrl(e.url));
+    return () => sub.remove();
+  }, []);
+
+  const handleNavigate = (route: DrawerRoute) => {
+    setPendingRouteId(null);
+    if (route === "inicio") {
+      setScreen("explore");
+      setCatalogKey((k) => k + 1);
+    } else if (route === "record") {
+      if (currentUser) {
+        setScreen("record");
+      } else {
+        setAuthRedirectScreen("record");
+        setAuthOpen(true);
+      }
+    } else if (route === "actividad") {
+      if (currentUser) {
+        setScreen("activity");
+      } else {
+        setAuthRedirectScreen("activity");
+        setAuthOpen(true);
+      }
+    } else if (route === "descargas") {
+      setScreen("downloads");
+    } else if (route === "perfil") {
+      if (currentUser) {
+        setScreen("profile");
+      } else {
+        setAuthRedirectScreen("profile");
+        setAuthOpen(true);
+      }
+    } else if (route === "usuarios") {
+      if (isAdmin) {
+        setScreen("users");
+      }
+    } else if (route === "login") {
+      setAuthRedirectScreen(null);
+      setAuthOpen(true);
+    }
+  };
+
+  const cancelAuth = () => {
+    setAuthOpen(false);
+    setAuthRedirectScreen(null);
+  };
+
+  const handleAuthSuccess = () => {
+    setAuthOpen(false);
+    if (authRedirectScreen) {
+      setScreen(authRedirectScreen);
+      setAuthRedirectScreen(null);
+    }
+  };
+
+  const handleStartActivity = async (route: RouteModel) => {
+    if (!currentUser) {
+      setAuthRedirectScreen("activity");
+      setAuthOpen(true);
+      return;
+    }
+    await useActivityStore
+      .getState()
+      .startRoute(currentUser.uid, currentUser.displayName, route.id);
+    setPendingRouteId(null);
+    setScreen("activity");
+  };
+
+  const activeDrawerRoute: DrawerRoute =
+    screen === "users"
+      ? "usuarios"
+      : screen === "record"
+        ? "record"
+        : screen === "activity"
+          ? "actividad"
+          : screen === "downloads"
+            ? "descargas"
+            : screen === "profile"
+              ? "perfil"
+              : "inicio";
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <Mountain size={28} color="#34D399" />
-        <Text style={styles.loadingText}>
-          Conectando con el campamento base…
-        </Text>
+        <Mountain size={36} color={AndeanTheme.colors.primary} />
       </View>
     );
   }
 
-  // Sin sesión ni guest solo existe AuthView (dueña de su modo register/login, HU-01/02).
-  // HU-01 C6: el redirect post-registro a login lo hace AuthView, no el Gate.
-  if (!currentUser) {
-    if (isGuest) return <ExploreView />;
-    return <AuthView />;
+  if (authOpen) {
+    return (
+      <AuthView
+        onBack={cancelAuth}
+        onSuccess={handleAuthSuccess}
+      />
+    );
   }
 
-  // HU-07: planificación de nueva ruta (borrador) desde el hub.
-  if (screen === "record") {
-    return <RecordView onClose={() => setScreen("home")} />;
-  }
-
-  // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
-  if (isExplore) {
-    return <ExploreView onBack={() => setScreen("home")} />;
+  // Vista activa principal
+  let mainContent: React.ReactNode;
+  if (pendingRouteId) {
+    mainContent = (
+      <RouteDetailView
+        routeId={pendingRouteId}
+        onBack={() => setPendingRouteId(null)}
+        onRequireAuth={() => {
+          setAuthRedirectScreen(null);
+          setAuthOpen(true);
+        }}
+        onStartActivity={handleStartActivity}
+      />
+    );
+  } else if (screen === "record") {
+    mainContent = <RecordView onClose={() => setScreen("explore")} />;
+  } else if (screen === "activity") {
+    mainContent = <ActivityView onClose={() => setScreen("explore")} />;
+  } else if (screen === "downloads") {
+    mainContent = <DownloadsView onBack={() => setScreen("explore")} />;
+  } else if (screen === "users" && isAdmin) {
+    mainContent = <UserManagementView onBack={() => setScreen("explore")} />;
+  } else if (screen === "profile" && currentUser) {
+    mainContent = (
+      <ProfileView
+        onBack={() => setScreen("explore")}
+        onOpenEdit={() => setScreen("edit-profile")}
+        onOpenRecord={() => setScreen("record")}
+        onOpenDownloads={() => setScreen("downloads")}
+      />
+    );
+  } else if (screen === "edit-profile" && currentUser) {
+    mainContent = (
+      <EditProfileView
+        onBack={() => setScreen("profile")}
+        onSuccess={() => setScreen("profile")}
+      />
+    );
+  } else {
+    mainContent = (
+      <ExploreView key={catalogKey} onStartActivity={handleStartActivity} />
+    );
   }
 
   return (
-    <View style={styles.authedWrap}>
-      <View style={styles.tabs}>
+    <View style={styles.gate}>
+      {/* Top Header Bar con menú hamburguesa, branding y acceso a perfil */}
+      <View style={styles.topBar}>
         <Pressable
-          onPress={() => setScreen("home")}
-          style={[styles.tab, !isExplore && styles.tabActive]}
+          onPress={() => setDrawerOpen(true)}
+          style={styles.burgerBtn}
           accessibilityRole="button"
-          accessibilityLabel="Ir al inicio"
+          accessibilityLabel="Abrir menú de navegación"
+          hitSlop={8}
         >
-          <Text style={[styles.tabText, !isExplore && styles.tabTextActive]}>
-            Inicio
-          </Text>
+          <Menu size={20} color={AndeanTheme.colors.primaryLight} />
         </Pressable>
-        <Pressable
-          onPress={() => setScreen("explore")}
-          style={[styles.tab, isExplore && styles.tabActive]}
-          accessibilityRole="button"
-          accessibilityLabel="Explorar rutas públicas"
-        >
-          <Text style={[styles.tabText, isExplore && styles.tabTextActive]}>
-            Explorar
-          </Text>
-        </Pressable>
+
+        <View style={styles.topBrand}>
+          <Mountain size={16} color={AndeanTheme.colors.primary} />
+          <Text style={styles.topTitle}>TREKKIN BOLIVIA</Text>
+        </View>
+
+        {currentUser ? (
+          <Pressable
+            onPress={() => setScreen("profile")}
+            style={styles.userBadgeBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Ver mi perfil"
+          >
+            <UserIcon size={14} color={AndeanTheme.colors.primaryLight} />
+            <Text style={styles.userBadgeText} numberOfLines={1}>
+              {currentUser.displayName.split(" ")[0]}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => {
+              setAuthRedirectScreen(null);
+              setAuthOpen(true);
+            }}
+            style={styles.loginBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Iniciar sesión o registrarse"
+          >
+            <LogIn size={13} color={AndeanTheme.colors.primaryLight} />
+            <Text style={styles.loginBtnText}>Entrar</Text>
+          </Pressable>
+        )}
       </View>
-      <HomeView onOpenRecord={() => setScreen("record")} />
+
+      {/* Contenido principal */}
+      <View style={styles.contentWrap}>{mainContent}</View>
+
+      {/* Drawer lateral */}
+      <Drawer
+        open={drawerOpen}
+        active={activeDrawerRoute}
+        currentUser={currentUser}
+        isAdmin={isAdmin}
+        onNavigate={handleNavigate}
+        onClose={() => setDrawerOpen(false)}
+      />
     </View>
   );
 }
@@ -93,26 +269,82 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#051712" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
-  loadingText: { color: "#9CA3AF", fontSize: 12 },
-  authedWrap: { flex: 1 },
-  tabs: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  tab: {
+  container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
+  gate: { flex: 1 },
+  center: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#1A4537",
-    backgroundColor: "#0E2E24",
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: AndeanTheme.colors.background,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
   },
-  tabActive: { backgroundColor: "#06231B" },
-  tabText: { color: "#9CA3AF", fontSize: 12, fontWeight: "800" },
-  tabTextActive: { color: "#34D399" },
+  loadingText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: AndeanTheme.spacing.md,
+    paddingVertical: 10,
+    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: AndeanTheme.colors.border,
+    zIndex: 10,
+  },
+  burgerBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topBrand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  topTitle: {
+    color: AndeanTheme.colors.text,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  userBadgeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: AndeanTheme.borderRadius.full,
+    maxWidth: 110,
+  },
+  userBadgeText: {
+    color: AndeanTheme.colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  loginBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: AndeanTheme.borderRadius.full,
+  },
+  loginBtnText: {
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  contentWrap: {
+    flex: 1,
+  },
 });

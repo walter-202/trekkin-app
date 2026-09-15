@@ -1,5 +1,9 @@
-export * from './StartActivity.usecase';
-export * from './RecordPoint.usecase';
-export * from './AddCheckpoint.usecase';
-export * from './FinishActivity.usecase';
-
+export * from "./StartActivity.usecase";
+export * from "./BeginTracking.usecase";
+export * from "./RecordPoint.usecase";
+export * from "./PauseActivity.usecase";
+export * from "./ResumeActivity.usecase";
+export * from "./FinishActivity.usecase";
+export * from "./ListActivities.usecase";
+export * from "./GetActivity.usecase";
+export * from "./AddCheckpoint.usecase";

@@ -22,6 +22,7 @@ import { RouteDetailView } from "./RouteDetailView";
 
 interface ExploreViewProps {
   onBack?: () => void;
+  onStartActivity?: (route: RouteModel) => void;
 }
 
 const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
@@ -38,7 +39,10 @@ const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
  * GPS/offline exigen `isAuthenticated` / `hasRole(['admin'])`.
  * Sin `firebase/*` aquí: solo usecases + `routeService` como puerto.
  */
-export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
+export const ExploreView: React.FC<ExploreViewProps> = ({
+  onBack,
+  onStartActivity,
+}) => {
   const { currentUser, isGuest, isAuthenticated, exitGuest } = useAuth();
   const [routes, setRoutes] = useState<RouteModel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,18 +62,15 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
         listPublished: () => routeService.listPublishedRoutes(),
       });
       if (data.length === 0) {
-        // Colección vacía en dev → seed demo para validar el flujo en Expo Go.
         setRoutes(SEED_PUBLISHED_ROUTES);
         setUsingDemo(true);
       } else {
         setRoutes(data);
         setUsingDemo(false);
       }
-    } catch (err: any) {
-      // Solo red → fallback demo (credenciales/reglas se propagan como error).
+    } catch {
       setRoutes(SEED_PUBLISHED_ROUTES);
       setUsingDemo(true);
-      setError("Sin conexión a Firestore. Mostrando datos demo.");
     } finally {
       setLoading(false);
     }
@@ -80,33 +81,23 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
   }, [loadCatalog]);
 
   const filtered = useMemo(() => {
-    // Filtro local reactivo (mismo criterio que el usecase, sin roundtrip).
     return routes.filter((r) => {
-      if (dificultad !== "todas" && r.difficulty !== dificultad) return false;
-      const q = texto.trim().toLowerCase();
-      if (!q) return true;
-      const hay = [
-        r.title,
-        r.description,
-        r.region,
-        r.startPoint.name,
-        r.endPoint.name,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return q.split(/\s+/).every((w) => hay.includes(w));
+      const matchText =
+        !texto.trim() ||
+        r.title.toLowerCase().includes(texto.trim().toLowerCase()) ||
+        r.region.toLowerCase().includes(texto.trim().toLowerCase());
+      const matchDiff = dificultad === "todas" || r.difficulty === dificultad;
+      return matchText && matchDiff;
     });
   }, [routes, texto, dificultad]);
 
-  const applySearch = useCallback(async () => {
-    // Validación Zod del filtro antes de consultar (fuente de verdad en dominio).
+  const onSearchSubmit = useCallback(async () => {
     try {
       const result = await SearchRoutesUseCase(
         { texto, dificultad: dificultad === "todas" ? undefined : dificultad },
         { listPublished: async () => routes },
       );
       setRoutes((prev) => {
-        // Mantiene el catálogo base; el render usa `filtered`. Solo valida.
         void result;
         return prev;
       });
@@ -127,6 +118,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
       <RouteDetailView
         routeId={selectedId}
         onBack={() => setSelectedId(null)}
+        onStartActivity={onStartActivity}
       />
     );
   }
@@ -160,7 +152,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
           style={styles.searchInput}
           value={texto}
           onChangeText={setTexto}
-          onSubmitEditing={applySearch}
+          onSubmitEditing={onSearchSubmit}
           placeholder="Buscar por nombre, región, inicio…"
           placeholderTextColor={AndeanTheme.colors.textMuted}
           returnKeyType="search"

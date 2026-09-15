@@ -95,6 +95,17 @@ service cloud.firestore {
              (!('observations' in data) || (data.observations is string && data.observations.size() <= 2000));
     }
 
+    function isValidAccountLog(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128 &&
+             data.action in ['block', 'unblock', 'role_change'] &&
+             data.actorId is string && data.actorId.size() > 0 && data.actorId.size() <= 128 &&
+             (!('actorName' in data) || (data.actorName is string && data.actorName.size() <= 150)) &&
+             (!('previousRole' in data) || data.previousRole in ['user', 'admin']) &&
+             (!('newRole' in data) || data.newRole in ['user', 'admin']) &&
+             data.createdAt is number;
+    }
+
     // Users collection rules (PII, Role protection, Self-management)
     match /users/{userId} {
       allow get, list: if isSignedIn();
@@ -171,6 +182,18 @@ service cloud.firestore {
                        isValidId(reviewId) &&
                        isValidReview(incoming());
       allow delete: if isAdmin();
+    }
+
+    // Account logs collection rules (HU-10 T7 — bitácora de bloqueo/desbloqueo/rol,
+    // escrita y leída solo por admin; el actor debe ser el propio admin autenticado).
+    match /accountLogs/{logId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidId(logId) &&
+                       isValidAccountLog(incoming()) &&
+                       logId == incoming().id &&
+                       incoming().actorId == request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }

@@ -1,61 +1,60 @@
-import { CoordinatesSchema, TrekkinActivitySchema } from '../../domain/activity.schemas';
-import type { Coordinates, TrekkinActivity } from '../../domain/types';
-import { haversineDistanceKm } from '../../domain/calculations';
+import type { LiveActivity } from "../../domain/activity";
+import { ACTIVITY_CONFIG } from "../../domain/activity";
+import { distanceM, isNearM } from "../../domain/calculations";
+import {
+  RecordedPointSchema,
+  type RecordedPointInput,
+} from "../../domain/activity.schemas";
 
 /**
- * HU-08 — Registrar una nueva coordenada GPS durante la grabación.
- * Caso de uso puro con puertos inyectados.
- * Acumula la distancia recorrida mediante Haversine y actualiza distancia restante.
+ * HU-06 — Registrar un punto GPS del recorrido.
+ * Solo se registran puntos cuando la actividad está EN_CURSO (no en pausa ni
+ * finalizada). Se descartan puntos demasiado cercanos (jitter) y saltos grandes
+ * (errores GPS); los checkpoints cercanos se marcan como visitados.
  */
 
-export interface RecordPointPorts {
-  saveLocalActivity?: (activity: TrekkinActivity) => Promise<void>;
-}
-
 export async function RecordPointUseCase(
-  args: {
-    activity: TrekkinActivity;
-    newPoint: Coordinates;
-    destination?: { lat: number; lng: number };
-  },
-  ports?: RecordPointPorts
-): Promise<TrekkinActivity> {
-  const { activity, newPoint, destination } = args;
-
-  // Solo se acumulan puntos si la actividad está en curso
-  if (activity.status !== 'in_progress') {
-    return activity;
+  activity: LiveActivity,
+  rawPoint: RecordedPointInput,
+): Promise<LiveActivity> {
+  if (activity.phase !== "in_progress") {
+    throw new Error(
+      "La actividad no está en curso. Reanúdala para continuar el registro.",
+    );
   }
 
-  const parsedPoint = CoordinatesSchema.parse(newPoint);
-  const points = activity.recordedPoints;
-  const lastPoint = points.length > 0 ? points[points.length - 1] : null;
+  const parsed = RecordedPointSchema.safeParse(rawPoint);
+  if (!parsed.success) {
+    throw new Error("Punto de ubicación inválido.");
+  }
+  const point = parsed.data;
 
-  let addedDistanceKm = 0;
-  if (lastPoint) {
-    addedDistanceKm = haversineDistanceKm(lastPoint, parsedPoint);
+  const completedCheckpoints = [...activity.completedCheckpoints];
+  for (const cp of activity.route.checkpoints) {
+    if (completedCheckpoints.includes(cp.id)) continue;
+    if (isNearM(point, cp, ACTIVITY_CONFIG.CHECKPOINT_RADIUS_M)) {
+      completedCheckpoints.push(cp.id);
+    }
   }
 
-  const newDistanceKm = Math.round((activity.distanceCoveredKm + addedDistanceKm) * 1000) / 1000;
-
-  let remainingKm = activity.remainingDistanceKm;
-  if (destination) {
-    remainingKm = haversineDistanceKm(parsedPoint, destination);
+  let recordedPoints = activity.recordedPoints;
+  if (recordedPoints.length === 0) {
+    recordedPoints = [point];
+  } else {
+    const last = recordedPoints[recordedPoints.length - 1];
+    const d = distanceM(last, point);
+    if (
+      d >= ACTIVITY_CONFIG.MIN_GPS_DELTA_M &&
+      d <= ACTIVITY_CONFIG.MAX_GPS_JUMP_M
+    ) {
+      recordedPoints = [...recordedPoints, point];
+    }
   }
 
-  const updated: TrekkinActivity = {
+  return {
     ...activity,
-    distanceCoveredKm: newDistanceKm,
-    remainingDistanceKm: remainingKm,
-    recordedPoints: [...points, parsedPoint],
+    recordedPoints,
+    completedCheckpoints,
+    updatedAt: Date.now(),
   };
-
-  TrekkinActivitySchema.parse(updated);
-
-  if (ports?.saveLocalActivity) {
-    await ports.saveLocalActivity(updated);
-  }
-
-  return updated;
 }
-

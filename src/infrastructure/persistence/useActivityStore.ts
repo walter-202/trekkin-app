@@ -1,476 +1,393 @@
-import { create } from 'zustand';
-import type * as Location from 'expo-location';
-import { appStorage } from './storage';
-import { locationAdapter } from '../location/locationAdapter';
-import { activityService } from '../database/activityService';
-import type {
-  Checkpoint,
-  CheckpointCategory,
-  Coordinates,
-  RouteDifficulty,
-  TrekkinActivity,
-} from '../../core/domain/types';
+import { create } from "zustand";
+import type { LiveActivity } from "../../core/domain/activity";
+import { toTrekkinActivity } from "../../core/domain/activity";
+import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
+import { appStorage } from "./storage";
+import { routeService } from "../database/routeService";
+import { SEED_PUBLISHED_ROUTES } from "../database/routeSeed";
+import { activityService } from "../database/activityService";
 import {
-  StartActivityUseCase,
-  RecordPointUseCase,
-  AddCheckpointUseCase,
+  locationService,
+  type GpsPosition,
+  type LocationWatch,
+} from "../location/locationService";
+import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
+import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
+import { RecordPointUseCase } from "../../core/application/activity/RecordPoint.usecase";
+import { PauseActivityUseCase } from "../../core/application/activity/PauseActivity.usecase";
+import { ResumeActivityUseCase } from "../../core/application/activity/ResumeActivity.usecase";
+import {
   FinishActivityUseCase,
-} from '../../core/application/activity';
+  type FinishActivityResult,
+} from "../../core/application/activity/FinishActivity.usecase";
+import {
+  AddCheckpointUseCase,
+  type AddCheckpointInput,
+} from "../../core/application/activity/AddCheckpoint.usecase";
+import { ListActivitiesUseCase } from "../../core/application/activity/ListActivities.usecase";
+import { GetActivityUseCase } from "../../core/application/activity/GetActivity.usecase";
 
 /**
- * HU-08 — Estado local de la actividad GPS en vivo (Zustand + AsyncStorage).
- * Administra el ciclo de vida de la grabación: seguimiento en primer plano (foreground),
- * acumulación de coordenadas mediante casos de uso, cronómetro, paradas y autosave local.
+ * HU-06 — Estado de la actividad (zustand) con autosave local.
+ * - La actividad en curso vive en AsyncStorage (clave trekking_activity_autosave),
+ *   por lo que no se pierde al salir de la pantalla ni ante pérdida de conexión.
+ * - El recorrido se persiste en Firestore al FINALIZAR (colección `activities`).
+ * - Si el guardado en Firestore falla (ej. sin red), la actividad se conserva en
+ *   una lista local de pendientes de sincronización y se muestra en el historial.
  */
+const AUTOSAVE_KEY = "trekking_activity_autosave";
+const UNSYNCED_KEY = "trekking_activity_unsynced";
 
-const ACTIVITY_AUTOSAVE_KEY = 'trekking_activity_autosave';
-
-export interface SavedActivitySession {
-  activity: TrekkinActivity;
-  checkpoints: Checkpoint[];
-  destination: { lat: number; lng: number } | null;
-  savedAt: number;
+function saveLive(live: LiveActivity): Promise<void> {
+  return appStorage.setItem(AUTOSAVE_KEY, JSON.stringify(live));
 }
 
-async function saveLocalActivitySession(
-  activity: TrekkinActivity,
-  checkpoints: Checkpoint[],
-  destination: { lat: number; lng: number } | null
-): Promise<void> {
-  const session: SavedActivitySession = {
-    activity,
-    checkpoints,
-    destination,
-    savedAt: Date.now(),
-  };
-  await appStorage.setItem(ACTIVITY_AUTOSAVE_KEY, JSON.stringify(session));
+function loadLive(): Promise<LiveActivity | null> {
+  return appStorage.getItem(AUTOSAVE_KEY).then((raw) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as LiveActivity;
+    } catch {
+      return null;
+    }
+  });
 }
 
-async function loadLocalActivitySession(): Promise<SavedActivitySession | null> {
-  const raw = await appStorage.getItem(ACTIVITY_AUTOSAVE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as SavedActivitySession;
-  } catch {
-    return null;
-  }
+function saveUnsynced(list: TrekkinActivity[]): Promise<void> {
+  return appStorage.setItem(UNSYNCED_KEY, JSON.stringify(list));
 }
 
-async function clearLocalActivitySession(): Promise<void> {
-  await appStorage.removeItem(ACTIVITY_AUTOSAVE_KEY);
+function loadUnsynced(): Promise<TrekkinActivity[] | null> {
+  return appStorage.getItem(UNSYNCED_KEY).then((raw) => {
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as TrekkinActivity[];
+    } catch {
+      return null;
+    }
+  });
 }
 
-// Variables a nivel de módulo para evitar múltiples intervalos o suscripciones huérfanas
-let timerInterval: ReturnType<typeof setInterval> | null = null;
-let gpsSubscription: Location.LocationSubscription | null = null;
+interface ActivityState {
+  live: LiveActivity | null;
+  activities: TrekkinActivity[];
+  unsynced: TrekkinActivity[];
+  lastResult: TrekkinActivity | null;
+  catalogRoutes: RouteModel[];
+  isLoading: boolean;
+  finishing: boolean;
+  error: string | null;
+  watch: LocationWatch | null;
 
-function clearTimerInterval(): void {
-  if (timerInterval !== null) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-}
-
-function stopGpsTracking(): void {
-  if (gpsSubscription) {
-    gpsSubscription.remove();
-    gpsSubscription = null;
-  }
-}
-
-export type ActivityTrackingStatus = 'idle' | 'in_progress' | 'paused' | 'completed';
-
-export interface ActivityState {
-  activity: TrekkinActivity | null;
-  status: ActivityTrackingStatus;
-  currentPosition: Coordinates | null;
-  recordedPoints: Coordinates[];
-  distanceCoveredKm: number;
-  remainingDistanceKm: number;
-  durationSeconds: number;
-  checkpoints: Checkpoint[];
-  gpsError: string | null;
-  isTracking: boolean;
-  destination: { lat: number; lng: number } | null;
-  suggestedDifficulty: RouteDifficulty | null;
-
-  // Acciones
-  startActivity: (params: {
-    userId: string;
-    userName: string;
-    routeId?: string;
-    routeTitle?: string;
-    destination?: { lat: number; lng: number };
-  }) => Promise<boolean>;
-  recordPoint: (point: Coordinates) => Promise<void>;
-  pauseActivity: () => Promise<void>;
-  resumeActivity: () => Promise<void>;
-  finishActivity: (elevationGainM?: number) => Promise<boolean>;
-  addCheckpoint: (params: {
-    name: string;
-    category: CheckpointCategory;
-    notes?: string;
-  }) => Promise<boolean>;
-  clearActivity: () => Promise<void>;
-  loadSavedActivity: () => Promise<boolean>;
-  setDestination: (dest: { lat: number; lng: number } | null) => void;
+  loadCatalog: () => Promise<void>;
+  startRoute: (
+    uid: string,
+    userName: string,
+    routeId: string,
+  ) => Promise<boolean>;
+  beginTracking: () => Promise<boolean>;
+  recordPoint: (p: GpsPosition) => Promise<void>;
+  pauseActivity: () => Promise<boolean>;
+  resumeActivity: () => Promise<boolean>;
+  finishActivity: () => Promise<FinishActivityResult | null>;
+  addCheckpoint: (input: AddCheckpointInput) => Promise<boolean>;
+  startWatch: () => Promise<boolean>;
+  stopWatch: () => void;
+  listActivities: (uid: string) => Promise<void>;
+  loadActivity: (id: string, uid: string) => Promise<TrekkinActivity | null>;
+  clearLive: () => Promise<void>;
   clearError: () => void;
 }
 
-function startTimerInterval(
-  get: () => ActivityState,
-  set: (partial: Partial<ActivityState> | ((state: ActivityState) => Partial<ActivityState>)) => void
-): void {
-  clearTimerInterval();
-  timerInterval = setInterval(() => {
-    const state = get();
-    if (state.status === 'in_progress' && state.activity) {
-      const nextDuration = state.durationSeconds + 1;
-      const updatedActivity: TrekkinActivity = {
-        ...state.activity,
-        durationSeconds: nextDuration,
-      };
-      set({
-        durationSeconds: nextDuration,
-        activity: updatedActivity,
-      });
-
-      // Autosave periódico cada 10 segundos
-      if (nextDuration % 10 === 0) {
-        saveLocalActivitySession(updatedActivity, state.checkpoints, state.destination);
-      }
-    }
-  }, 1000);
-}
-
-async function startGpsWatcher(
-  get: () => ActivityState,
-  set: (partial: Partial<ActivityState> | ((state: ActivityState) => Partial<ActivityState>)) => void
-): Promise<void> {
-  stopGpsTracking();
-  const sub = await locationAdapter.watchPosition(
-    (coords) => {
-      get().recordPoint(coords);
-    },
-    (errMsg) => {
-      set({ gpsError: errMsg });
-    }
-  );
-  if (sub) {
-    gpsSubscription = sub;
-    set({ isTracking: true });
-  } else {
-    set({ isTracking: false });
-  }
-}
-
 export const useActivityStore = create<ActivityState>((set, get) => ({
-  activity: null,
-  status: 'idle',
-  currentPosition: null,
-  recordedPoints: [],
-  distanceCoveredKm: 0,
-  remainingDistanceKm: 0,
-  durationSeconds: 0,
-  checkpoints: [],
-  gpsError: null,
-  isTracking: false,
-  destination: null,
-  suggestedDifficulty: null,
+  live: null,
+  activities: [],
+  unsynced: [],
+  lastResult: null,
+  catalogRoutes: [],
+  isLoading: false,
+  finishing: false,
+  error: null,
+  watch: null,
 
-  startActivity: async (params) => {
-    clearTimerInterval();
-    stopGpsTracking();
-
-    set({
-      gpsError: null,
-      status: 'in_progress',
-      isTracking: true,
-      suggestedDifficulty: null,
-      destination: params.destination ?? null,
-    });
-
+  loadCatalog: async () => {
+    set({ isLoading: true, error: null });
     try {
-      const initialPos = await locationAdapter.getCurrentPosition();
-
-      const activity = await StartActivityUseCase(
-        {
-          userId: params.userId,
-          userName: params.userName,
-          routeId: params.routeId,
-          routeTitle: params.routeTitle,
-          initialPosition: initialPos ?? undefined,
-          destination: params.destination,
-        },
-        {
-          saveLocalActivity: async (act) => {
-            await saveLocalActivitySession(act, [], params.destination ?? null);
-          },
+      // Restaurar actividad persistida (no se pierde al salir de la pantalla),
+      // pero solo si está en curso o pausada. Una selección sin iniciar (ready)
+      // o una actividad ya cerrada (finished) vuelve a mostrar el catálogo.
+      const restored = await loadLive();
+      if (restored) {
+        const resumable =
+          restored.phase === "in_progress" || restored.phase === "paused";
+        if (resumable) {
+          set({ live: restored });
+        } else {
+          await appStorage.removeItem(AUTOSAVE_KEY);
         }
-      );
-
+      }
+      let routes = await routeService.listPublishedRoutes();
+      if (routes.length === 0) {
+        // Fallback demo (mismo catálogo que HU-03): Firestore sin rutas
+        // `published` en dev → usa el seed local para no bloquear el flujo.
+        routes = SEED_PUBLISHED_ROUTES;
+      }
+      set({ catalogRoutes: routes, isLoading: false });
+    } catch {
       set({
-        activity,
-        status: 'in_progress',
-        currentPosition: initialPos,
-        recordedPoints: activity.recordedPoints,
-        distanceCoveredKm: activity.distanceCoveredKm,
-        remainingDistanceKm: activity.remainingDistanceKm,
-        durationSeconds: 0,
-        checkpoints: [],
-        isTracking: true,
+        catalogRoutes: SEED_PUBLISHED_ROUTES,
+        error: "Sin conexión a Firestore. Mostrando datos demo.",
+        isLoading: false,
       });
+    }
+  },
 
-      startTimerInterval(get, set);
-      await startGpsWatcher(get, set);
-
+  startRoute: async (uid, userName, routeId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const live = await StartActivityUseCase(
+        { routeId, userId: uid, userName },
+        {
+          getRoute: async (id) => {
+            const fromDb = await routeService.getRoute(id);
+            if (fromDb) return fromDb;
+            return SEED_PUBLISHED_ROUTES.find((r) => r.id === id) ?? null;
+          },
+        },
+      );
+      await saveLive(live);
+      set({ live, isLoading: false });
       return true;
-    } catch (err: any) {
-      clearTimerInterval();
-      stopGpsTracking();
-      const msg = err?.message ?? 'Error al iniciar la actividad';
+    } catch (err: unknown) {
       set({
-        status: 'idle',
-        isTracking: false,
-        gpsError: msg,
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar la ruta seleccionada.",
+        isLoading: false,
       });
       return false;
     }
   },
 
-  recordPoint: async (point: Coordinates) => {
-    const { status, activity, destination } = get();
-
-    // Actualiza siempre la posición en vivo para visualización en mapa
-    set({ currentPosition: point, gpsError: null });
-
-    // Solo acumula puntos si la actividad está en curso
-    if (status !== 'in_progress' || !activity) {
-      return;
-    }
-
+  beginTracking: async () => {
+    const live = get().live;
+    if (!live) return false;
+    set({ error: null });
     try {
-      const updated = await RecordPointUseCase(
-        {
-          activity,
-          newPoint: point,
-          destination: destination ?? undefined,
-        },
-        {
-          saveLocalActivity: async (act) => {
-            await saveLocalActivitySession(act, get().checkpoints, get().destination);
-          },
-        }
-      );
-
+      const updated = await BeginTrackingUseCase(live);
+      await saveLive(updated);
+      set({ live: updated });
+      return true;
+    } catch (err: unknown) {
       set({
-        activity: updated,
-        recordedPoints: updated.recordedPoints,
-        distanceCoveredKm: updated.distanceCoveredKm,
-        remainingDistanceKm: updated.remainingDistanceKm,
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la actividad",
       });
-    } catch (err) {
-      console.warn('Error registrando coordenada GPS:', err);
+      return false;
+    }
+  },
+
+  recordPoint: async (p) => {
+    const live = get().live;
+    if (!live || live.phase !== "in_progress") return;
+    try {
+      const point = {
+        lat: p.latitude,
+        lng: p.longitude,
+        timestamp: p.timestamp,
+        accuracy: p.accuracy,
+        altitude: p.altitude,
+        speed: p.speed,
+      };
+      const updated = await RecordPointUseCase(live, point);
+      await saveLive(updated);
+      set({ live: updated });
+    } catch {
+      // Punto descartado o estado inválido: no interrumpir el seguimiento.
     }
   },
 
   pauseActivity: async () => {
-    const { status, activity, checkpoints, destination } = get();
-    if (status !== 'in_progress' || !activity) return;
-
-    clearTimerInterval();
-
-    const updatedActivity: TrekkinActivity = {
-      ...activity,
-      status: 'paused',
-    };
-
-    set({
-      status: 'paused',
-      activity: updatedActivity,
-    });
-
-    await saveLocalActivitySession(updatedActivity, checkpoints, destination);
+    const live = get().live;
+    if (!live) return false;
+    set({ error: null });
+    try {
+      const updated = await PauseActivityUseCase(live);
+      get().stopWatch();
+      await saveLive(updated);
+      set({ live: updated });
+      return true;
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error ? err.message : "No se pudo pausar la actividad",
+      });
+      return false;
+    }
   },
 
   resumeActivity: async () => {
-    const { status, activity, checkpoints, destination } = get();
-    if (status !== 'paused' || !activity) return;
-
-    const updatedActivity: TrekkinActivity = {
-      ...activity,
-      status: 'in_progress',
-    };
-
-    set({
-      status: 'in_progress',
-      activity: updatedActivity,
-      gpsError: null,
-    });
-
-    startTimerInterval(get, set);
-    await startGpsWatcher(get, set);
-    await saveLocalActivitySession(updatedActivity, checkpoints, destination);
-  },
-
-  finishActivity: async (elevationGainM?: number) => {
-    const { activity, durationSeconds, currentPosition } = get();
-    if (!activity || get().status === 'completed') return false;
-
-    clearTimerInterval();
-    stopGpsTracking();
-
+    const live = get().live;
+    if (!live) return false;
+    set({ error: null });
     try {
-      const { activity: completed, suggestedDifficulty } = await FinishActivityUseCase(
-        {
-          activity,
-          durationSeconds,
-          elevationGainM,
-          finalPoint: currentPosition ?? undefined,
-        },
-        {
-          saveActivity: async (act) => {
-            await activityService.createActivity(act);
-          },
-          saveLocalActivity: async (act) => {
-            await saveLocalActivitySession(act, get().checkpoints, get().destination);
-          },
-        }
-      );
-
-      set({
-        activity: completed,
-        status: 'completed',
-        isTracking: false,
-        suggestedDifficulty,
-        distanceCoveredKm: completed.distanceCoveredKm,
-        durationSeconds: completed.durationSeconds,
-        recordedPoints: completed.recordedPoints,
-      });
-
+      const updated = await ResumeActivityUseCase(live);
+      await saveLive(updated);
+      set({ live: updated });
       return true;
-    } catch (err) {
-      console.warn('Error al guardar actividad en Firestore (fallback local):', err);
-      const now = Date.now();
-      const localCompleted: TrekkinActivity = {
-        ...activity,
-        status: 'completed',
-        finishedAt: now,
-        durationSeconds,
-        isSynced: false,
-      };
+    } catch (err: unknown) {
       set({
-        activity: localCompleted,
-        status: 'completed',
-        isTracking: false,
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo reanudar la actividad",
       });
-      await saveLocalActivitySession(localCompleted, get().checkpoints, get().destination);
-      return true;
-    }
-  },
-
-  addCheckpoint: async (params) => {
-    const { activity, currentPosition, recordedPoints } = get();
-    if (!activity) return false;
-
-    const pos =
-      currentPosition ?? (recordedPoints.length > 0 ? recordedPoints[recordedPoints.length - 1] : null);
-    if (!pos) {
-      set({ gpsError: 'No hay posición GPS para registrar la parada' });
-      return false;
-    }
-
-    try {
-      const nextCheckpoints = [...get().checkpoints];
-      const { activity: updatedActivity, checkpoint } = await AddCheckpointUseCase(
-        {
-          activity,
-          checkpoint: {
-            name: params.name,
-            category: params.category,
-            lat: pos.lat,
-            lng: pos.lng,
-            notes: params.notes,
-          },
-        },
-        {
-          saveLocalActivity: async (act) => {
-            await saveLocalActivitySession(
-              act,
-              [...nextCheckpoints, checkpoint],
-              get().destination
-            );
-          },
-        }
-      );
-
-      set({
-        activity: updatedActivity,
-        checkpoints: [...get().checkpoints, checkpoint],
-      });
-      return true;
-    } catch (err: any) {
-      set({ gpsError: err?.message ?? 'Error al registrar parada' });
       return false;
     }
   },
 
-  clearActivity: async () => {
-    clearTimerInterval();
-    stopGpsTracking();
-    await clearLocalActivitySession();
-    set({
-      activity: null,
-      status: 'idle',
-      currentPosition: null,
-      recordedPoints: [],
-      distanceCoveredKm: 0,
-      remainingDistanceKm: 0,
-      durationSeconds: 0,
-      checkpoints: [],
-      gpsError: null,
-      isTracking: false,
-      destination: null,
-      suggestedDifficulty: null,
-    });
-  },
-
-  loadSavedActivity: async () => {
-    const session = await loadLocalActivitySession();
-    if (!session || !session.activity) return false;
-
-    if (session.activity.status === 'in_progress' || session.activity.status === 'paused') {
-      const lastPoint =
-        session.activity.recordedPoints.length > 0
-          ? session.activity.recordedPoints[session.activity.recordedPoints.length - 1]
-          : null;
-
-      const pausedActivity: TrekkinActivity = {
-        ...session.activity,
-        status: 'paused',
-      };
-
-      set({
-        activity: pausedActivity,
-        status: 'paused',
-        currentPosition: lastPoint,
-        recordedPoints: pausedActivity.recordedPoints,
-        distanceCoveredKm: pausedActivity.distanceCoveredKm,
-        remainingDistanceKm: pausedActivity.remainingDistanceKm,
-        durationSeconds: pausedActivity.durationSeconds,
-        checkpoints: session.checkpoints ?? [],
-        destination: session.destination ?? null,
-        isTracking: false,
-        gpsError: null,
-      });
-
+  addCheckpoint: async (input: AddCheckpointInput) => {
+    const live = get().live;
+    if (!live) return false;
+    try {
+      const { activity } = AddCheckpointUseCase(live, input);
+      await saveLive(activity);
+      set({ live: activity });
       return true;
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo registrar la parada",
+      });
+      return false;
     }
-    return false;
   },
 
-  setDestination: (dest) => set({ destination: dest }),
+  finishActivity: async () => {
+    const live = get().live;
+    if (!live) return null;
+    set({ finishing: true, error: null });
+    get().stopWatch();
+    try {
+      const result = await FinishActivityUseCase(live, {
+        saveActivity: activityService.createActivity,
+        saveLocalActivity: saveLive,
+      });
+      set({
+        live: result.activity,
+        lastResult: result.saved,
+        finishing: false,
+      });
+      return result;
+    } catch (err: unknown) {
+      // Local primero, Firestore después: ante cualquier fallo de guardado se
+      // conserva un resultado local para que el Resultado SIEMPRE aparezca.
+      const raw = await loadLive();
+      const failed = raw && raw.phase === "finished" ? raw : null;
+      const liveNow = failed ?? get().live;
+      if (!liveNow) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo guardar la actividad. Intenta nuevamente.",
+          finishing: false,
+        });
+        return null;
+      }
+      const finishedNow: LiveActivity = failed ?? {
+        ...liveNow,
+        phase: "finished",
+        finishedAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      const pending = toTrekkinActivity(finishedNow, { isSynced: false });
+      const prev = (await loadUnsynced()) ?? [];
+      const next = [...prev.filter((a) => a.id !== pending.id), pending];
+      await saveUnsynced(next);
+      set({
+        live: finishedNow,
+        lastResult: pending,
+        unsynced: next,
+        finishing: false,
+        error: "No se pudo guardar la actividad. Intenta nuevamente.",
+      });
+      return { activity: finishedNow, saved: pending };
+    }
+  },
 
-  clearError: () => set({ gpsError: null }),
+  startWatch: async () => {
+    get().stopWatch();
+    const sub = await locationService.startWatching((p) => {
+      get().recordPoint(p);
+    });
+    set({ watch: sub });
+    return sub != null;
+  },
+
+  stopWatch: () => {
+    const { watch } = get();
+    if (watch) locationService.stopWatching(watch);
+    set({ watch: null });
+  },
+
+  listActivities: async (uid) => {
+    set({ isLoading: true, error: null });
+    try {
+      const joined = (await loadUnsynced()) ?? [];
+      const remote = await ListActivitiesUseCase(uid, {
+        listByUser: activityService.listUserActivities,
+      });
+      const merged = [
+        ...joined.filter((j) => !remote.some((r) => r.id === j.id)),
+        ...remote,
+      ].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      set({ activities: merged, unsynced: joined, isLoading: false });
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las actividades.",
+        isLoading: false,
+      });
+    }
+  },
+
+  loadActivity: async (id, uid) => {
+    set({ error: null });
+    const local = (
+      get().unsynced.length > 0
+        ? get().unsynced
+        : ((await loadUnsynced()) ?? [])
+    ).find((a) => a.id === id);
+    if (local) return local;
+    try {
+      return await GetActivityUseCase(
+        { id, userId: uid },
+        { get: activityService.getActivity },
+      );
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar la actividad.",
+      });
+      return null;
+    }
+  },
+
+  clearLive: async () => {
+    get().stopWatch();
+    set({ live: null, lastResult: null, error: null });
+    await appStorage.removeItem(AUTOSAVE_KEY);
+  },
+
+  clearError: () => set({ error: null }),
 }));
-

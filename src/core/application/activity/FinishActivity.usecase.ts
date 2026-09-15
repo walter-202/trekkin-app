@@ -1,73 +1,83 @@
-import { TrekkinActivitySchema } from '../../domain/activity.schemas';
-import type { Coordinates, RouteDifficulty, TrekkinActivity } from '../../domain/types';
-import { calculateTrackDistanceKm, suggestRouteDifficulty } from '../../domain/calculations';
+import type { LiveActivity } from "../../domain/activity";
+import {
+  ACTIVITY_CONFIG,
+  canTransition,
+  toTrekkinActivity,
+} from "../../domain/activity";
+import type {
+  ActivityStatus,
+  Coordinates,
+  TrekkinActivity,
+} from "../../domain/types";
+import { isNearM } from "../../domain/calculations";
 
 /**
- * HU-08 — Finalizar la actividad de grabación GPS.
- * Caso de uso puro con puertos inyectados.
- * Marca la actividad como 'completed', fija timestamp de finalización,
- * calcula métricas definitivas y sugiere nivel de dificultad.
+ * HU-06 — Finalizar la actividad.
+ * 1) Detiene el registro (transición → finished), 2) calcula distancia recorrida
+ * (por trayecto, no directa) y tiempo activo (sin pausas), 3) determina
+ * COMPLETA/INCOMPLETA con regla clara y configurable: se alcanzó el punto final
+ * (radio de END_RADIUS_M) o se cubrió al menos COMPLETE_COVERAGE_RATIO de la
+ * distancia oficial; si no, INCOMPLETA. 4) Guarda primero en autosave local y
+ * luego en Firestore, para no perder el recorrido ante una falla de red.
  */
 
 export interface FinishActivityPorts {
   saveActivity: (activity: TrekkinActivity) => Promise<void>;
-  saveLocalActivity?: (activity: TrekkinActivity) => Promise<void>;
+  saveLocalActivity: (activity: LiveActivity) => Promise<void>;
+}
+
+export interface FinishActivityResult {
+  activity: LiveActivity;
+  saved: TrekkinActivity;
 }
 
 export async function FinishActivityUseCase(
-  args: {
-    activity: TrekkinActivity;
-    durationSeconds?: number;
-    elevationGainM?: number;
-    finalPoint?: Coordinates;
-  },
-  ports: FinishActivityPorts
-): Promise<{ activity: TrekkinActivity; suggestedDifficulty: RouteDifficulty }> {
-  const { activity, elevationGainM, finalPoint } = args;
+  activity: LiveActivity,
+  ports: FinishActivityPorts,
+): Promise<FinishActivityResult> {
+  if (!canTransition(activity.phase, "finished")) {
+    throw new Error(
+      "No se puede finalizar una actividad que no está en curso ni pausada.",
+    );
+  }
+
   const now = Date.now();
+  const lastPoint = activity.recordedPoints[activity.recordedPoints.length - 1];
+  const sessionMs =
+    activity.phase === "in_progress" && activity.lastResumedAt != null
+      ? Math.max(0, now - activity.lastResumedAt)
+      : 0;
+  const elapsedMs = activity.accumulatedActiveMs + sessionMs;
 
-  const finalPoints = [...activity.recordedPoints];
-  if (finalPoint) {
-    const lastPoint = finalPoints.length > 0 ? finalPoints[finalPoints.length - 1] : null;
-    if (!lastPoint || lastPoint.lat !== finalPoint.lat || lastPoint.lng !== finalPoint.lng) {
-      finalPoints.push(finalPoint);
-    }
-  }
-
-  const finalDistanceKm =
-    finalPoints.length >= 2
-      ? calculateTrackDistanceKm(finalPoints)
-      : activity.distanceCoveredKm;
-
-  const duration =
-    args.durationSeconds !== undefined && args.durationSeconds >= 0
-      ? args.durationSeconds
-      : Math.max(0, Math.floor((now - activity.startedAt) / 1000));
-
-  const completedActivity: TrekkinActivity = {
+  // Regla clara: se alcanzó el final o se cubrió la mayor parte de la distancia oficial.
+  const reachedEnd = lastPoint
+    ? isNearM(lastPoint, activity.route.endPoint, ACTIVITY_CONFIG.END_RADIUS_M)
+    : false;
+  const distanceCoveredKm = toTrekkinActivity({
     ...activity,
-    status: 'completed',
+    accumulatedActiveMs: elapsedMs,
+  }).distanceCoveredKm;
+  const nearFullCoverage =
+    activity.route.distanceKm > 0 &&
+    distanceCoveredKm >=
+      activity.route.distanceKm * ACTIVITY_CONFIG.COMPLETE_COVERAGE_RATIO;
+  const finalStatus: ActivityStatus =
+    reachedEnd || nearFullCoverage ? "completed" : "incomplete";
+
+  const finished: LiveActivity = {
+    ...activity,
+    phase: "finished",
+    accumulatedActiveMs: elapsedMs,
+    lastResumedAt: null,
     finishedAt: now,
-    distanceCoveredKm: finalDistanceKm,
-    remainingDistanceKm: 0,
-    durationSeconds: duration,
-    recordedPoints: finalPoints,
+    finalStatus,
+    updatedAt: now,
   };
+  const saved = toTrekkinActivity(finished, { isSynced: true });
 
-  TrekkinActivitySchema.parse(completedActivity);
+  // Prioridad: no perder recorrido. Local primero, Firestore después.
+  await ports.saveLocalActivity(finished);
+  await ports.saveActivity(saved);
 
-  const suggestedDifficulty = suggestRouteDifficulty(finalDistanceKm, elevationGainM);
-
-  // Persiste en base de datos remota (Firestore)
-  await ports.saveActivity(completedActivity);
-
-  if (ports.saveLocalActivity) {
-    await ports.saveLocalActivity({ ...completedActivity, isSynced: true });
-  }
-
-  return {
-    activity: { ...completedActivity, isSynced: true },
-    suggestedDifficulty,
-  };
+  return { activity: finished, saved };
 }
-

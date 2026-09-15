@@ -1,12 +1,12 @@
-import { CreateCheckpointSchema, TrekkinActivitySchema } from '../../domain/activity.schemas';
-import type { Checkpoint, CheckpointCategory, TrekkinActivity } from '../../domain/types';
+import { CreateCheckpointSchema } from "../../domain/activity.schemas";
+import type { Checkpoint, CheckpointCategory } from "../../domain/types";
+import type { LiveActivity } from "../../domain/activity";
 
 /**
  * HU-08 — Añadir una parada o checkpoint durante la actividad.
- * Caso de uso puro con puertos inyectados.
- * Valida la parada con CreateCheckpointSchema (nombre, categoría, nota opcional, sin fotos).
- * TrekkinActivity.completedCheckpoints conserva exclusivamente los IDs de checkpoints (string[]).
- * El objeto Checkpoint completo se crea y retorna para su uso/presentación en la aplicación.
+ * Caso de uso puro.
+ * Valida la parada con CreateCheckpointSchema (nombre, categoría, nota opcional, sin fotos obligatorias).
+ * Agrega el checkpoint a liveActivity.newCheckpoints y su id a completedCheckpoints.
  */
 
 export interface AddCheckpointInput {
@@ -18,22 +18,15 @@ export interface AddCheckpointInput {
   id?: string;
 }
 
-export interface AddCheckpointPorts {
-  saveLocalActivity?: (activity: TrekkinActivity) => Promise<void>;
-}
-
 export function makeCheckpointId(): string {
   return `cp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function AddCheckpointUseCase(
-  args: {
-    activity: TrekkinActivity;
-    checkpoint: AddCheckpointInput;
-  },
-  ports?: AddCheckpointPorts
-): Promise<{ activity: TrekkinActivity; checkpoint: Checkpoint }> {
-  const parsed = CreateCheckpointSchema.parse(args.checkpoint);
+export function AddCheckpointUseCase(
+  activity: LiveActivity,
+  input: AddCheckpointInput,
+): { activity: LiveActivity; checkpoint: Checkpoint } {
+  const parsed = CreateCheckpointSchema.parse(input);
   const checkpointId = parsed.id || makeCheckpointId();
   const now = Date.now();
 
@@ -47,25 +40,23 @@ export async function AddCheckpointUseCase(
     createdAt: now,
   };
 
-  const currentCompleted = args.activity.completedCheckpoints ?? [];
+  const currentCompleted = activity.completedCheckpoints ?? [];
   const updatedCompleted = currentCompleted.includes(checkpointId)
     ? currentCompleted
     : [...currentCompleted, checkpointId];
 
-  const updatedActivity: TrekkinActivity = {
-    ...args.activity,
+  const currentNew = activity.newCheckpoints ?? [];
+  const updatedNew = [...currentNew, createdCheckpoint];
+
+  const updatedActivity: LiveActivity = {
+    ...activity,
     completedCheckpoints: updatedCompleted,
+    newCheckpoints: updatedNew,
+    updatedAt: now,
   };
-
-  TrekkinActivitySchema.parse(updatedActivity);
-
-  if (ports?.saveLocalActivity) {
-    await ports.saveLocalActivity(updatedActivity);
-  }
 
   return {
     activity: updatedActivity,
     checkpoint: createdCheckpoint,
   };
 }
-
