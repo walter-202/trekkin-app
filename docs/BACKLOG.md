@@ -50,6 +50,18 @@
 | BK-043 | Suites | Parsers con `.gpx/.kml/.tcx/.csv/.kmz/.plt` reales + pack create/invalidate + avión | `npm test` verde |
 | BK-044 | Docs | Actualizar `USER_STORIES.md` % + evidencias `TrekMap/OfflineManager/GPX` en el mismo commit | Sin % inflados |
 
+## F5 — Validación real y preguntas obligatorias a devs (transversal, sin esto no hay 100%)
+
+> Lo que faltó hasta ahora: agentes y harness codificaban sin preguntar. Estas tareas son gates, no opcionales.
+
+| ID | HU | Tarea | Qué cambia | DoD | Pri / Esf / Dep |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| BK-050 | Todas | Gate pre-codificación con `question` | Antes de tocar código de cualquier HU el agente DEBE preguntar (tool `question`): 1) HU + dueño + rama (`git branch --show-current`), 2) criterios pegados si la sección está en scaffold/desactualizada, 3) alcance exacto (ni un campo/botón de más). Sin respuestas no hay Fase 1 | Ningún diff sin HU declarada en voz alta ("Estamos en HU-0X, dueño Y") | P0 · 0.5d · — |
+| BK-051 | Todas | Matriz de validación real en dispositivo | Por cada HU tocada: Expo Go (flujo tocado) + dev-build limpio (`npx expo run:android` o EAS) + modo avión donde aplique (HU-04/06). Registrar modelo SO, red (4G/Wifi), resultado. `npm run lint` 0 errores + `npm test` verde vía docker (`docker compose run --rm dev …`) | Tabla de matriz firmada por dev en el PR/commit | P0 · 1d · fin de cada HU |
+| BK-052 | Todas | Reviews sí o sí antes de cerrar | `/ui-review` sin blockers + revisión humana del diff por un dev + OK explícito del usuario. Con correcciones → se vuelve a Fase 2 (`/hu-checklist`). 100% solo con las tres | Ningún "100%" sin las tres evidencias en `USER_STORIES.md` | P0 · 0.5d · BK-051 |
+| BK-053 | Todas | Preguntas de cierre por HU | Al cerrar: el agente pregunta 1) ¿validaste en dispositivo físico?, 2) ¿qué correcciones salieron?, 3) ¿quién revisó el diff? Respuestas quedan en el commit/PR | Cierre bloqueado sin respuestas | P1 · 0.5d · BK-052 |
+| BK-054 | HU-03/04/06/07/08 | Preguntas de mapa/offline a devs | ¿Zona real de prueba (no solo La Paz z9–12)?, ¿zooms 14–16 verificados?, ¿pack invalidado tras `updatedAt`?, ¿GPX de prueba aportado por el equipo? | Cada HU de mapa trae sus archivos/zonas de prueba adjuntos | P1 · 0.5d · BK-010/020 |
+
 ## Orden sugerido
 
-`BK-001→004 (F0) → BK-010→012 + BK-020 (F1/F2 en paralelo) → BK-030/031 → BK-023/033 → BK-040→044`.
+`BK-001→004 (F0) → BK-010→012 + BK-020 (F1/F2 en paralelo) → BK-030/031 → BK-023/033 → BK-040→044` + `BK-050→054` como gates permanentes en cada HU.
