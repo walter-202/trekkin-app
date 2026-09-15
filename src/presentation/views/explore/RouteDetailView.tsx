@@ -14,6 +14,7 @@ import {
   Clock,
   TrendingUp,
   Flag,
+  Share2,
 } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
@@ -23,6 +24,7 @@ import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { PlanMap } from "../../components/map/PlanMap";
+import { ShareModal } from "./ShareModal";
 
 interface RouteDetailViewProps {
   routeId: string;
@@ -42,6 +44,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [route, setRoute] = useState<RouteModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -107,8 +110,20 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         <Text style={styles.backText}>Catálogo</Text>
       </Pressable>
 
-      <Text style={styles.title}>{route.title}</Text>
-      <Text style={styles.region}>{route.region}</Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title}>{route.title}</Text>
+          <Text style={styles.region}>{route.region}</Text>
+        </View>
+        <Pressable
+          onPress={() => setShareOpen(true)}
+          style={({ pressed }) => [styles.shareBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Compartir ruta"
+        >
+          <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
+        </Pressable>
+      </View>
       <Text style={styles.description}>{route.description}</Text>
 
       {/* HU-03 C13–C15: mapa compartido (PlanMap) con trazado + puntos relevantes. */}
@@ -202,6 +217,10 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             </Text>
           </Pressable>
         </View>
+      ) : null}
+
+      {shareOpen ? (
+        <ShareModal route={route} onClose={() => setShareOpen(false)} />
       ) : null}
     </ScrollView>
   );
@@ -306,4 +325,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  shareBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: { opacity: 0.8 },
 });

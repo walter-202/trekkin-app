@@ -1,7 +1,7 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03, HU-07 y HU-10 implementadas**.
-HU-04…HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+Alcance real de este repo: **HU-01, HU-02, HU-03, HU-05, HU-07 y HU-10 implementadas al 100%**.
+HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
@@ -87,12 +87,23 @@ HU-04…HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aqu�
 - Criterios: desde el detalle → “Descargar ruta” → tamaño estimado → confirmación →
   descarga mapa + trazado + info básica → confirmación de completado → consulta sin internet.
 
-## HU-05: Compartir ruta publicada — dueña: Monje (scaffold)
+## HU-05: Compartir ruta publicada — dueña: Monje — ✅ 100% implementada
 
 - **Rol:** Usuario autenticado. **Quiero** compartir una ruta publicada con enlace directo
   **para** difundirla con sus datos completos.
-- Criterios: desde “Mis Rutas” → “Compartir” → verifica publicada → enlace único →
-  opciones (redes, mensajería, copiar) → adjunta datos completos → confirma envío.
+- Criterios:
+  1. Opción "Compartir" desde el detalle de una ruta publicada (`RouteDetailView` → `ShareModal`).
+  2. `ShareRouteUseCase` valida `status == 'published'` en dominio (zod `RouteSchema`).
+  3. Enlace único determinístico `…/r/{routeId}` vía `shareService.buildShareUrl` (`expo-linking`).
+     Sin duplicar la colección ni los datos de la ruta.
+  4. `ShareModal` muestra resumen (nombre, región, distancia, tiempo, dificultad) + enlace + opciones:
+     **Copiar enlace** (`expo-clipboard`) y **Compartir…** (share sheet nativo de dispositivo).
+  5. Feedback de copia y confirmación de envío.
+  6. Recuperación: un enlace `r/{routeId}` se resuelve en `App.tsx` con `parseShareLink`.
+- Archivos: `core/domain/share.schemas.ts`, `core/application/share/` (`ShareRoute`, `CopyShareLink`, `PublishShareLink`),
+  `infrastructure/share/shareService.ts`, `presentation/views/explore/ShareModal.tsx`, `RouteDetailView.tsx`.
+- Dependencias: `expo-clipboard`, `expo-linking`, `"scheme": "trekkin-app"` en `app.json`.
+- Verificación: `npm run test` (suite `share_hu5.test.ts` con 11 casos al 100%).
 
 ## HU-06: Realizar una ruta existente — dueños: Tapia, Beymar (scaffold)
 
