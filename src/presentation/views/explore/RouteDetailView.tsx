@@ -14,15 +14,20 @@ import {
   Clock,
   TrendingUp,
   Flag,
+  Download,
+  CheckCircle2,
 } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
+import type { OfflineRoute } from "../../../core/domain/offline";
 import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
 import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
+import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { PlanMap } from "../../components/map/PlanMap";
+import { DownloadRouteModal } from "./DownloadRouteModal";
 
 interface RouteDetailViewProps {
   routeId: string;
@@ -42,6 +47,8 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [route, setRoute] = useState<RouteModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloaded, setDownloaded] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -65,6 +72,9 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       } finally {
         if (alive) setLoading(false);
       }
+      // HU-04 T12: ¿ya está descargada en el dispositivo? (solo lectura local).
+      const isCached = await tileCacheDB.isDownloaded(routeId);
+      if (alive) setDownloaded(isCached);
     })();
     return () => {
       alive = false;
@@ -97,7 +107,8 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable
         onPress={onBack}
         style={styles.backBtn}
@@ -202,8 +213,42 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             </Text>
           </Pressable>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.downloadBox}>
+          {downloaded ? (
+            <View style={styles.downloadedRow}>
+              <CheckCircle2
+                size={14}
+                color={AndeanTheme.colors.primaryLight}
+              />
+              <Text style={styles.downloadedText}>
+                Ruta descargada · disponible sin conexión.
+              </Text>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={() => setDownloadOpen(true)}
+            style={styles.downloadBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Descargar ruta para consulta offline"
+          >
+            <Download size={15} color={AndeanTheme.colors.white} />
+            <Text style={styles.downloadBtnText}>Descargar ruta</Text>
+          </Pressable>
+        </View>
+      )}
     </ScrollView>
+
+    <DownloadRouteModal
+      route={route}
+      visible={downloadOpen}
+      onClose={() => setDownloadOpen(false)}
+      onCompleted={(record: OfflineRoute) => {
+        setDownloaded(true);
+        void record;
+      }}
+    />
+  </>
   );
 };
 
@@ -303,6 +348,38 @@ const styles = StyleSheet.create({
   },
   guestBtnText: {
     color: AndeanTheme.colors.primaryLight,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  downloadBox: {
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  downloadedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  downloadedText: {
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  downloadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AndeanTheme.colors.primaryDark,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  downloadBtnText: {
+    color: AndeanTheme.colors.white,
     fontSize: 12,
     fontWeight: "800",
   },

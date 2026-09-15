@@ -1,7 +1,7 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%**. HU-04…HU-06 y HU-08…HU-10
-son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+Alcance real de este repo: **HU-01, HU-02, HU-03, HU-04 y HU-07 al 100%**. HU-05, HU-06
+y HU-08…HU-10 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
@@ -76,10 +76,28 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   interactivo (`npx expo-doctor` en verde); en Expo Go clásico el detalle funciona con
   la vista previa del trazado.
 
-## HU-04: Descargar ruta offline — dueño: Cusi (scaffold)
-- **Rol:** Usuario. **Quiero** descargar una ruta **para** consultarla sin señal.
-- Criterios: desde el detalle → “Descargar ruta” → tamaño estimado → confirmación →
-  descarga mapa + trazado + info básica → confirmación de completado → consulta sin internet.
+## HU-04: Descargar ruta offline — dueño: Cusi — ✅ 100% implementada
+- **Rol:** Usuario autenticado. **Quiero** descargar una ruta **para** consultarla sin señal.
+- Criterios:
+  1. Botón “Descargar ruta” en el detalle (`RouteDetailView`): solo autenticados; invitado ve
+     banner de inicio de sesión y queda fuera del flujo (regla del guest).
+  2. Tamaño estimado desglosado (mapa + trazado + información) antes de confirmar
+     (`DownloadRouteModal` + `EstimateRouteDownloadSizeUseCase`, determinista).
+  3. Confirmación → descarga en 3 etapas con progreso real (mapa vectorial → trazado →
+     información básica; `DownloadRouteOfflineUseCase` con `onStage`).
+  4. Confirmación de completado (el registro se valida con Zod `OfflineRouteSchema` antes de
+     persistir vía `finalize`; invariante: solo rutas publicadas se descargan).
+  5. Consulta sin internet desde “Descargas” en `HomeView` (`DownloadsView` +
+     `OfflineRouteDetailView`, solo `tileCacheDB`/AsyncStorage, sin Firebase en el flujo offline).
+  6. Mapa offline = snapshot vectorial SVG (`OfflineRouteMap`, `react-native-svg`; sin
+     dependencias nativas nuevas → funciona en Expo Go).
+- Arquitectura: dominio puro `core/domain/offline.ts` + `offline.schemas.ts` (zod), 4 use cases
+  en `core/application/offline/` (puertos inyectados, sin Firebase/RN), adaptador
+  `infrastructure/persistence/tileCacheDB.ts` (AsyncStorage), vistas delgadas en
+  `presentation/views/downloads/`. Los datos descargados son SOLO locales (AsyncStorage);
+  no se modifican reglas Firestore ni `docs/DATABASE.md`.
+- Verificación: `npm run lint` (0 errores) y suite `src/tests/offline_hu4.test.ts`
+  (`npm test`, 11 casos de aceptación).
 
 ## HU-05: Compartir ruta publicada — dueña: Monje (scaffold)
 - **Rol:** Usuario autenticado. **Quiero** compartir una ruta publicada con enlace directo
@@ -137,20 +155,21 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 
 | ID    | Historia                           | Ruta futura                                                      | Estado   |
 | ----- | ---------------------------------- | ---------------------------------------------------------------- | -------- |
-| HU-04 | Descarga offline                   | `persistence/tileCacheDB`                                        | scaffold |
+
 | HU-05 | Compartir ruta publicada           | modal en explore                                                 | scaffold |
 | HU-06 | Realizar ruta (actividad GPS)      | `views/activity/` + `activityService`                            | scaffold |
 | HU-08 | Grabar ruta con GPS                | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
 | HU-10 | Gestionar usuarios y roles (admin) | `views/profile/` RBAC                                            | scaffold |
 
-Verificación y estado (90% — HU-01/02/03/07):
+Verificación y estado (90% — HU-01/02/03/04/07):
 
 ```bash
 npm run lint   # tsc --noEmit → 0 errores
-npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
+npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo) + HU-04 (11 casos)
 ```
-- Verificado: lint 0, suite 16/16, E2E backend 7/7 (registro, perfil, login, reglas),
-  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) y HU-03 ("Explorar rutas") OK.
+- Verificado: lint 0, suites 16/16 y 11/11, E2E backend 7/7 (registro, perfil, login, reglas),
+  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”), HU-03 ("Explorar rutas") y HU-04
+  (descarga offline + consulta sin conexión) OK.
 - Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
   cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 

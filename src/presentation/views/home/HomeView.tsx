@@ -1,19 +1,22 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { Mountain, LogOut, ShieldCheck, User as UserIcon, MapPinned } from 'lucide-react-native';
+import { Mountain, LogOut, ShieldCheck, User as UserIcon, MapPinned, HardDrive } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 
 /**
  * HU-02 — Pantalla post-login.
  * Muestra usuario activo + rol (RBAC) y cierre de sesión seguro.
- * De aquí se montan los módulos HU-03…HU-10 (botón "Planificar nueva ruta" abre HU-07).
+ * De aquí se montan los módulos HU-03…HU-10 (botón "Planificar nueva ruta" abre HU-07;
+ * "Descargas" abre HU-04: rutas descargadas offline).
  */
 interface HomeViewProps {
   /** HU-07 — Abre la planificación de una nueva ruta desde el hub. */
   onOpenRecord?: () => void;
+  /** HU-04 — Abre la lista de rutas descargadas (consulta offline). */
+  onOpenDownloads?: () => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord, onOpenDownloads }) => {
   const { currentUser, logout, isAdmin } = useAuth();
 
   if (!currentUser) return null;
@@ -63,10 +66,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
         </Pressable>
       )}
 
+      {onOpenDownloads && (
+        <Pressable onPress={onOpenDownloads} style={styles.downloadsBtn}>
+          <HardDrive size={16} color="#F59E0B" />
+          <Text style={styles.downloadsText}>Descargas (rutas sin conexión)</Text>
+        </Pressable>
+      )}
+
       <View style={styles.roadmap}>
         <Text style={styles.roadmapTitle}>PRÓXIMOS MÓDULOS (scaffold)</Text>
         <Text style={styles.roadmapItem}>HU-03 Explorar rutas → src/presentation/views/explore/</Text>
-        <Text style={styles.roadmapItem}>HU-04 Offline → src/infrastructure/persistence/</Text>
+        <Text style={styles.roadmapItem}>HU-04 Offline → src/presentation/views/downloads/ ✓ (activo)</Text>
         <Text style={styles.roadmapItem}>HU-06 Actividad GPS → src/presentation/views/activity/</Text>
         <Text style={styles.roadmapItem}>HU-07 Planificar nueva ruta → src/presentation/views/record/ ✓ (activo)</Text>
         <Text style={styles.roadmapItem}>HU-10 Usuarios y roles (solo admin, RBAC)</Text>
@@ -144,4 +154,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   hu07Text: { color: '#6EE7B7', fontSize: 13, fontWeight: '800' },
+  downloadsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  downloadsText: { color: '#F59E0B', fontSize: 13, fontWeight: '800' },
 });

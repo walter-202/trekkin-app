@@ -7,15 +7,17 @@ import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
+import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
 import { RecordView } from "./presentation/views/record/RecordView";
 
 /**
- * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
- * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
+ * trekkin-app — HU-01 + HU-02 + HU-03 + HU-04 + HU-07 funcionales.
+ * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07)
+ * + DownloadsView (HU-04, rutas descargadas offline).
  * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
  * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
  */
-type Screen = "home" | "explore" | "record";
+type Screen = "home" | "explore" | "record" | "downloads";
 
 function Gate() {
   const { currentUser, isGuest, loading } = useAuth();
@@ -43,6 +45,11 @@ function Gate() {
   // HU-07: planificación de nueva ruta (borrador) desde el hub.
   if (screen === "record") {
     return <RecordView onClose={() => setScreen("home")} />;
+  }
+
+  // HU-04: rutas descargadas para consulta offline (solo lectura local).
+  if (screen === "downloads") {
+    return <DownloadsView onBack={() => setScreen("home")} />;
   }
 
   // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
@@ -74,7 +81,10 @@ function Gate() {
           </Text>
         </Pressable>
       </View>
-      <HomeView onOpenRecord={() => setScreen("record")} />
+      <HomeView
+        onOpenRecord={() => setScreen("record")}
+        onOpenDownloads={() => setScreen("downloads")}
+      />
     </View>
   );
 }
