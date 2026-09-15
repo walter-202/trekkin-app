@@ -21,6 +21,7 @@ import { ShareModal } from "./ShareModal";
 interface RouteDetailViewProps {
   routeId: string;
   onBack: () => void;
+  onRequireAuth?: () => void;
 }
 
 const difficultyLabel: Record<RouteModel["difficulty"], string> = {
@@ -46,6 +47,7 @@ function formatDuration(minutes: number): string {
 export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   routeId,
   onBack,
+  onRequireAuth,
 }) => {
   const { isAuthenticated, exitGuest } = useAuth();
   const [route, setRoute] = useState<RouteModel | null>(null);
@@ -257,7 +259,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             descargar offline.
           </Text>
           <Pressable
-            onPress={exitGuest}
+            onPress={onRequireAuth ?? exitGuest}
             style={styles.guestBtn}
             accessibilityRole="button"
             accessibilityLabel="Iniciar sesión o crear cuenta"

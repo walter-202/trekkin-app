@@ -72,9 +72,9 @@ HU-04, HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí
   puros con puertos), `infrastructure/database/routeService.ts` (query `routes`
   `where status == 'published'` + get por id) y `routeSeed.ts` (fallback demo solo ante
   red fallida o colección vacía), `presentation/views/explore/` (`ExploreView` catálogo,
-  `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido), `src/App.tsx`
-  (Gate: guest → ExploreView; con sesión → tabs Inicio/Explorar + `RecordView` HU-07;
-  HU-01/02 intactas).
+  `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido), `presentation/components/nav/Drawer.tsx`
+  (sidebar unificado: Catálogo, Planificar ruta HU-07, Perfil HU-01/02, Gestión de Usuarios HU-10 solo admin),
+  `src/App.tsx` (Gate unificado con TopBar, Drawer, deep links HU-05 y acceso libre a catálogo y detalle; HU-01/02/07/10 intactas).
 - Mapa: `PlanMap` renderiza teselas pre-bundled de La Paz (`src/assets/tiles/`,
   zoom 9-12, ~85 assets PNG, ~600KB) con primitivas de React Native (`View`/`Image`/
   `PanResponder` + `react-native-svg` para el trazado), sin dependencias web. Para
