@@ -1,10 +1,11 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%**. HU-04…HU-06 y HU-08…HU-10
-son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
+Alcance real de este repo: **HU-01, HU-02, HU-03, HU-07 y HU-10 implementadas**.
+HU-04…HU-06 y HU-08 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
+
 - **Rol:** Visitante. **Como** usuario nuevo **quiero** registrar una cuenta con mis datos
   **para** acceder a la plataforma y gestionar mi perfil.
 - Criterios:
@@ -27,6 +28,7 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   criterios; arranque sin sesión (`currentUser = null`).
 
 ## HU-02: Iniciar y Cerrar Sesión — ✅ 100% implementada
+
 - **Rol:** Usuario / Administrador. **Como** usuario registrado **quiero** iniciar/cerrar
   sesión **para** acceder de forma segura y gestionar mi información.
 - Criterios:
@@ -80,17 +82,20 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   AsyncStorage y cumplimiento estricto (User-Agent, ≤5/s, sin reintentar 403).
 
 ## HU-04: Descargar ruta offline — dueño: Cusi (scaffold)
+
 - **Rol:** Usuario. **Quiero** descargar una ruta **para** consultarla sin señal.
 - Criterios: desde el detalle → “Descargar ruta” → tamaño estimado → confirmación →
   descarga mapa + trazado + info básica → confirmación de completado → consulta sin internet.
 
 ## HU-05: Compartir ruta publicada — dueña: Monje (scaffold)
+
 - **Rol:** Usuario autenticado. **Quiero** compartir una ruta publicada con enlace directo
   **para** difundirla con sus datos completos.
 - Criterios: desde “Mis Rutas” → “Compartir” → verifica publicada → enlace único →
   opciones (redes, mensajería, copiar) → adjunta datos completos → confirma envío.
 
 ## HU-06: Realizar una ruta existente — dueños: Tapia, Beymar (scaffold)
+
 - **Rol:** Usuario registrado. **Quiero** recorrer una ruta publicada registrando mi actividad
   **para** ir guiado, monitorear progreso y guardar mi historial.
 - Criterios: seleccionar publicada → vista de preparación (info + ubicación/distancia al
@@ -99,6 +104,7 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   completa o incompleta → guarda en historial.
 
 ## HU-07: Planificar nueva ruta — dueña: Apaza — ✅ 100% implementada
+
 - **Rol:** Usuario autenticado. **Quiero** guardar una ruta como borrador **para**
   continuar planificando después y confirmar el punto inicial real.
 - Criterios:
@@ -129,6 +135,7 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 - Verificación: `npm run lint` (0 errores) y flujo T1–T10 en Expo Go.
 
 ## HU-08: Grabar ruta con GPS — dueños: Ramos, Cruz (scaffold)
+
 - **Rol:** Usuario. **Quiero** grabar una ruta **para** registrar trayecto, distancia,
   tiempos y guardarlos en mi perfil.
 - Criterios: vista “Grabar Recorrido” → permiso ubicación (concede/deniega informado) →
@@ -136,30 +143,62 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   “Añadir Parada” (categoría + nota cuando corresponda + foto opcional) → pausar/reanudar →
   punto final real → resumen (distancia, duración, dificultad sugerida) → publicar.
 
-## HU-10: Gestionar usuarios y roles — dueña: Larico (scaffold)
-- **Rol:** Administrador. **Quiero** consultar usuarios, bloquear/desbloquear y asignar roles
-  **para** controlar seguridad y permisos.
-- Criterios: módulo “Gestión de usuarios” → lista → detalle → bloquear (cuenta bloqueada) →
-  desbloquear (rehabilita) → asignar rol (`user` / `admin`) → confirma operación.
+## HU-10: Gestionar usuarios y roles — dueña: Larico — ✅ implementada (90% pendiente de matriz)
+
+- **Rol:** Administrador. **Quiero** consultar la información de los usuarios registrados,
+  bloquear, desbloquear sus cuentas y asignar roles **para** mantener el control y la
+  seguridad de la plataforma.
+- **Ajuste acordado con el equipo:** el criterio original pegó "asignar rol de Moderador",
+  pero la figura oficial eliminó HU-09. Roles vigentes: **`user` / `admin`** (sin moderador).
+  El módulo asigna `user` o `admin`; no se re-introduce el rol moderador en types, reglas ni
+  UI. La bitácora (T7) solo registra, sin pantalla de historial (fuera de criterios).
+- Criterios:
+  1. El administrador ingresa al módulo “Gestión de Usuarios” (tab `Usuarios` en `App.tsx`,
+     SOLO visible con `isAdmin` → T9/T13).
+  2. El sistema muestra los usuarios registrados (`UserManagementView` + `ListUsersUseCase`,
+     con barra de búsqueda y filtros de estado/rol validados por `UserFiltersSchema` → T1/T8).
+  3. El administrador selecciona un usuario (`UserCard` → `UserDetailView`).
+  4. El sistema muestra la información disponible del usuario (nombre completo, alias,
+     correo electrónico, rol actual y estado de la cuenta → T2/T6).
+  5. El administrador puede bloquear al usuario (botón + modal `ConfirmActionModal` → T3/T4).
+  6. El sistema cambia el estado de la cuenta a bloqueada (`BlockUserUseCase`: `isBlocked: true`
+     - bitácora `block`; la suscripción en vivo de `AuthContext` invalida la sesión activa → T10).
+  7. El administrador puede desbloquear al usuario (`UnblockUserUseCase` → T11).
+  8. El sistema habilita nuevamente la cuenta (`isBlocked: false` + bitácora).
+  9. El administrador puede asignar el rol `user` o `admin` (chips en el detalle, con
+     confirmación → T9).
+  10. El sistema actualiza el rol del usuario (`AssignRoleUseCase` + bitácora con
+      `previousRole`/`newRole`).
+  11. El sistema confirma la operación (`Banner` success + mensaje de confirmación → T5).
+- Arquitectura: `core/domain/types.ts` (`AccountLogEntry`) + `userManagement.schemas.ts`
+  (zod), 5 casos de uso puros en `core/application/admin/` (puertos inyectados, sin
+  Firebase/RN), `infrastructure/database/accountLogService.ts` (única capa que escribe
+  `accountLogs`) y `firestore.rules` (colección `accountLogs`, `isValidAccountLog`,
+  creación/lectura solo `isAdmin()`), vistas delgadas en `presentation/views/profile/`
+  (`UserManagementView`, `UserCard`, `UserDetailView`, `ConfirmActionModal`).
+- Sin cambios HU-01/02: `LoginUserUseCase` ya rechazaba cuentas `isBlocked` y `AuthContext`
+  ya desloguea en vivo (T12/T16 verificados con test integrado en la suite HU-10).
+- Verificación: `npm run lint` (0 errores) y suite `user_management_hu10` (22 casos T1–T17).
 
 ## Roadmap (scaffold, no implementado)
 
-| ID    | Historia                           | Ruta futura                                                      | Estado   |
-| ----- | ---------------------------------- | ---------------------------------------------------------------- | -------- |
-| HU-04 | Descarga offline                   | `persistence/tileCacheDB`                                        | scaffold |
-| HU-05 | Compartir ruta publicada           | modal en explore                                                 | scaffold |
-| HU-06 | Realizar ruta (actividad GPS)      | `views/activity/` + `activityService`                            | scaffold |
-| HU-08 | Grabar ruta con GPS                | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
-| HU-10 | Gestionar usuarios y roles (admin) | `views/profile/` RBAC                                            | scaffold |
+| ID    | Historia                      | Ruta futura                                                      | Estado   |
+| ----- | ----------------------------- | ---------------------------------------------------------------- | -------- |
+| HU-04 | Descarga offline              | `persistence/tileCacheDB`                                        | scaffold |
+| HU-05 | Compartir ruta publicada      | modal en explore                                                 | scaffold |
+| HU-06 | Realizar ruta (actividad GPS) | `views/activity/` + `activityService`                            | scaffold |
+| HU-08 | Grabar ruta con GPS           | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
 
-Verificación y estado (90% — HU-01/02/03/07):
+Verificación y estado (90% — HU-01/02/03/07/10):
 
 ```bash
 npm run lint   # tsc --noEmit → 0 errores
-npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
+npm test       # suites HU-01/02 (16 casos, incluye Firestore en vivo) + HU-10 (22 casos T1–T17)
 ```
-- Verificado: lint 0, suite 16/16, E2E backend 7/7 (registro, perfil, login, reglas),
-  login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”) y HU-03 ("Explorar rutas") OK.
+
+- Verificado: lint 0, suite HU-01/02 16/16 + HU-10 22/22, E2E backend 7/7 (registro, perfil,
+  login, reglas), login en Expo Go + entrada a HU-07 (“Planificar nueva ruta”), HU-03
+  ("Explorar rutas") y HU-10 ("Gestión de usuarios", tab solo admin) OK.
 - Falta para 100%: matriz Expo Go completa de UI/UX por el equipo + ronda de correcciones
   cruzadas (como la eliminación de HU-09). Nadie declara 100% sin eso (ver `/hu-checklist`).
 
@@ -168,7 +207,8 @@ npm test       # suite HU-01/02 (16 casos, incluye Firestore en vivo)
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
   (solo memoria, nunca persiste), `isAuthenticated`, `continueAsGuest()`, `exitGuest()`,
   `hasRole([...])`, `isAdmin`, `login/register/logout`.
-- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` + `RecordView` (HU-07);
+- Gate (`src/App.tsx`): con sesión → tabs `HomeView` / `ExploreView` / `RecordView` (HU-07) y,
+  solo con `isAdmin`, el tab `Usuarios` (HU-10);
   guest → `ExploreView` (catálogo + detalle, guest libre); resto → `AuthView`.
 - Regla del guest: ver catálogo y detalle es libre. Todo lo que escriba
   (GPS, offline) exige `isAuthenticated` / `hasRole(['admin'])`.

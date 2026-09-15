@@ -8,17 +8,19 @@ import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
 import { RecordView } from "./presentation/views/record/RecordView";
+import { UserManagementView } from "./presentation/views/profile/UserManagementView";
 
 /**
- * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
- * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
+ * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 + HU-10 funcionales.
+ * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07)
+ * + Gestión de Usuarios (HU-10, tab SOLO admin).
  * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
  * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
  */
-type Screen = "home" | "explore" | "record";
+type Screen = "home" | "explore" | "record" | "users";
 
 function Gate() {
-  const { currentUser, isGuest, loading } = useAuth();
+  const { currentUser, isGuest, loading, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>("home");
   const isExplore = screen === "explore";
 
@@ -43,6 +45,11 @@ function Gate() {
   // HU-07: planificación de nueva ruta (borrador) desde el hub.
   if (screen === "record") {
     return <RecordView onClose={() => setScreen("home")} />;
+  }
+
+  // HU-10: gestión de usuarios y roles — solo para rol admin (T9/T13).
+  if (screen === "users" && isAdmin) {
+    return <UserManagementView onBack={() => setScreen("home")} />;
   }
 
   // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
@@ -73,6 +80,23 @@ function Gate() {
             Explorar
           </Text>
         </Pressable>
+        {isAdmin ? (
+          <Pressable
+            onPress={() => setScreen("users")}
+            style={[styles.tab, screen === "users" && styles.tabActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Gestionar usuarios y roles"
+          >
+            <Text
+              style={[
+                styles.tabText,
+                screen === "users" && styles.tabTextActive,
+              ]}
+            >
+              Usuarios
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       <HomeView onOpenRecord={() => setScreen("record")} />
     </View>
