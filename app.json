@@ -8,7 +8,9 @@
     "web": {
       "bundler": "metro"
     },
-    "plugins": [],
+    "plugins": [
+      "@maplibre/maplibre-react-native"
+    ],
     "extra": {}
   }
 }

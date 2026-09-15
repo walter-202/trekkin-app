@@ -8,10 +8,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
-    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts"
+    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts",
+    "seed:test": "node scripts/seed-firestore.mjs",
+    "seed:routes": "node scripts/seed-routes-propuesta.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
+    "@maplibre/maplibre-react-native": "^11.3.10",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "^57.0.22",
     "expo-constants": "~57.0.18",
@@ -22,11 +25,9 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-maps": "1.27.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.2",
-    "react-native-webview": "13.16.1",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },

@@ -1,7 +1,7 @@
 # AGENTS.md — Trekkin App (Expo SDK 57 + React Native)
 
 > Instrucciones canónicas para agentes OpenCode. Alcance del repo: **scaffold + HU-01, HU-02 y HU-07**.
-> Stack: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · TypeScript strict · Zustand + AsyncStorage · Firebase/Firestore · Zod · `expo-location` + `react-native-maps` (HU-07/HU-08).
+> Stack: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · TypeScript strict · Zustand + AsyncStorage · Firebase/Firestore · Zod · `expo-location` + `@maplibre/maplibre-react-native` (HU-07/HU-08, mapa 100% nativo sin Google).
 
 ## Comandos (usar en este orden)
 
@@ -14,7 +14,12 @@ npm run lint       # tsc --noEmit — debe quedar en 0 errores
 npx expo-doctor    # Salud Expo SDK 57 — antes de tocar app.json/deps nativas/permisos
 ```
 
-Verificación mínima antes de dar por terminada una tarea: `npm run lint` + prueba en Expo Go del flujo tocado. Si tocaste `app.json`, deps nativas o permisos → suma `npx expo-doctor`. (Aún no hay suite `npm test`; la validación de dominio se ejerce vía Zod + Expo Go.)
+Verificación mínima antes de dar por terminada una tarea: `npm run lint` + prueba del flujo tocado. Si tocaste `app.json`, deps nativas o permisos → suma `npx expo-doctor`. (Aún no hay suite `npm test`; la validación de dominio se ejerce vía Zod + build de desarrollo.)
+
+> **Mapa = development build**: Expo Go no incluye ningún mapa nativo (ni Google Maps ni MapLibre).
+> Las vistas con `PlanMap` (`PlanPointPicker`, `StartPointConfirmView`, `PlanEditorView`) se prueban
+> con `npx expo run:android`, `npx expo run:ios` o un build de EAS. El plugin del mapa vive en
+> `app.json` (`@maplibre/maplibre-react-native`).
 
 ## Arquitectura (Clean Architecture + puertos — respetar capas)
 

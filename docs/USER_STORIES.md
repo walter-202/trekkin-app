@@ -1,7 +1,9 @@
 # trekkin-app — Historias de Usuario (V1 scaffold)
 
-Alcance real de este repo: **HU-01, HU-02 y HU-07 al 100%**. HU-03…HU-06 y HU-08…HU-10
+Alcance real de este repo: **HU-01, HU-02 y HU-07 al 100%**. HU-03…HU-06, HU-08 y HU-10
 son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin lógica.
+
+**HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
 ## HU-01: Registrar Cuenta — ✅ 100% implementada
 - **Como** visitante **quiero** registrar una cuenta **para** acceder a la plataforma.
@@ -36,7 +38,7 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
   2. Correo + contraseña de HU-01.
   3. Contraseña oculta con toggle `Eye`/`EyeOff`.
   4. Validación `LoginSchema` + mensajes descriptivos.
-  5. Credenciales válidas → sesión + redirección según rol (RBAC: `hasRole`, `isAdmin`, `isModerator`).
+  5. Credenciales válidas → sesión + redirección según rol (RBAC: `hasRole`, `isAdmin`).
   6. Credenciales inválidas → error, sin sesión.
   7. Sesión persistente (`storage.ts`, clave `trekkin_auth_user`, AsyncStorage).
   8. Rutas privadas protegidas (`Gate` en `App.tsx`).
@@ -55,7 +57,7 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
   continuar planificando después y confirmar el punto inicial real.
 - Criterios:
   1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
-  2. Mapa interactivo (WebView + tiles OpenStreetMap, componente único `PlanMap`).
+  2. Mapa interactivo (`@maplibre/maplibre-react-native` + tiles OpenStreetMap, componente único `PlanMap`).
   3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
   4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
   5. Autosave local (`usePlanStore` + AsyncStorage `trekking_plan_autosave`) → no se pierde al salir.
@@ -75,14 +77,18 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
 - Feedback del equipo aplicado: el **nombre provisional de la ruta** es obligatorio y se rellena
   al crear (`CreateRouteView`, campo “NOMBRE PROVISIONAL DE LA RUTA *”, arriba de punto inicial y
   destino); sin nombre no se guarda el borrador. Misma etiqueta en el editor (`PlanEditorView`).
-- Mapa **sin Google SDK/API key**: `PlanMap.tsx` usa un **WebView con mini-mapa propio (mercator)
-  + tiles OpenStreetMap** (sin librerías externas/CDNs; solo descarga los tiles del servidor de
-  OSM). Funciona en **Expo Go** Android/iOS sin configurar nada (Expo Go dejó de soportar el SDK
-  de Google Maps en Android → con react-native-maps el mapa salía en negro). Tap reporta
-  coordenadas vía postMessage; incluye botones +/- de zoom y “© OpenStreetMap contributors”.
-- Dependencias nuevas: `react-native-maps` (+ `react-native-webview` para el mapa OSM) y
-  `expo-location` (T8).
-- Verificación: `npm run lint` (0 errores) y flujo T11–T20 en Expo Go (iOS o Android).
+- Mapa **100% nativo, sin Google** (`@maplibre/maplibre-react-native`, `PlanMap.tsx`): tiles
+  OpenStreetMap (raster source), tap reporta coordenadas y marcadores para inicio provisional,
+  destino y ubicación actual. Sin WebView ni capa de HTML/DOM (regla nativa de AGENTS.md).
+- **Offline**: MapLibre cachea los tiles ya vistos (caché ambiente, `setTileCountLimit`), de modo
+  que el mapa sigue funcionando sin internet en las zonas navegadas previamente. La descarga
+  explícita de regiones queda en HU-04 (roadmap).
+- **Dev builds**: Expo Go ya no incluye ningún mapa nativo (ni Google Maps ni MapLibre,
+  `expo/expo#49323`); el mapa se prueba con build de desarrollo (`npx expo run:android` /
+  `npx expo run:ios` o `eas build`) en Android e iOS.
+- Dependencias nuevas: `@maplibre/maplibre-react-native` (mapa nativo, config plugin en `app.json`)
+  + `expo-location` (T8). Se retiraron `react-native-maps` y `react-native-webview`.
+- Verificación: `npm run lint` (0 errores) y flujo T11–T20 con dev build (Android o iOS).
 
 ## Roadmap (scaffold, no implementado)
 
@@ -93,7 +99,6 @@ son roadmap con scaffold (tipos + reglas Firestore + plantilla de vista), sin l�
 | HU-05 | Compartir ruta publicada | modal en explore | scaffold |
 | HU-06 | Realizar ruta (actividad GPS) | `views/activity/` + `activityService` | scaffold |
 | HU-08 | Grabar ruta con GPS | `views/record/` + `expo-location` (lee `ready_for_gps` de HU-07) | scaffold |
-| HU-09 | Aprobar/rechazar ruta (moderador/admin) | `views/moderation/` RBAC | scaffold |
 | HU-10 | Gestionar usuarios y roles (admin) | `views/profile/` RBAC | scaffold |
 
 Verificación:
@@ -104,7 +109,7 @@ npm run lint   # tsc --noEmit
 ## Servicios reutilizables HU-01/02 → HU-03… (para el otro dev, sin avanzar su HU)
 - `useAuth()` (`infrastructure/auth/AuthContext.tsx`): `currentUser`, `isGuest`
   (solo memoria, nunca persiste), `isAuthenticated`, `continueAsGuest()`, `exitGuest()`,
-  `hasRole([...])`, `isAdmin`, `isModerator`, `login/register/logout`.
+  `hasRole([...])`, `isAdmin`, `login/register/logout`.
 - Gate (`src/App.tsx`): con sesión → `HomeView`; guest → `ExploreView` genérica
   (`views/explore/`, en blanco, ya distingue invitado/autenticado/rol); resto → `AuthView`.
 - Capacidad prevista del guest (pendiente de sus criterios): ver catálogo y detalle.
