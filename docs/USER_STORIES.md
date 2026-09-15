@@ -61,9 +61,10 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   5. Selección de ruta → detalle sin exigir sesión (guest libre).
   6. Detalle con descripción, inicio, final, métricas, características y puntos relevantes
      (`RouteDetailView` + `GetRouteDetailUseCase`, solo `published`).
-  7. Mapa interactivo (componente único `PlanMap` en `components/map/`, con `trail` +
-     `pointsOfInterest` para HU-03) con zoom y desplazamiento habilitados; fallback
-     estático en web.
+   7. Mapa interactivo 100% nativo: `PlanMap` en `components/map/`, sin WebView/Leaflet;
+      teselas pre-bundled de La Paz (zoom 9-12, assets estáticos) + caché AsyncStorage,
+      funciona 100% offline; marca HU-03 con `trail` + `pointsOfInterest`, zoom y
+      desplazamiento habilitados en nativo y web.
 - Archivos: `core/domain/route.schemas.ts` (`RouteSchema`, `RouteFiltersSchema`),
   `core/application/explore/` (`ListPublishedRoutes`, `SearchRoutes`, `GetRouteDetail` usecases
   puros con puertos), `infrastructure/database/routeService.ts` (query `routes`
@@ -72,9 +73,11 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   `RouteCard`, `RouteDetailView`; el mapa es el `PlanMap` compartido), `src/App.tsx`
   (Gate: guest → ExploreView; con sesión → tabs Inicio/Explorar + `RecordView` HU-07;
   HU-01/02 intactas).
-- Nota nativa: `react-native-maps` es módulo nativo → requiere dev-build para el mapa
-  interactivo (`npx expo-doctor` en verde); en Expo Go clásico el detalle funciona con
-  la vista previa del trazado.
+- Mapa: `PlanMap` renderiza teselas pre-bundled de La Paz (`src/assets/tiles/`,
+  zoom 9-12, ~85 assets PNG, ~600KB) con primitivas de React Native (`View`/`Image`/
+  `PanResponder` + `react-native-svg` para el trazado), sin dependencias web. Para
+  zoom 9-12 se usan assets locales (100% offline); otros zoom usan OSM con caché
+  AsyncStorage y cumplimiento estricto (User-Agent, ≤5/s, sin reintentar 403).
 
 ## HU-04: Descargar ruta offline — dueño: Cusi (scaffold)
 - **Rol:** Usuario. **Quiero** descargar una ruta **para** consultarla sin señal.
@@ -100,7 +103,10 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   continuar planificando después y confirmar el punto inicial real.
 - Criterios:
   1. “Crear nueva ruta” desde el hub (`HomeView` → `RecordView`).
-  2. Mapa interactivo (`react-native-maps`, componente único `PlanMap`).
+   2. Mapa interactivo 100% nativo (`PlanMap` propio, sin web components) con teselas
+      pre-bundled de La Paz (zoom 9-12, ~85 tiles, assets estáticos) que funcionan
+      100% offline sin depender de servidores; tiles de其他 zoom usan caché
+      AsyncStorage + OSM (con User-Agent propio, ≤5/s, rechazo persistente de 403).
   3. Punto inicial provisional + destino provisional (taps en el mapa, `PlanPointPicker`).
   4. Guardar como borrador (`SaveDraftUseCase` → `routes/{id}` con `status:'draft'`).
   5. Autosave local (`usePlanStore` + AsyncStorage) → no se pierde al salir.
@@ -116,7 +122,10 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
   `core/application/plan/` (puertos inyectados, sin Firebase/RN), `routeService.ts`
   (única capa que importa `firebase/firestore`), `usePlanStore.ts` (zustand + autosave),
   vistas delgadas en `presentation/views/record/`. La vista no importa `firebase/*`.
-- Dependencias nuevas: `react-native-maps` (mapa, Expo Go) + `expo-location` (T8).
+- Dependencias nuevas: `expo-location` (T8). El mapa es el `PlanMap` propio con
+  teselas pre-bundled de La Paz (`src/assets/tiles/`, zoom 9-12) para offline
+  completo;其他 zoom usan OSM con cumplimiento estricto de su política de uso
+  (User-Agent, throttling, caché). Sin react-native-maps.
 - Verificación: `npm run lint` (0 errores) y flujo T1–T10 en Expo Go.
 
 ## HU-08: Grabar ruta con GPS — dueños: Ramos, Cruz (scaffold)
