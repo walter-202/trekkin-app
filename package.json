@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "lint": "tsc --noEmit",
     "test": "npx tsx src/tests/auth_hu1_hu2.test.ts",
+    "test:hu5": "npx tsx src/tests/share_hu5.test.ts",
     "seed:test": "node scripts/seed-firestore.mjs",
     "seed:routes": "node scripts/seed-routes-propuesta.mjs"
   },
@@ -16,7 +17,9 @@
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "^57.0.22",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.18",
+    "expo-linking": "~57.0.10",
     "expo-location": "~57.0.17",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.18.0",

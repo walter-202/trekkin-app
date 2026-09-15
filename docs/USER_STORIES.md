@@ -1,6 +1,7 @@
 # trekkin-app — Historias de Usuario (figura oficial del equipo)
 
-Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%**. HU-04…HU-06 y HU-08…HU-10
+Alcance real de este repo: **HU-01, HU-02, HU-03 y HU-07 al 100%; HU-05 al 90%**
+(código + pruebas; falta matriz Expo Go). HU-04, HU-06 y HU-08…HU-10
 son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 **HU-09 eliminada por el equipo: no existe el rol moderador** (roles vigentes: `user`, `admin`).
 
@@ -96,12 +97,40 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 - Criterios: desde el detalle → “Descargar ruta” → tamaño estimado → confirmación →
   descarga mapa + trazado + info básica → confirmación de completado → consulta sin internet.
 
-## HU-05: Compartir ruta publicada — dueña: Monje (scaffold)
+## HU-05: Compartir ruta publicada — dueña: Monje — ✅ 90% implementada
 
-- **Rol:** Usuario autenticado. **Quiero** compartir una ruta publicada con enlace directo
-  **para** difundirla con sus datos completos.
-- Criterios: desde “Mis Rutas” → “Compartir” → verifica publicada → enlace único →
-  opciones (redes, mensajería, copiar) → adjunta datos completos → confirma envío.
+- **Rol:** Usuario autenticado. **Quiero** compartir una ruta publicada mediante un enlace
+  directo (redes sociales, mensajería o copiar enlace) **para** difundir el recorrido con
+  todos sus datos completos sin perder información.
+- Criterios:
+  1. El usuario abre el detalle de una ruta publicada (solo se llega desde el catálogo,
+     que ya solo publica `published`) y presiona **Compartir** (`RouteDetailView`,
+     botón Share2 habilitado; antes era placeholder deshabilitado).
+  2. `ShareRouteUseCase` valida `status == 'published'` en dominio (zod `RouteSchema`);
+     ruta no publicada → error "La ruta no está publicada y no se puede compartir".
+  3. Enlace único determinístico `…/r/{routeId}` vía `shareService.buildShareUrl`
+     (`expo-linking` `createURL`; el `routeId` de Firestore ya es único → sin persistir
+     nada). No se crea colección `shares` ni se duplica la Route.
+  4. `ShareModal` muestra resumen (nombre, región, distancia, tiempo, dificultad) +
+     el enlace + opciones: **Copiar enlace** (`expo-clipboard`) y **Compartir…**
+     (share sheet nativo `react-native` Share: redes sociales/mensajería del dispositivo).
+  5. Al copiar → feedback "Enlace copiado"; al completar un envío → confirmación
+     **"Ruta compartida exitosamente."** (criterio 9).
+  6. Recuperación: un enlace `r/{routeId}` se resuelve en `App.tsx` (`expo-linking`
+     `getInitialURL` + listener `url`) con `parseShareLink` (dominio) → `setPendingRouteId`
+     → el Gate HU-03 continúa al detalle (con sesión directo; sin sesión tras login).
+     La ruta completa (mapa, distancia, tiempo, dificultad…) se obtiene con el
+     `GetRouteDetailUseCase` existente. Sin duplicar datos de Route.
+- Arquitectura: `core/domain/share.schemas.ts` (zod + `parseShareLink`),
+  `core/application/share/` (`ShareRoute`/`CopyShareLink`/`PublishShareLink` usecases
+  puros con puertos), `infrastructure/share/shareService.ts` (única capa con
+  `Share`/`Clipboard`/`Linking`), `presentation/views/explore/ShareModal.tsx`
+  (colocalizado, un solo uso), `RouteDetailView.tsx` (botón activado), `src/App.tsx`
+  (deep link). Visual andino (`AndeanTheme`), sin `firebase/*` en UI.
+- Dependencias nuevas: `expo-clipboard`, `expo-linking` (alineadas a SDK 57) +
+  `"scheme": "trekkin-app"` en `app.json`.
+- Verificación: `npm run lint` (0 errores) + `npm run test:hu5` (10 casos) +
+  flux HU-05 en Expo Go pendiente de matriz de equipo (`/ui-review` + confirmación).
 
 ## HU-06: Realizar una ruta existente — dueños: Tapia, Beymar (scaffold)
 
@@ -161,7 +190,7 @@ son roadmap con dueños (cada dev detalla sus TAREAS; aquí solo criterios).
 | ----- | -------------------------------- | ------------- | --------------------------------------------------------------------------- | -------- |
 | HU-03 | Explorar y consultar ruta        | Chicho        | `views/explore/` + `routeService`                                           | ✅ 100%  |
 | HU-04 | Descarga offline                 | Cusi          | `persistence/tileCacheDB`                                                   | scaffold |
-| HU-05 | Compartir ruta publicada         | Monje         | modal en explore                                                            | scaffold |
+| HU-05 | Compartir ruta publicada         | Monje         | `views/explore/ShareModal` + `shareService` + deep link `r/{id}`            | ✅ 90%   |
 | HU-06 | Realizar ruta (actividad GPS)    | Tapia, Beymar | `views/activity/` + `activityService`                                       | scaffold |
 | HU-07 | Planificar nueva ruta (borrador) | Apaza         | `views/record/`                                                             | ✅ 100%  |
 | HU-08 | Grabar ruta con GPS              | Ramos, Cruz   | `views/record/` + `expo-location` (lee plan local `ready_for_gps` de HU-07) | scaffold |

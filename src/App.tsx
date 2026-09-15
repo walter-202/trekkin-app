@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import * as Linking from "expo-linking";
 import { Mountain, Menu } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
@@ -11,6 +12,7 @@ import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
 import { Drawer, type DrawerRoute } from "./presentation/components/nav/Drawer";
 import { AndeanTheme } from "./presentation/theme";
+import { parseShareLink } from "./core/domain/share.schemas";
 
 /**
  * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
@@ -20,6 +22,8 @@ import { AndeanTheme } from "./presentation/theme";
  * Gate oficial HU-03: el detalle exige sesión activa; sin sesión, elegir ruta
  * abre AuthView y tras login continúa al detalle pendiente. PERFIL sin sesión
  * sigue el mismo patrón (pendiente de perfil).
+ * HU-05: un enlace compartido `r/{routeId}` aterriza aquí vía expo-linking,
+ * guarda el pendiente y continúa al detalle (mismo flujo del Gate HU-03).
  * HU-01/02 intactas: el Gate no altera register/login/logout ni storage
  * (no toca la lógica interna de AuthContext). HU-07 intacta (RecordView).
  */
@@ -33,6 +37,27 @@ function Gate() {
   const [authOpen, setAuthOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [catalogKey, setCatalogKey] = useState(0);
+
+  /**
+   * HU-05 C7 — Resolver enlaces compartidos `…/r/{routeId}` (expo-linking).
+   * Reutiliza el Gate HU-03: guarda el routeId pendiente y continúa al
+   * detalle (con sesión directo; sin sesión tras login).
+   */
+  useEffect(() => {
+    const handleUrl = (url: string) => {
+      const parsed = parseShareLink(url);
+      if (!parsed) return;
+      setPendingRouteId(parsed.routeId);
+      setAuthOpen(true);
+    };
+    Linking.getInitialURL().then((url) => {
+      if (url) handleUrl(url);
+    });
+    const subscription = Linking.addEventListener("url", (event) => {
+      handleUrl(event.url);
+    });
+    return () => subscription.remove();
+  }, []);
 
   /** Cancela el login: vuelve al catálogo limpio, sin pendientes. */
   const cancelAuth = () => {

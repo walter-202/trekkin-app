@@ -15,6 +15,7 @@ import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSee
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { PlanMap } from "../../components/map/PlanMap";
+import { ShareModal } from "./ShareModal";
 
 interface RouteDetailViewProps {
   routeId: string;
@@ -33,6 +34,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [route, setRoute] = useState<RouteModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -167,18 +169,20 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         </Text>
       </View>
 
-      {/* 4. Compartir / Descargar: placeholders visuales deshabilitados.
-          La funcionalidad la conectan HU-05 (Monje, compartir) y
-          HU-04 (Cusi, descarga offline). No implementar aquí. */}
+      {/* 4. Compartir (HU-05) / Descargar (HU-04, pendiente): si la ruta está
+          publicada se comparte; Firestore es la fuente y el enlace lleva el
+          routeId — sin duplicar datos. */}
       <View style={styles.actionsRow}>
         <Pressable
-          disabled
-          style={[styles.actionBtn, styles.actionDisabled]}
+          onPress={() => setShareOpen(true)}
+          style={({ pressed }) => [
+            styles.actionBtn,
+            pressed && styles.actionPressed,
+          ]}
           accessibilityRole="button"
-          accessibilityLabel="Compartir ruta (próximamente)"
-          accessibilityState={{ disabled: true }}
+          accessibilityLabel="Compartir ruta"
         >
-          <Share2 size={18} color={AndeanTheme.colors.textSecondary} />
+          <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
         </Pressable>
         <Pressable
           disabled
@@ -248,6 +252,9 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           </View>
         ))
       )}
+      {shareOpen ? (
+        <ShareModal route={route} onClose={() => setShareOpen(false)} />
+      ) : null}
     </ScrollView>
   );
 };
@@ -371,6 +378,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   actionDisabled: { opacity: 0.55 },
+  actionPressed: { opacity: 0.85 },
   metricsCard: {
     flexDirection: "row",
     backgroundColor: AndeanTheme.colors.card,

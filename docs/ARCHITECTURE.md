@@ -62,17 +62,35 @@ GPS/offline exigen `isAuthenticated`; lo admin exige `hasRole(['admin'])`.
 Sin HU-09: no hay guard de moderación.
 Navegación: sidebar recortado (`components/nav/Drawer.tsx`, solo INICIO/PERFIL),
 hamburguesa flotante desde cualquier pantalla, con o sin sesión.
+HU-05: un enlace compartido `r/{routeId}` (deep link) aterriza en el pendiente del Gate.
+
+## 2b. HU-05 Compartir ruta publicada (Monje)
+
+Compartir: `RouteDetailView` (botón Compartir habilitado) abre el `ShareModal` →
+`ShareRouteUseCase` valida `status == 'published'` (zod `RouteSchema`; ruta no publicada →
+error) → `shareService.buildShareUrl` genera un enlace **determinístico** con el `routeId`
+(`expo-linking` `createURL`): en standalone es `trekkin-app://r/{routeId}` (scheme
+`trekkin-app` en `app.json`), en Expo Go `exp://…/--/r/{routeId}`. El modal ofrece
+**Copiar enlace** (`CopyShareLinkUseCase` + `expo-clipboard`) y **Compartir…**
+(`PublishShareLinkUseCase` + share sheet nativo) → confirmación "Ruta compartida
+exitosamente.". No se duplica la Route ni se crea colección `shares`.
+
+Recuperación (deep link): `App.tsx` resuelve enlaces `r/{routeId}` vía `expo-linking`
+(`getInitialURL` + listener `url`) con `parseShareLink` (dominio) → `setPendingRouteId`
+→ el Gate HU-03 continúa al detalle (con sesión directo; sin sesión tras login). La ruta
+completa se recupera con `GetRouteDetailUseCase` (el enlace solo transporta el `routeId`,
+único en Firestore).
 
 ## 3. Dónde va cada HU futura
 
-| HU                           | Vista                                   | Servicio                             | Dominio                      |
-| ---------------------------- | --------------------------------------- | ------------------------------------ | ---------------------------- |
-| HU-03 Explorar rutas         | `views/explore/`                        | `database/routeService.ts`           | `domain/route.schemas.ts`    |
-| HU-04 Offline                | `views/downloads/`                      | `persistence/tileCacheDB.ts`         | `domain/offline.ts`          |
-| HU-05 Compartir              | modal en explore                        | link `https://trekbolivia.bo/r/{id}` | —                            |
-| HU-06 Actividad GPS          | `views/activity/`                       | `database/activityService.ts`        | `domain/activity.schemas.ts` |
-| HU-07/08 Planificar + Grabar | `views/record/`                         | `expo-location` + routeService       | `domain/calculations.ts`     |
-| HU-10 Usuarios y roles       | `views/profile/` + `hasRole(['admin'])` | `userProfileService`                 | `UserRole`                   |
+| HU                           | Vista                                                    | Servicio                                                              | Dominio                      |
+| ---------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------- |
+| HU-03 Explorar rutas         | `views/explore/`                                         | `database/routeService.ts`                                            | `domain/route.schemas.ts`    |
+| HU-04 Offline                | `views/downloads/`                                       | `persistence/tileCacheDB.ts`                                          | `domain/offline.ts`          |
+| HU-05 Compartir              | `views/explore/ShareModal.tsx` (desde `RouteDetailView`) | `infrastructure/share/shareService.ts` (expo-linking/clipboard/Share) | `domain/share.schemas.ts`    |
+| HU-06 Actividad GPS          | `views/activity/`                                        | `database/activityService.ts`                                         | `domain/activity.schemas.ts` |
+| HU-07/08 Planificar + Grabar | `views/record/`                                          | `expo-location` + routeService                                        | `domain/calculations.ts`     |
+| HU-10 Usuarios y roles       | `views/profile/` + `hasRole(['admin'])`                  | `userProfileService`                                                  | `UserRole`                   |
 
 (Sin HU-09: eliminada por el equipo; no hay vista de moderación ni rol moderador.)
 
