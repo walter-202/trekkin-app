@@ -14,7 +14,7 @@ npm run lint       # tsc --noEmit — debe quedar en 0 errores
 npx expo-doctor    # Salud Expo SDK 57 — antes de tocar app.json/deps nativas/permisos
 ```
 
-Verificación mínima antes de dar por terminada una tarea: `npm run lint` + prueba en Expo Go del flujo tocado. Si tocaste `app.json`, deps nativas o permisos → suma `npx expo-doctor`. (Aún no hay suite `npm test`; la validación de dominio se ejerce vía Zod + Expo Go.)
+Verificación mínima antes de dar por terminada una tarea: `npm run lint` + `npm test` + prueba en Expo Go del flujo tocado. Si tocaste `app.json`, deps nativas o permisos → suma `npx expo-doctor`. (Suite `npm test`: 16 casos HU-01/02 + Firestore en vivo.)
 
 ## Arquitectura (Clean Architecture + puertos — respetar capas)
 
@@ -24,7 +24,7 @@ src/
 │   ├── domain/            # 100% TS puro, SIN imports de react-native/expo/firebase. types.ts, auth.schemas.ts (Zod)
 │   └── application/auth/  # Casos de uso puros con puertos inyectados (Register/Login/LogoutUser). Sin Firebase ni storage
 ├── infrastructure/
-│   ├── auth/              # AuthContext (adapta Firebase → usecases) + RBAC (user | moderator | admin)
+│   ├── auth/              # AuthContext (adapta Firebase → usecases) + RBAC (user | admin)
 │   ├── database/          # userProfileService (Firestore) + firestoreErrors
 │   ├── firebase/          # config.ts — único lugar que inicializa Firebase
 │   └── persistence/       # storage.ts (AsyncStorage)
@@ -44,7 +44,7 @@ Reglas de dependencia: `presentation → infrastructure → core/{application,do
 - **Expo managed workflow. NO eject.** Módulos nativos solo vía Expo Modules API o config plugins.
 - **UI 100% nativa:** `View/Text/Pressable/TextInput/FlatList` + `StyleSheet` con `AndeanTheme`.
 - **Seguro por defecto:** `expo-location` solo en contexto con justificación (HU-07 confirma el punto
-  inicial real; HU-08 lo usará en la grabación GPS). RBAC: `user`, `moderator`, `admin`; fallbacks
+  inicial real; HU-08 lo usará en la grabación GPS). RBAC vigente: `user`, `admin` (sin HU-09); fallbacks
   locales de auth SOLO ante error de red (`isNetworkError`), nunca ante credencial inválida.
 - **Estilo código:** TypeScript strict, `import type` para tipos, casos de uso puros con puertos, componentes pequeños, nombres en inglés para código y props.
 - **Repo vivo (multi-dev):** el otro dev avanza HU-03… en paralelo y el repo se actualiza
@@ -63,6 +63,22 @@ Antes de codificar CUALQUIER tarea ligada a una HU:
 4. Al terminar: actualiza la evidencia en `docs/USER_STORIES.md` en el mismo commit del cambio.
 
 Regla de oro: doc desactualizado = tarea bloqueada hasta confirmar.
+Regla de validación: se declara siempre el % (90% por defecto; 100% solo con matriz Expo Go
+completa + `/ui-review` sin blockers + OK del usuario).
+
+## Arranque automático de sesión (obligatorio — los devs no gestionan sesiones)
+
+Al iniciar CUALQUIER sesión de trabajo, el agente hace esto solo, sin que se lo pidan:
+
+1. **Declara la HU**: pregunta en qué HU trabaja el dev (tool `question`) y verifícala
+   contra rama (`git branch --show-current`) y dueño en `docs/USER_STORIES.md`. Di en voz
+   alta: “Estamos en HU-0X (dueño Y)”.
+2. **Pide los criterios pegados** si la sección está en scaffold o desactualizada.
+   Sin criterios pegados no hay Fase 1.
+3. **Ejecuta `/hu-checklist HU-0X`** sin saltar fases (planificar → codificar un agente →
+   validar con evidencia → cerrar). Las fases son secuenciales y obligatorias.
+4. **Pide reviews sí o sí** antes de cerrar: validación en dispositivo, correcciones
+   encontradas y revisión humana del diff por un dev. Con correcciones → se vuelve a Fase 2.
 
 Comando del equipo para ejecutar HUs: `/hu-checklist HU-0X` (plantilla de 4 fases: planificar → codificar → validar → cerrar).
 

@@ -54,23 +54,25 @@ bloquea si `isBlocked`) → guarda sesión → `HomeView` muestra avatar, nombre
 `onAuthStateChanged` + `subscribeToUserProfile` mantienen la sesión en vivo.
 Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 
-### Guest (HU-03 ✅ implementada, guest libre)
+### Guest + gate HU-03 (oficial: detalle con sesión)
 
 `AuthView` (“Explorar como invitado”) → `continueAsGuest()` (solo memoria, sin sesión)
-→ Gate muestra `ExploreView` (catálogo + detalle, `views/explore/`), que lee `isGuest` /
-`isAuthenticated` / `hasRole`. `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
+→ Gate muestra `ExploreView` (catálogo público). Al seleccionar ruta sin sesión, el
+Gate guarda el `routeId` pendiente y va a `AuthView`; tras login continúa al detalle
+(`RouteDetailView`). `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
 
 ## 3. Dónde va cada HU futura
 
-| HU                           | Vista                                                  | Servicio                             | Dominio                      |
-| ---------------------------- | ------------------------------------------------------ | ------------------------------------ | ---------------------------- |
-| HU-03 Explorar rutas         | `views/explore/`                                       | `database/routeService.ts`           | `domain/route.schemas.ts`    |
-| HU-04 Offline                | `views/downloads/`                                     | `persistence/tileCacheDB.ts`         | `domain/offline.ts`          |
-| HU-05 Compartir              | modal en explore                                       | link `https://trekbolivia.bo/r/{id}` | —                            |
-| HU-06 Actividad GPS          | `views/activity/`                                      | `database/activityService.ts`        | `domain/activity.schemas.ts` |
-| HU-07/08 Planificar + Grabar | `views/record/`                                        | `expo-location` + routeService       | `domain/calculations.ts`     |
-| HU-09 Moderación             | `views/moderation/` + `hasRole(['moderator','admin'])` | `routeService.updateRoute()`         | `ReviewActionSchema`         |
-| HU-10 Usuarios y roles       | `views/profile/` + `hasRole(['admin'])`                | `userProfileService`                 | `UserRole`                   |
+| HU                           | Vista                                   | Servicio                             | Dominio                      |
+| ---------------------------- | --------------------------------------- | ------------------------------------ | ---------------------------- |
+| HU-03 Explorar rutas         | `views/explore/`                        | `database/routeService.ts`           | `domain/route.schemas.ts`    |
+| HU-04 Offline                | `views/downloads/`                      | `persistence/tileCacheDB.ts`         | `domain/offline.ts`          |
+| HU-05 Compartir              | modal en explore                        | link `https://trekbolivia.bo/r/{id}` | —                            |
+| HU-06 Actividad GPS          | `views/activity/`                       | `database/activityService.ts`        | `domain/activity.schemas.ts` |
+| HU-07/08 Planificar + Grabar | `views/record/`                         | `expo-location` + routeService       | `domain/calculations.ts`     |
+| HU-10 Usuarios y roles       | `views/profile/` + `hasRole(['admin'])` | `userProfileService`                 | `UserRole`                   |
+
+(Sin HU-09: eliminada por el equipo; no hay vista de moderación ni rol moderador.)
 
 `firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
 reescribir seguridad cuando se implemente cada módulo.
@@ -81,5 +83,7 @@ reescribir seguridad cuando se implemente cada módulo.
   `Xxx.usecase.ts`, `xxx.schemas.ts`, `useXxxStore.ts`.
 - Estilos: `StyleSheet` + `AndeanTheme`; respetar `docs/DESIGN_RULES.md`.
 - Validación siempre con **zod en dominio**, nunca solo en el formulario.
+- Campos nuevos: tipo (`core/domain`) → regla (`firestore.rules`) → tabla (`docs/DATABASE.md`).
+  Sin excepciones (anti-duplicación).
 - Errores de Firestore centralizados en `firestoreErrors.ts`.
 - Sesión bajo la clave `trekkin_auth_user`.

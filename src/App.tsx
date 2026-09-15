@@ -7,19 +7,22 @@ import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
+import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
 
 /**
  * trekkin-app — HU-01 + HU-02 + HU-03 + HU-07 funcionales.
- * Con sesión → Inicio / Explorar (tabs HU-03, guest libre) + RecordView (HU-07).
- * Guest sin sesión → ExploreView (catálogo+detalle). Sin sesión ni guest → AuthView.
- * HU-01/02 intactas: el Gate no altera register/login/logout ni storage.
+ * Gate oficial HU-03: catálogo público; el detalle exige sesión activa.
+ * Sin sesión, seleccionar ruta guarda el routeId pendiente y continúa al
+ * detalle automáticamente tras login. HU-01/02 intactas: el Gate no altera
+ * register/login/logout ni storage.
  */
 type Screen = "home" | "explore" | "record";
 
 function Gate() {
-  const { currentUser, isGuest, loading } = useAuth();
+  const { currentUser, isGuest, loading, exitGuest } = useAuth();
   const [screen, setScreen] = useState<Screen>("home");
+  const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
   const isExplore = screen === "explore";
 
   if (loading) {
@@ -36,8 +39,28 @@ function Gate() {
   // Sin sesión ni guest solo existe AuthView (dueña de su modo register/login, HU-01/02).
   // HU-01 C6: el redirect post-registro a login lo hace AuthView, no el Gate.
   if (!currentUser) {
-    if (isGuest) return <ExploreView />;
+    // Gate duro HU-03: el invitado ve el catálogo; al elegir ruta se guarda el
+    // pendiente y se va a AuthView. Tras login continúa al detalle (abajo).
+    if (isGuest)
+      return (
+        <ExploreView
+          onRequireAuth={(routeId) => {
+            setPendingRouteId(routeId);
+            exitGuest();
+          }}
+        />
+      );
     return <AuthView />;
+  }
+
+  // Continuación pendiente: recién logueado con una ruta seleccionada → detalle.
+  if (pendingRouteId) {
+    return (
+      <RouteDetailView
+        routeId={pendingRouteId}
+        onBack={() => setPendingRouteId(null)}
+      />
+    );
   }
 
   // HU-07: planificación de nueva ruta (borrador) desde el hub.
@@ -45,7 +68,8 @@ function Gate() {
     return <RecordView onClose={() => setScreen("home")} />;
   }
 
-  // HU-03 guest libre: autenticado puede alternar Inicio ↔ Explorar sin perder sesión.
+  // HU-03: autenticado alterna Inicio ↔ Explorar sin perder sesión.
+  // El detalle abre directo (ya hay sesión); el pendiente solo aplica al login.
   if (isExplore) {
     return <ExploreView onBack={() => setScreen("home")} />;
   }

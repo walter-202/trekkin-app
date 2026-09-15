@@ -62,7 +62,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.fieldGroup}>
-        <Text style={styles.microLabel}>NOMBRE DEL BORRADOR</Text>
+        <Text style={styles.microLabel}>NOMBRE PROVISIONAL DE LA RUTA</Text>
         <TextInput
           style={styles.input}
           value={title}
@@ -118,10 +118,10 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
         style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
       >
         {saving ? (
-          <ActivityIndicator color="#064E3B" size="small" />
+          <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
           <>
-            <Save size={15} color="#064E3B" />
+            <Save size={15} color="#FFFFFF" />
             <Text style={styles.saveBtnText}>GUARDAR CAMBIOS</Text>
           </>
         )}
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
-  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
+  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#FFFFFF' },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',

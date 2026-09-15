@@ -14,16 +14,12 @@ interface HomeViewProps {
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
-  const { currentUser, logout, isAdmin, isModerator } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
 
   if (!currentUser) return null;
 
-  const roleLabel =
-    currentUser.role === 'admin'
-      ? 'Administrador'
-      : currentUser.role === 'moderator'
-        ? 'Moderador'
-        : 'Senderista';
+  // Sin HU-09 no hay rol moderador en la figura: admin o usuario.
+  const roleLabel = currentUser.role === 'admin' ? 'Administrador' : 'Senderista';
 
   return (
     <View style={styles.container}>
@@ -48,11 +44,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
           <UserIcon size={14} color="#9CA3AF" />
           <Text style={styles.infoText}>{currentUser.email}</Text>
         </View>
-        {(isModerator || isAdmin) && (
+        {isAdmin && (
           <Text style={styles.rbacNote}>
-            {isAdmin
-              ? 'Acceso total: verás Moderación y Gestión de Usuarios (HU-09 / HU-10).'
-              : 'Acceso de moderación: verás la Bandeja de Moderación (HU-09).'}
+            Acceso total: verás Gestión de Usuarios (HU-10).
           </Text>
         )}
 
@@ -75,7 +69,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord }) => {
         <Text style={styles.roadmapItem}>HU-04 Offline → src/infrastructure/persistence/</Text>
         <Text style={styles.roadmapItem}>HU-06 Actividad GPS → src/presentation/views/activity/</Text>
         <Text style={styles.roadmapItem}>HU-07 Planificar nueva ruta → src/presentation/views/record/ ✓ (activo)</Text>
-        <Text style={styles.roadmapItem}>HU-09 Moderación (solo moderador/admin, RBAC)</Text>
         <Text style={styles.roadmapItem}>HU-10 Usuarios y roles (solo admin, RBAC)</Text>
       </View>
     </View>

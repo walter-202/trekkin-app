@@ -19,7 +19,6 @@ import type { RouteModel } from "../../../core/domain/types";
 import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
 import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
-import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { PlanMap } from "../../components/map/PlanMap";
@@ -30,15 +29,14 @@ interface RouteDetailViewProps {
 }
 
 /**
- * HU-03 C12/C13 — Detalle: descripción, inicio, final, métricas,
- * características y puntos relevantes + mapa. Guest libre: visible sin
- * sesión; las acciones de escritura (GPS/offline) exigen `isAuthenticated`.
+ * HU-03 — Detalle: descripción, inicio, final, métricas,
+ * características y puntos relevantes + mapa. Gate oficial: solo se
+ * renderiza con sesión activa (el Gate guarda el routeId pendiente).
  */
 export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   routeId,
   onBack,
 }) => {
-  const { isAuthenticated, exitGuest } = useAuth();
   const [route, setRoute] = useState<RouteModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -184,25 +182,6 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           </View>
         ))
       )}
-
-      {!isAuthenticated ? (
-        <View style={styles.guestBox}>
-          <Text style={styles.guestText}>
-            Exploras como invitado. Inicia sesión para registrar actividad GPS o
-            descargar offline.
-          </Text>
-          <Pressable
-            onPress={exitGuest}
-            style={styles.guestBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Iniciar sesión o crear cuenta"
-          >
-            <Text style={styles.guestBtnText}>
-              Iniciar sesión / Crear cuenta
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
     </ScrollView>
   );
 };
@@ -280,30 +259,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  guestBox: {
-    backgroundColor: AndeanTheme.colors.card,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-  },
-  guestText: {
-    color: AndeanTheme.colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  guestBtn: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  guestBtnText: {
-    color: AndeanTheme.colors.primaryLight,
-    fontSize: 12,
-    fontWeight: "800",
-  },
 });

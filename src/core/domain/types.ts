@@ -4,7 +4,7 @@
  * 100% compatible with Expo SDK 57 / React Native.
  */
 
-export type UserRole = 'user' | 'moderator' | 'admin';
+export type UserRole = 'user' | 'admin';
 
 export type RouteDifficulty = 'facil' | 'moderado' | 'dificil' | 'experto';
 
@@ -110,4 +110,4 @@ export interface UserProfile {
   createdAt: number;
 }
 
-export type TabKey = 'explore' | 'activity' | 'record' | 'moderation' | 'profile' | 'auth' | 'tests';
+export type TabKey = 'explore' | 'activity' | 'record' | 'profile' | 'auth' | 'tests';

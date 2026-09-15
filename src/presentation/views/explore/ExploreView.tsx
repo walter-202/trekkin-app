@@ -22,6 +22,11 @@ import { RouteDetailView } from "./RouteDetailView";
 
 interface ExploreViewProps {
   onBack?: () => void;
+  /**
+   * Gate oficial HU-03: sin sesión, seleccionar ruta no abre el detalle;
+   * el Gate guarda el `routeId` pendiente y continúa tras login.
+   */
+  onRequireAuth?: (routeId: string) => void;
 }
 
 const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
@@ -33,14 +38,17 @@ const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
 ];
 
 /**
- * HU-03 Explorar — Catálogo público/aprobado + búsqueda/filtro + detalle.
- * Guest libre (decisión de HU): catálogo y detalle visibles sin sesión;
- * GPS/offline/moderar exigen `isAuthenticated` / `hasRole` (se muestra el gate
- * solo en el detalle, nunca bloquea la consulta).
+ * HU-03 Explorar — Catálogo público/aprobado + búsqueda/filtro + detalle con gate.
+ * Gate oficial: el catálogo es público; el detalle exige sesión activa.
+ * Sin sesión, seleccionar una ruta llama `onRequireAuth(routeId)` (el Gate guarda
+ * el pendiente y continúa al detalle tras login). GPS/offline exigen `isAuthenticated`.
  * Sin `firebase/*` aquí: solo usecases + `routeService` como puerto.
  */
-export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
-  const { currentUser, isGuest, isAuthenticated, exitGuest } = useAuth();
+export const ExploreView: React.FC<ExploreViewProps> = ({
+  onBack,
+  onRequireAuth,
+}) => {
+  const { isAuthenticated, exitGuest } = useAuth();
   const [routes, setRoutes] = useState<RouteModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,11 +125,21 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
     }
   }, [texto, dificultad, routes]);
 
-  const sessionLabel = isAuthenticated
-    ? `${currentUser?.email} · ${currentUser?.role}`
-    : isGuest
-      ? "Invitado (guest, sin sesión)"
-      : "Sin sesión";
+  /** Gate duro: con sesión abre el detalle; sin sesión deriva al login con pendiente. */
+  const handleSelectRoute = useCallback(
+    (routeId: string) => {
+      if (isAuthenticated) {
+        setSelectedId(routeId);
+        return;
+      }
+      if (onRequireAuth) {
+        onRequireAuth(routeId);
+        return;
+      }
+      exitGuest();
+    },
+    [isAuthenticated, onRequireAuth, exitGuest],
+  );
 
   if (selectedId) {
     return (
@@ -147,7 +165,6 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
       </View>
 
       <Text style={styles.title}>Catálogo de rutas públicas</Text>
-      <Text style={styles.session}>Sesión: {sessionLabel}</Text>
       {usingDemo ? (
         <Banner
           tone="success"
@@ -207,21 +224,13 @@ export const ExploreView: React.FC<ExploreViewProps> = ({ onBack }) => {
             </Text>
           }
           renderItem={({ item }) => (
-            <RouteCard route={item} onPress={() => setSelectedId(item.id)} />
+            <RouteCard
+              route={item}
+              onPress={() => handleSelectRoute(item.id)}
+            />
           )}
         />
       )}
-
-      {!isAuthenticated ? (
-        <Pressable
-          onPress={exitGuest}
-          style={styles.authBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Iniciar sesión o crear cuenta"
-        >
-          <Text style={styles.authBtnText}>Iniciar sesión / Crear cuenta</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 };
@@ -261,11 +270,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
-  session: {
-    color: AndeanTheme.colors.primaryLight,
-    fontSize: 12,
-    fontWeight: "700",
-  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -297,17 +301,4 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   list: { gap: 10, paddingBottom: 16 },
-  authBtn: {
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  authBtnText: {
-    color: AndeanTheme.colors.primaryLight,
-    fontSize: 12,
-    fontWeight: "800",
-  },
 });

@@ -67,7 +67,7 @@ criterio = hallazgo major.
 - Sesión persistente en AsyncStorage (`storage.ts`, clave `trekkin_auth_user`).
 - `Gate` en `App.tsx`: sin sesión → `AuthView`; con sesión → `HomeView`. Las privadas futuras
   (HU-03…HU-10) cuelgan del Gate, nunca de chequeos sueltos en cada vista.
-- RBAC (`user|moderator|admin`) en servicio + `firestore.rules`, no solo en UI.
+- RBAC vigente (`user|admin`, sin HU-09) en servicio + `firestore.rules`, no solo en UI.
 - Fallbacks locales de auth SOLO ante error de red (`isNetworkError`); credencial inválida,
   duplicado o bloqueo siempre son error visible, nunca sesión silenciosa.
 
