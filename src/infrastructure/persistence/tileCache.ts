@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const PREFIX = 'trekking_tile_v4';
 const INDEX_KEY = `${PREFIX}_index`;
 const DENIED_KEY = `${PREFIX}_denied`;
-const MAX_TILES = 200;
+const MAX_TILES = 1500;
 const MAX_DENIED = 500;
 
 // Separación mínima entre descargas. CARTO tolera más que el servidor de
@@ -116,6 +116,29 @@ export const tileCache = {
       await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(index));
     } catch {
       // Toleramos fallos de escritura: solo se pierde la tesela nueva.
+    }
+  },
+
+  /** Returns stats for diagnostics and UI (offlineMaps.ts). */
+  getStats(): { cached: number; denied: number; maxTiles: number } {
+    return { cached: index.length, denied: denied.size, maxTiles: MAX_TILES };
+  },
+
+  /** Purges all cached and denied tiles. */
+  async clear(): Promise<void> {
+    const keys = index.map(fullKey);
+    memory = new Map();
+    index = [];
+    denied = new Set();
+    initialized = null;
+    try {
+      for (const k of keys) {
+        await AsyncStorage.removeItem(k);
+      }
+      await AsyncStorage.removeItem(INDEX_KEY);
+      await AsyncStorage.removeItem(DENIED_KEY);
+    } catch {
+      // Toleramos fallos de limpieza.
     }
   },
 };

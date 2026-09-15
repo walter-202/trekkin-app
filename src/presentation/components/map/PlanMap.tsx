@@ -18,6 +18,7 @@ import {
   ensureTilesReady,
   fetchTileAsDataUri,
 } from '../../../infrastructure/persistence/tileCache';
+import { ensureMapOfflineCache } from '../../../infrastructure/map/offlineMaps';
 import {
   TILE_SIZE,
   MIN_ZOOM,
@@ -190,6 +191,7 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
   pressRef.current = onPressCoordinate;
 
   useEffect(() => {
+    void ensureMapOfflineCache();
     void ensureTilesReady();
   }, []);
 
