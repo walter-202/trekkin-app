@@ -7,10 +7,11 @@
  * - HU-02: Iniciar y Cerrar Sesión (C1 to C10)
  */
 
-import { RegisterSchema, LoginSchema, normalizeUsername } from '../core/domain/auth.schemas';
+import { RegisterSchema, LoginSchema, normalizeUsername, UpdateProfileSchema } from '../core/domain/auth.schemas';
 import { RegisterUserUseCase, RegisterPorts, RegisterArgs } from '../core/application/auth/RegisterUser.usecase';
 import { LoginUserUseCase, LoginPorts } from '../core/application/auth/LoginUser.usecase';
 import { LogoutUserUseCase, LogoutPorts } from '../core/application/auth/LogoutUser.usecase';
+import { UpdateUserProfileUseCase } from '../core/application/auth/UpdateUserProfile.usecase';
 import { UserProfile } from '../core/domain/types';
 import { isNetworkError, AUTH_STORAGE_KEY } from '../infrastructure/auth/AuthContext';
 import { testFirestoreConnection } from '../infrastructure/firebase/config';
@@ -257,6 +258,124 @@ export async function runAuthAcceptanceTests(): Promise<TestResult[]> {
     'C6: Clasificador de errores (diferencia sin red vs credenciales incorrectas)',
     isNetwork === true && isCredential === false,
     `network-request-failed -> ${isNetwork}, invalid-credential -> ${isCredential}`
+  );
+
+  // =========================================================================
+  // HU-02: MODIFICAR DATOS DE USUARIO (C11)
+  // =========================================================================
+
+  // HU-02 C11: Validación sintáctica con UpdateProfileSchema
+  const validProfileUpdate = {
+    displayName: 'Alejandro Condori Murillo',
+    username: '@caminante_andino',
+    bio: 'Guía de Montaña • Club Andino Boliviano',
+    bloodType: 'O Rh Positivo (O+)',
+    emergencyContact: 'SAR Bolivia / Illimani',
+    themePreference: 'dark' as const,
+  };
+  const parsedUpdate = UpdateProfileSchema.safeParse(validProfileUpdate);
+  recordTest(
+    'HU-02',
+    'C11: UpdateProfileSchema valida campos editables y normaliza alias',
+    parsedUpdate.success && parsedUpdate.data.username === 'caminante_andino',
+    parsedUpdate.success ? `username normalizado: ${parsedUpdate.data.username}` : JSON.stringify(parsedUpdate)
+  );
+
+  // HU-02 C11: Rechazo de nombre demasiado corto (< 3 caracteres)
+  const shortNameUpdate = UpdateProfileSchema.safeParse({
+    displayName: 'Al',
+    username: 'caminante',
+  });
+  recordTest(
+    'HU-02',
+    'C11: Rechazo de nombre completo menor a 3 caracteres',
+    shortNameUpdate.success === false,
+    shortNameUpdate.success ? 'Falló validación' : 'Nombre corto rechazado correctamente'
+  );
+
+  // HU-02 C11: Rechazo de caracteres no permitidos en username (espacios, signos)
+  const invalidUserUpdate = UpdateProfileSchema.safeParse({
+    displayName: 'Alejandro Condori',
+    username: 'caminante andino!',
+  });
+  recordTest(
+    'HU-02',
+    'C11: Rechazo de caracteres especiales y espacios en el alias',
+    invalidUserUpdate.success === false,
+    invalidUserUpdate.success ? 'Falló validación' : 'Alias inválido rechazado correctamente'
+  );
+
+  // HU-02 C11: Caso de uso UpdateUserProfileUseCase actualiza datos y persiste
+  let dbUpdatesReceived: Partial<UserProfile> | null = null;
+  let sessionSaved: UserProfile | null = null;
+  const mockCurrentProfile: UserProfile = {
+    uid: 'user-caminante-123',
+    email: 'a.condori@trekbolivia.bo',
+    displayName: 'Alejandro Antiguo',
+    username: 'antiguo_alias',
+    role: 'user',
+    isBlocked: false,
+    createdAt: 1710000000000,
+  };
+
+  const updatedProfileResult = await UpdateUserProfileUseCase(
+    'user-caminante-123',
+    {
+      displayName: 'Alejandro Condori Murillo',
+      username: 'caminante_andino',
+      bio: 'Guía de Montaña',
+    },
+    mockCurrentProfile,
+    {
+      updateProfileInDb: async (_uid, updates) => {
+        dbUpdatesReceived = updates;
+      },
+      saveSession: async (synced) => {
+        sessionSaved = synced;
+      },
+    }
+  );
+
+  recordTest(
+    'HU-02',
+    'C11: UpdateUserProfileUseCase actualiza datos y orquesta puertos de base de datos y sesión',
+    updatedProfileResult.displayName === 'Alejandro Condori Murillo' &&
+      updatedProfileResult.username === 'caminante_andino' &&
+      dbUpdatesReceived !== null &&
+      sessionSaved !== null,
+    `displayName: ${updatedProfileResult.displayName}, username: ${updatedProfileResult.username}`
+  );
+
+  // HU-02 C11: Invariante estricto: el email y rol permanecen inmutables
+  recordTest(
+    'HU-02',
+    'C11: Invariante de seguridad: email y rol permanecen inmutables en la actualización',
+    updatedProfileResult.email === mockCurrentProfile.email &&
+      updatedProfileResult.role === mockCurrentProfile.role &&
+      updatedProfileResult.uid === mockCurrentProfile.uid,
+    `email=${updatedProfileResult.email}, role=${updatedProfileResult.role}`
+  );
+
+  // HU-02 C11: Intento de actualizar perfil bloqueado es rechazado
+  let blockedRejected = false;
+  try {
+    await UpdateUserProfileUseCase(
+      'user-blocked-1',
+      { displayName: 'Nuevo Nombre', username: 'nuevo_alias' },
+      { ...mockCurrentProfile, uid: 'user-blocked-1', isBlocked: true },
+      {
+        updateProfileInDb: async () => {},
+      }
+    );
+  } catch (err: any) {
+    blockedRejected = err.message.includes('suspendida');
+  }
+
+  recordTest(
+    'HU-02',
+    'C11: Cuenta suspendida no puede modificar datos de perfil',
+    blockedRejected,
+    blockedRejected ? 'Rechazo controlado por cuenta suspendida' : 'No se rechazó la cuenta bloqueada'
   );
 
   // =========================================================================

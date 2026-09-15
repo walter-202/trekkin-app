@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
-import { ChevronLeft, Share2, Download, CheckCircle2 } from "lucide-react-native";
+import { ChevronLeft, Share2, Download, CheckCircle2, Activity } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
 import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
@@ -25,6 +25,7 @@ interface RouteDetailViewProps {
   routeId: string;
   onBack: () => void;
   onRequireAuth?: () => void;
+  onStartActivity?: (route: RouteModel) => void;
 }
 
 const difficultyLabel: Record<RouteModel["difficulty"], string> = {
@@ -51,6 +52,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   routeId,
   onBack,
   onRequireAuth,
+  onStartActivity,
 }) => {
   const { isAuthenticated, exitGuest } = useAuth();
   const [route, setRoute] = useState<RouteModel | null>(null);
@@ -290,6 +292,17 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
               </Text>
             </View>
           ) : null}
+          <Pressable
+            onPress={() => (route && onStartActivity ? onStartActivity(route) : null)}
+            style={styles.startActivityBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Iniciar recorrido guiado con GPS"
+          >
+            <Activity size={15} color={AndeanTheme.colors.white} />
+            <Text style={styles.startActivityBtnText}>
+              Iniciar recorrido (GPS)
+            </Text>
+          </Pressable>
           <Pressable
             onPress={() => setDownloadOpen(true)}
             style={styles.downloadBtn}
@@ -567,5 +580,20 @@ const styles = StyleSheet.create({
     color: AndeanTheme.colors.white,
     fontSize: 12,
     fontWeight: "800",
+  },
+  startActivityBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: AndeanTheme.colors.primary,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  startActivityBtnText: {
+    color: AndeanTheme.colors.white,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
   },
 });

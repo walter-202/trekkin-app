@@ -79,6 +79,10 @@ interface PlanMapProps {
   trail?: TrailPoint[];
   pointsOfInterest?: PointOfInterest[];
   accessibilityLabel?: string;
+  routeWaypoints?: TrailPoint[];
+  checkpoints?: PointOfInterest[] | Array<{ id: string; lat: number; lng: number; name?: string; notes?: string }>;
+  track?: TrailPoint[];
+  fitTo?: Array<{ lat: number; lng: number }>;
 }
 
 interface ViewState {
@@ -127,7 +131,10 @@ function resolveInitialView(p: PlanMapProps): ViewState {
     };
   }
   const pts: Array<{ lat: number; lng: number }> = [
+    ...(p.fitTo ?? []),
     ...(p.trail ?? []),
+    ...(p.routeWaypoints ?? []),
+    ...(p.track ?? []),
     ...(p.pointsOfInterest ?? []),
     ...(p.currentLocation ? [p.currentLocation] : []),
     ...(p.start ? [p.start] : []),
@@ -163,7 +170,23 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
     trail,
     pointsOfInterest,
     accessibilityLabel,
+    routeWaypoints,
+    checkpoints,
+    track,
   } = props;
+
+  const activeTrail = trail ?? routeWaypoints;
+  const activePOIs: PointOfInterest[] =
+    pointsOfInterest ??
+    (checkpoints
+      ? (checkpoints as any[]).map((c) => ({
+          id: c.id,
+          lat: c.lat,
+          lng: c.lng,
+          name: c.name,
+          notes: c.notes,
+        }))
+      : []);
 
   const [viewport, setViewport] = useState<Viewport>({ w: 0, h: 0 });
   const [view, setView] = useState<ViewState>(() => resolveInitialView(props));
@@ -418,15 +441,26 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
   };
 
   const linePoints = useMemo(() => {
-    if (!trail || trail.length < 2) return '';
-    return trail
+    if (!activeTrail || activeTrail.length < 2) return '';
+    return activeTrail
       .map((p) => {
         const s = toScreen(p);
         return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
       })
       .join(' ');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trail, view, viewport]);
+  }, [activeTrail, view, viewport]);
+
+  const trackPoints = useMemo(() => {
+    if (!track || track.length < 2) return '';
+    return track
+      .map((p) => {
+        const s = toScreen(p);
+        return `${s.x.toFixed(1)},${s.y.toFixed(1)}`;
+      })
+      .join(' ');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track, view, viewport]);
 
   const renderTile = (t: TileCell) => {
     const key = tileKeyStr(t.z, t.x, t.y);
@@ -522,22 +556,35 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
         >
           {tiles.map(renderTile)}
 
-          {linePoints ? (
+          {linePoints || trackPoints ? (
             <Svg
               width={viewport.w}
               height={viewport.h}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             >
-              <Polyline
-                points={linePoints}
-                fill="none"
-                stroke={COLOR_TRAIL}
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity={0.9}
-              />
+              {linePoints ? (
+                <Polyline
+                  points={linePoints}
+                  fill="none"
+                  stroke={COLOR_TRAIL}
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={0.9}
+                />
+              ) : null}
+              {trackPoints ? (
+                <Polyline
+                  points={trackPoints}
+                  fill="none"
+                  stroke={COLOR_CURRENT}
+                  strokeWidth={4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  opacity={0.85}
+                />
+              ) : null}
             </Svg>
           ) : null}
 
@@ -562,7 +609,7 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
               label={currentLocation.name ?? 'Ubicación actual'}
             />
           ) : null}
-          {(pointsOfInterest ?? []).map((poi) => (
+          {activePOIs.map((poi) => (
             <MarkerDot
               key={poi.id}
               p={toScreen(poi)}

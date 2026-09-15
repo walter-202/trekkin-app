@@ -109,6 +109,12 @@ export interface UserProfile {
   role: UserRole;
   isBlocked: boolean;
   createdAt: number;
+  bio?: string;
+  bloodType?: string;
+  emergencyContact?: string;
+  totalDistanceKm?: number;
+  recordedRoutesCount?: number;
+  themePreference?: "dark" | "light" | "high_contrast";
 }
 
 /** HU-10 — Acciones de administración registradas en bitácora (T7). */

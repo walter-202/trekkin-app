@@ -21,6 +21,8 @@ import type { RegisterArgs } from "../../core/application/auth/RegisterUser.usec
 import { RegisterUserUseCase } from "../../core/application/auth/RegisterUser.usecase";
 import { LoginUserUseCase } from "../../core/application/auth/LoginUser.usecase";
 import { LogoutUserUseCase } from "../../core/application/auth/LogoutUser.usecase";
+import { UpdateUserProfileUseCase } from "../../core/application/auth/UpdateUserProfile.usecase";
+import type { UpdateProfileInput } from "../../core/domain/auth.schemas";
 import { appStorage } from "../persistence/storage";
 
 interface AuthContextType {
@@ -32,6 +34,7 @@ interface AuthContextType {
   register: (args: RegisterArgs) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: UpdateProfileInput) => Promise<void>;
   switchDemoRole: (role: UserRole) => void;
   hasRole: (allowedRoles: UserRole[]) => boolean;
   isAdmin: boolean;
@@ -516,6 +519,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsGuest(false);
   };
 
+  const updateProfile = async (data: UpdateProfileInput) => {
+    if (!currentUser) {
+      throw new Error("No hay una sesión activa para modificar.");
+    }
+    setError(null);
+    try {
+      const updated = await UpdateUserProfileUseCase(
+        currentUser.uid,
+        data,
+        currentUser,
+        {
+          updateProfileInDb: async (uid, updates) => {
+            try {
+              await userProfileService.updateUserProfile(uid, updates);
+            } catch (err) {
+              console.warn("Update profile offline/firestore fallback:", err);
+            }
+          },
+          saveSession: async (synced) => {
+            await appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(synced));
+          },
+        }
+      );
+      setCurrentUser(updated);
+    } catch (err: any) {
+      const msg = err?.issues?.[0]?.message || err?.message || "Error al actualizar perfil";
+      setError(msg);
+      throw err;
+    }
+  };
+
   const isAuthenticated = currentUser !== null;
 
   const isAdmin = currentUser?.role === 'admin';
@@ -531,6 +565,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         register,
         loginWithGoogle,
         logout,
+        updateProfile,
         switchDemoRole,
         hasRole,
         isAdmin,

@@ -8,6 +8,7 @@ import {
   LogIn,
   X,
   HardDrive,
+  Activity,
 } from "lucide-react-native";
 import type { UserProfile } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -15,6 +16,7 @@ import { AndeanTheme } from "../../theme";
 export type DrawerRoute =
   | "inicio"
   | "record"
+  | "actividad"
   | "descargas"
   | "perfil"
   | "usuarios"
@@ -174,7 +176,35 @@ export const Drawer: React.FC<DrawerProps> = ({
           </View>
         </Pressable>
 
-        {/* 3. Rutas descargadas (HU-04) */}
+        {/* 3. Actividad GPS / Realizar ruta (HU-06 + HU-08) */}
+        <Pressable
+          onPress={() => go("actividad")}
+          style={[styles.item, active === "actividad" && styles.itemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Seguimiento GPS y realizar ruta"
+        >
+          <Activity
+            size={18}
+            color={
+              active === "actividad"
+                ? AndeanTheme.colors.primaryLight
+                : AndeanTheme.colors.textSecondary
+            }
+          />
+          <View style={styles.itemTextWrap}>
+            <Text
+              style={[
+                styles.itemTitle,
+                active === "actividad" && styles.itemTitleActive,
+              ]}
+            >
+              ACTIVIDAD GPS
+            </Text>
+            <Text style={styles.itemSub}>Seguimiento y grabación en vivo</Text>
+          </View>
+        </Pressable>
+
+        {/* 4. Rutas descargadas (HU-04) */}
         <Pressable
           onPress={() => go("descargas")}
           style={[styles.item, active === "descargas" && styles.itemActive]}

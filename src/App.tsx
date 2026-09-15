@@ -7,16 +7,27 @@ import { Mountain, Menu, LogIn, User as UserIcon } from "lucide-react-native";
 import { AuthProvider, useAuth } from "./infrastructure/auth/AuthContext";
 import { AuthView } from "./presentation/views/auth/AuthView";
 import { HomeView } from "./presentation/views/home/HomeView";
+import { ProfileView, EditProfileView } from "./presentation/views/profile";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
 import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
 import { UserManagementView } from "./presentation/views/profile/UserManagementView";
 import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
+import { ActivityView } from "./presentation/views/activity/ActivityView";
 import { Drawer, type DrawerRoute } from "./presentation/components/nav/Drawer";
 import { AndeanTheme } from "./presentation/theme";
 import { parseShareLink } from "./core/domain/share.schemas";
+import type { RouteModel } from "./core/domain/types";
+import { useActivityStore } from "./infrastructure/persistence/useActivityStore";
 
-type Screen = "explore" | "profile" | "record" | "users" | "downloads";
+type Screen =
+  | "explore"
+  | "profile"
+  | "edit-profile"
+  | "record"
+  | "users"
+  | "downloads"
+  | "activity";
 
 function Gate() {
   const { currentUser, loading, isAdmin } = useAuth();
@@ -55,6 +66,13 @@ function Gate() {
         setAuthRedirectScreen("record");
         setAuthOpen(true);
       }
+    } else if (route === "actividad") {
+      if (currentUser) {
+        setScreen("activity");
+      } else {
+        setAuthRedirectScreen("activity");
+        setAuthOpen(true);
+      }
     } else if (route === "descargas") {
       setScreen("downloads");
     } else if (route === "perfil") {
@@ -87,16 +105,31 @@ function Gate() {
     }
   };
 
+  const handleStartActivity = async (route: RouteModel) => {
+    if (!currentUser) {
+      setAuthRedirectScreen("activity");
+      setAuthOpen(true);
+      return;
+    }
+    await useActivityStore
+      .getState()
+      .startRoute(currentUser.uid, currentUser.displayName, route.id);
+    setPendingRouteId(null);
+    setScreen("activity");
+  };
+
   const activeDrawerRoute: DrawerRoute =
     screen === "users"
       ? "usuarios"
       : screen === "record"
         ? "record"
-        : screen === "downloads"
-          ? "descargas"
-          : screen === "profile"
-            ? "perfil"
-            : "inicio";
+        : screen === "activity"
+          ? "actividad"
+          : screen === "downloads"
+            ? "descargas"
+            : screen === "profile"
+              ? "perfil"
+              : "inicio";
 
   if (loading) {
     return (
@@ -126,23 +159,37 @@ function Gate() {
           setAuthRedirectScreen(null);
           setAuthOpen(true);
         }}
+        onStartActivity={handleStartActivity}
       />
     );
   } else if (screen === "record") {
     mainContent = <RecordView onClose={() => setScreen("explore")} />;
+  } else if (screen === "activity") {
+    mainContent = <ActivityView onClose={() => setScreen("explore")} />;
   } else if (screen === "downloads") {
     mainContent = <DownloadsView onBack={() => setScreen("explore")} />;
   } else if (screen === "users" && isAdmin) {
     mainContent = <UserManagementView onBack={() => setScreen("explore")} />;
   } else if (screen === "profile" && currentUser) {
     mainContent = (
-      <HomeView
+      <ProfileView
+        onBack={() => setScreen("explore")}
+        onOpenEdit={() => setScreen("edit-profile")}
         onOpenRecord={() => setScreen("record")}
         onOpenDownloads={() => setScreen("downloads")}
       />
     );
+  } else if (screen === "edit-profile" && currentUser) {
+    mainContent = (
+      <EditProfileView
+        onBack={() => setScreen("profile")}
+        onSuccess={() => setScreen("profile")}
+      />
+    );
   } else {
-    mainContent = <ExploreView key={catalogKey} />;
+    mainContent = (
+      <ExploreView key={catalogKey} onStartActivity={handleStartActivity} />
+    );
   }
 
   return (
