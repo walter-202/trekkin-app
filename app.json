@@ -1,15 +1,48 @@
 {
   "expo": {
-    "name": "Trekkin App",
-    "slug": "trekkin-app",
+    "name": "Trekking Bolivia Pro",
+    "slug": "trekking-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
     "scheme": "trekkin-app",
-    "web": {
-      "bundler": "metro"
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.walter202.trekkingapp",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Trekking Bolivia necesita acceso a tu ubicación GPS para el registro de rutas topográficas en montaña.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Trekking Bolivia registra tus coordenadas y altitud durante expediciones activas."
+      }
     },
-    "plugins": [],
-    "extra": {}
+    "android": {
+      "package": "com.walter202.trekkingapp",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#051712"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir a Trekking Bolivia rastrear tu posición GPS en expedición."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ef9feba1-ae5a-480f-bc38-4fe39f33e2ea"
+      }
+    },
+    "owner": "walter_202"
   }
 }
