@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { CheckCircle2, MapPin, Flag, Gauge, Route as RouteIcon } from 'lucide-react-native';
+import { CheckCircle2, MapPin, Flag, Gauge, Route as RouteIcon, Play } from 'lucide-react-native';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 
 /**
@@ -10,6 +10,7 @@ import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
  */
 interface ReadyForGpsViewProps {
   onDone: () => void;
+  onStartRecording?: () => void;
 }
 
 const DIFFICULTY_LABEL: Record<string, string> = {
@@ -19,7 +20,7 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   experto: 'Experto',
 };
 
-export const ReadyForGpsView: React.FC<ReadyForGpsViewProps> = ({ onDone }) => {
+export const ReadyForGpsView: React.FC<ReadyForGpsViewProps> = ({ onDone, onStartRecording }) => {
   const plan = usePlanStore((s) => s.plan);
 
   if (!plan) return null;
@@ -66,12 +67,31 @@ export const ReadyForGpsView: React.FC<ReadyForGpsViewProps> = ({ onDone }) => {
         </View>
       </View>
 
-      <Pressable
-        onPress={onDone}
-        style={({ pressed }) => [styles.doneBtn, pressed && styles.pressed]}
-      >
-        <Text style={styles.doneBtnText}>FINALIZAR</Text>
-      </Pressable>
+      {onStartRecording ? (
+        <View style={styles.btnGroup}>
+          <Pressable
+            onPress={onStartRecording}
+            style={({ pressed }) => [styles.startGpsBtn, pressed && styles.pressed]}
+          >
+            <Play size={16} color="#064E3B" fill="#064E3B" />
+            <Text style={styles.startGpsBtnText}>INICIAR RUTA CON GPS</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={onDone}
+            style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.backBtnText}>GUARDAR Y SALIR</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onDone}
+          style={({ pressed }) => [styles.doneBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.doneBtnText}>FINALIZAR</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 };
@@ -121,6 +141,37 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   readyFlagText: { color: '#34D399', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  btnGroup: { gap: 10 },
+  startGpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingVertical: 15,
+  },
+  startGpsBtnText: {
+    fontSize: 13,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    color: '#064E3B',
+  },
+  backBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0A241C',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 14,
+    paddingVertical: 13,
+  },
+  backBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 0.6,
+  },
   doneBtn: {
     backgroundColor: '#10B981',
     borderRadius: 14,
@@ -129,4 +180,4 @@ const styles = StyleSheet.create({
   },
   doneBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
   pressed: { opacity: 0.8 },
-});
+});

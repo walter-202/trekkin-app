@@ -1,20 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
+import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
 import { DraftsView } from './DraftsView';
 import { CreateRouteView } from './CreateRouteView';
 import { PlanEditorView } from './PlanEditorView';
 import { StartPointConfirmView } from './StartPointConfirmView';
 import { ReadyForGpsView } from './ReadyForGpsView';
+import { RecordingActivityView } from './RecordingActivityView';
+import { ActivitySummaryView } from './ActivitySummaryView';
 
 /**
- * HU-07 — Hub de planificación de rutas.
- * Máquina de estados interna (sin librería de navegación):
- * drafts -> create -> editor -> confirm -> ready.
+ * HU-07 + HU-08 — Hub de planificación y grabación GPS de rutas.
+ * Máquina de estados interna (sin librería de navegación externa):
+ * drafts -> create -> editor -> confirm -> ready -> recording -> summary.
  */
-type RecordStep = 'drafts' | 'create' | 'editor' | 'confirm' | 'ready';
+type RecordStep =
+  | 'drafts'
+  | 'create'
+  | 'editor'
+  | 'confirm'
+  | 'ready'
+  | 'recording'
+  | 'summary';
 
 interface RecordViewProps {
   onClose?: () => void;
@@ -26,6 +36,8 @@ const STEP_TITLES: Record<RecordStep, string> = {
   editor: 'EDITAR PLANIFICACIÓN',
   confirm: 'CONFIRMAR PUNTO DE INICIO',
   ready: 'LISTA PARA GRABAR',
+  recording: 'GRABANDO RECORRIDO',
+  summary: 'RESUMEN DE RUTA',
 };
 
 export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
@@ -37,6 +49,19 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     if (currentUser) {
       initializePlan(currentUser.uid, currentUser.displayName);
     }
+
+    // Si ya existe una sesión de grabación activa o recuperable en almacenamiento local
+    const activeActivity = useActivityStore.getState().activity;
+    const activeStatus = useActivityStore.getState().status;
+    if (activeActivity && (activeStatus === 'in_progress' || activeStatus === 'paused')) {
+      setStep('recording');
+    } else {
+      useActivityStore.getState().loadSavedActivity().then((hasActiveSession) => {
+        if (hasActiveSession) {
+          setStep('recording');
+        }
+      });
+    }
   }, [currentUser?.uid]);
 
   if (!currentUser) return null;
@@ -46,7 +71,26 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     else if (step === 'editor') setStep('drafts');
     else if (step === 'confirm') setStep('editor');
     else if (step === 'ready') setStep('drafts');
-    else if (onClose) onClose();
+    else if (step === 'recording') {
+      Alert.alert(
+        'Grabación en curso',
+        'La actividad sigue registrándose en primer plano. ¿Deseas pausar y volver al menú?',
+        [
+          { text: 'Continuar grabando', style: 'cancel' },
+          {
+            text: 'Salir al menú',
+            onPress: () => {
+              useActivityStore.getState().pauseActivity();
+              setStep('drafts');
+            },
+          },
+        ]
+      );
+    } else if (step === 'summary') {
+      setStep('drafts');
+    } else if (onClose) {
+      onClose();
+    }
   };
 
   const handleCreate = () => {
@@ -60,6 +104,21 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   };
 
   const handleSaved = () => setStep('editor');
+
+  const handleStartRecording = async () => {
+    if (!currentUser) return;
+    const dest = plan?.endPoint ? { lat: plan.endPoint.lat, lng: plan.endPoint.lng } : undefined;
+    const ok = await useActivityStore.getState().startActivity({
+      userId: currentUser.uid,
+      userName: currentUser.displayName,
+      routeId: plan?.id,
+      routeTitle: plan?.title,
+      destination: dest,
+    });
+    if (ok) {
+      setStep('recording');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -83,13 +142,30 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
       {step === 'confirm' && <StartPointConfirmView onConfirmed={() => setStep('ready')} />}
       {step === 'ready' && (
         <ReadyForGpsView
+          onStartRecording={handleStartRecording}
           onDone={() => {
             usePlanStore.getState().clearPlan();
             setStep('drafts');
           }}
         />
       )}
-      {plan && step !== 'drafts' && (
+      {step === 'recording' && (
+        <RecordingActivityView
+          onFinished={() => setStep('summary')}
+          onCancel={() => setStep('drafts')}
+        />
+      )}
+      {step === 'summary' && (
+        <ActivitySummaryView
+          onDone={() => {
+            usePlanStore.getState().clearPlan();
+            useActivityStore.getState().clearActivity();
+            setStep('drafts');
+          }}
+        />
+      )}
+
+      {plan && (step === 'create' || step === 'editor' || step === 'confirm') && (
         <Text style={styles.footNote}>Autosave activo · No perderás tu planificación</Text>
       )}
     </View>
@@ -122,4 +198,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     paddingBottom: 8,
   },
-});
+});
