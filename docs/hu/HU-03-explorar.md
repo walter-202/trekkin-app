@@ -1,10 +1,10 @@
-# HU-03: Explorar y Consultar Rutas — 🟡 70%
+# HU-03: Explorar y Consultar Rutas — 🟢 90%
 
 - **Dueño:** sesión 2026-09-16 (dev HU-03) · **Rama:** `main`
 - **Rol:** Visitante / Senderista.
 - **Narrativa:** como senderista o visitante quiero explorar el catálogo público
   para evaluar la excursión antes de salir.
-- **Figura oficial:** `docs/USER_STORIES.md` § HU-03 (no se modifica en este commit).
+- **Figura oficial:** `docs/USER_STORIES.md` § HU-03.
 
 ## DoD vigente (código real verificado)
 
@@ -15,13 +15,36 @@
 3. `C3` `RouteCard` (`src/presentation/views/explore/RouteCard.tsx:18-72`):
    nombre, tramo inicio→fin, km, horas, badge dificultad, `photos[0]` con fallback.
 4. `C4` Detalle hoy público (`ExploreView.tsx:116-124` → `RouteDetailView`
-   sin chequear sesión): header, `PlanMap`, métricas, itinerario, checkpoints
-   (`src/presentation/views/explore/RouteDetailView.tsx:132-262`).
-5. `C5` Mapa ❌ no producción: `PlanMap` raster OSM → 403 en celular, gris fuera
-   de La Paz z9–12. Destino: `TrekMap` MapLibre + OpenFreeMap + GeoJSON.
+   sin chequear sesión): header, `TrekMap` nativo, métricas, itinerario,
+   checkpoints (`src/presentation/views/explore/RouteDetailView.tsx:139-165`).
+5. `C5` Mapa ✅ nativo: `TrekMap.tsx` (Apple Maps iOS / OSM Android con
+   `mapType="none"` para apagar la base Google — fix 2026-09-16: antes el
+   `<UrlTile>` OSM quedaba tapado por Google y OSM 403eaba sin `User-Agent`;
+   fix-2: tiles Carto Voyager por defecto + se quitó el loader fullscreen que
+   tapaba el trazado + atribución © OSM · © CARTO).
+   fix-3 (web): `TrekMap` ya no importa `react-native-maps` estático — sus specs
+   (`codegenNativeComponent`) reventaban `npm run web` al arrancar; ahora solo
+   `import type` + `require` diferido en nativo, en web el módulo ni se ejecuta.
+
+- **Verificado 2026-09-16:** template Carto responde `200 image/png 18KB`
+  (la URL está sana); `expo-doctor` 19/21 — falla solo por doble lockfile
+  (`pnpm-lock.yaml` + `package-lock.json`, EAS infiere el package manager de ahí)
+  y drift patch `expo/expo-location` (nada de mapas). `react-native-maps@1.27.2`
+  aceptado para SDK 57.
+- **Firestore vacío:** el detalle muestra seed (`ruta-illimani-base` idéntico al
+  local) + consola `permission-denied` en `get routes/...` como invitado = doc
+  inexistente (`resource.data` null niega). No es bug de reglas: falta correr
+  `npm run seed:routes`.
+- **Límite estructural:** con `react-native-maps` en Android el logo Google es
+  inamovible (atribución obligatoria del SDK aunque `mapType="none"` apague sus
+  calles). Sin-Google total solo con MapLibre dev-build (V2, adiós Expo Go).
+  Suite `src/tests/map_service_hu3.test.ts` 5/5. Brecha: verificar fondo +
+  trazado + pins en Android físico y matriz multi-dispositivo. Nota: el logo
+  Google persiste (renderer Android ES el SDK de Google; solo sale con
+  MapLibre dev-build V2).
+
 6. `C6` Gate amigable parcial (`src/App.tsx:57-106`, `RouteDetailView.tsx:265-281`):
    invitado entra al detalle, solo GPS/offline piden sesión.
-- **Sin suite HU-03** (7 suites en `src/tests/`, ninguna de explorar).
 
 ## Refinamiento acordado 2026-09-16 (PROPUESTO, no aplicado en código)
 
@@ -54,3 +77,42 @@
 
 - Confirmar DoD `C1'`–`C6'` y aplicar código + validación Expo Go
   (visitante→login→cancela→catálogo; login→detalle; link sin sesión→login→detalle).
+
+## Handoff — mapa Android pendiente (2026-09-16, para quien lo tome)
+
+**Síntoma:** Android físico (Expo Go + Metro) muestra Google (logo abajo-izq) y
+OSM solo como nota "© OpenStreetMap · © CARTO". iPhone perfecto (Apple Maps).
+Web OK (crash `codegenNativeComponent` arreglado, fallback vive).
+
+**Código entregado:** `TrekMap.tsx` con `mapType="none"` en Android + `<UrlTile>`
+Carto Voyager + sin loader fullscreen + atribución + `require` diferido en web;
+prop nueva `tileUrlTemplate`. `lint` 0 errores, suite `map_service_hu3` 5/5.
+
+**Verificado, no reinvestigar:**
+
+1. El bundle nuevo SÍ corre en el celu (la atribución se ve).
+2. `mapType="none"` SÍ llegó antes (las calles Google desaparecieron → fondo oscuro).
+3. El template Carto responde `200 image/png 18KB` (curl 2026-09-16).
+4. `expo-doctor` 19/21: solo doble lockfile + drift patch `expo/location`; nada de mapas.
+5. Seed trae waypoints (4/3/3), `theme.ts` colores sanos, un solo `MapView` en la app.
+6. Firestore `routes` VACÍO → todo corre con seed; el `permission-denied` en consola
+   como invitado es doc inexistente, no bug de reglas. `npm run seed:routes`
+   pendiente — lo hace el dueño HU-03 luego, NO correr sin avisarle.
+
+**Para el veredicto falta 1 screenshot del mapa Android:** ¿calles Carto? ¿trail
+verde? ¿pins? ¿solo logo sobre oscuro? Según eso:
+
+- Calles Carto + trail + pins + logo → V1 cerrado (el logo es inamovible por ToS
+  del SDK de Google con `react-native-maps`).
+- Oscuro + logo sin calles → tiles no llegan al dispositivo (red del celu, `r` en
+  Metro para recargar, o `zIndex={-1}` del `UrlTile` como sospechoso restante).
+- Calles estilo Google → bundle viejo (reabrir con Metro corriendo + `r`).
+
+**Fork pendiente del equipo (no unilateral):** A) quedarse V1 (recomendado, logo
+pequeño inevitable, Expo Go intacto) · B) WebView+Leaflet (sin Google en Android
+y mapa real en web, pero 2.º stack + rompe "sin WebViews") · C) MapLibre
+dev-build = V2 del plan (100% libre + offline real, pero todo el equipo deja
+Expo Go; MapLibre confirma: "can't be used with Expo Go").
+
+**Repro:** `npx expo start --lan` → Expo Go Android → Explorar → cualquier ruta →
+detalle, mirar el contenedor del mapa.

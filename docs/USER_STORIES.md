@@ -4,6 +4,7 @@
 > Regla de validación vigente: **100% solo con matriz Expo Go + dev-build completa + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
 >
 > **Alcance real consolidado:**
+>
 > - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (80%), HU-10 (90%).
 > - **🟡 En progreso / pendientes de campo:** HU-06 (65%), HU-04 (55%).
 > - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
@@ -15,6 +16,7 @@
 Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, todos los agentes y desarrolladores **DEBEN** ceñirse a estos estándares técnicos:
 
 ### 1. Mapas e Interfaz Visual (V1 Expo Go)
+
 - **Componente Único de Mapa:** Usar [`src/presentation/components/map/TrekMap.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/TrekMap.tsx) con el contrato de props [`TrekMapProps`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/TrekMap.types.ts).
   - En **iOS:** Apple Maps nativo (automático, 100% gratuito, 0 API keys).
   - En **Android / Expo Go:** OpenStreetMap libre vía `<UrlTile />` (0 API keys de Google, sin errores 403).
@@ -24,6 +26,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   - **CERO llamadas o inicializaciones de mapas en el feed/catálogo**. Carga instantánea a 60 FPS.
 
 ### 2. Formatos GPS y Cálculos Geográficos
+
 - **Parsers y Serializadores:** [`src/core/domain/trackFormats.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/trackFormats.ts).
   - `parseGPX(xml)`: extrae trackpoints, elevación, tiempos y waypoints.
   - `buildGPX(track)`: genera XML GPX 1.1 canónico (interoperable con Garmin, Strava y Wikiloc).
@@ -38,6 +41,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   - Exportar actividad a GPX (HU-08): [`ExportTrackFileUseCase`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/application/activity/ExportTrackFile.usecase.ts).
 
 ### 3. Firestore y Base de Datos Anti-Colapso
+
 - **Catálogo Paginado:** Usar `routeService.listPublishedRoutesPaginated(pageSize, lastVisibleDoc)` con cursor (`limit` + `startAfter`). Nunca hacer queries abiertas sin límite.
 - **Actividades Largas (>500 puntos):** Usar `activityService.saveActivityPointsChunks(id, points)` para almacenar puntos en bloques bajo la subcolección `activities/{id}/points/chunk_{n}`. Protegido en `firestore.rules`.
 - **Regla Triple:** Si agregas un campo a una entidad, debe figurar en `types.ts`, `firestore.rules` y `DATABASE.md`.
@@ -57,10 +61,10 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   6. ✅ Post-registro: éxito + `signOut` inmediato + retorno a login (sin sesión espuria).
 - **Estado real y brecha (5%):** flujo verificado en Expo Go + suites. Falta: verificación de email y matriz en dev-build limpio.
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/auth.schemas.ts` (`RegisterSchema`, `UserProfileSchema`).
-  - *Aplicación:* `src/core/application/auth/RegisterUser.usecase.ts`.
-  - *Infraestructura:* `src/infrastructure/database/userProfileService.ts`, Firebase Auth + Firestore (`users/{uid}`).
-  - *Presentación:* `src/presentation/views/auth/RegisterForm.tsx`, `AuthView.tsx`.
+  - _Dominio:_ `src/core/domain/auth.schemas.ts` (`RegisterSchema`, `UserProfileSchema`).
+  - _Aplicación:_ `src/core/application/auth/RegisterUser.usecase.ts`.
+  - _Infraestructura:_ `src/infrastructure/database/userProfileService.ts`, Firebase Auth + Firestore (`users/{uid}`).
+  - _Presentación:_ `src/presentation/views/auth/RegisterForm.tsx`, `AuthView.tsx`.
 
 ---
 
@@ -82,10 +86,10 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   11. ✅ `EditProfileView`: edita `displayName`/`username` con `UpdateProfileSchema` (3–150 / regex `/^[a-zA-Z0-9_.]+$/`), email solo lectura, sin teléfono (alcance/privacidad), Guardar/Descartar.
 - **Estado real y brecha (10%):** auth sólida. Falta cerrar acciones de `ProfileView` (password/theme) y matriz dev-build.
 - **Mapeo Técnico:**
-  - *Dominio:* `LoginSchema`, `UpdateProfileSchema` en `src/core/domain/auth.schemas.ts`; `UserProfile` en `types.ts`.
-  - *Aplicación:* `LoginUser` / `LogoutUser` / `UpdateUserProfile` usecases.
-  - *Infraestructura:* `src/infrastructure/auth/AuthContext.tsx`, `userProfileService.ts`.
-  - *Presentación:* `LoginForm.tsx`, `HomeView.tsx`, `ProfileView.tsx`, `EditProfileView.tsx`.
+  - _Dominio:_ `LoginSchema`, `UpdateProfileSchema` en `src/core/domain/auth.schemas.ts`; `UserProfile` en `types.ts`.
+  - _Aplicación:_ `LoginUser` / `LogoutUser` / `UpdateUserProfile` usecases.
+  - _Infraestructura:_ `src/infrastructure/auth/AuthContext.tsx`, `userProfileService.ts`.
+  - _Presentación:_ `LoginForm.tsx`, `HomeView.tsx`, `ProfileView.tsx`, `EditProfileView.tsx`.
 
 ---
 
@@ -98,16 +102,16 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   2. ✅ Búsqueda texto + chips dificultad (`Todas/Fácil/Moderado/Difícil/Experto`) con `RouteFiltersSchema`.
   3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, foto de portada real del usuario (`coverImageUrl || photos[0]`) sin peticiones de mapas.
   4. ✅ `RouteDetailView`: header andino, badge desnivel, métricas (distancia/desnivel/tiempo/modalidad), itinerario, checkpoints con categoría/notas.
-  5. ✅ Mapa nativo con `TrekMap.tsx`: implementado sobre `react-native-maps` nativo (Apple Maps en iOS y OpenStreetMap en Android sin WebViews ni errores 403 de OSM). Polyline verde esmeralda y marcadores de inicio/fin/checkpoints nítidos.
+  5. ✅ Mapa nativo con `TrekMap.tsx`: `react-native-maps` nativo (Apple Maps en iOS y OpenStreetMap en Android sin WebViews). En Android se usa `mapType="none"` para apagar la base Google (`PROVIDER_DEFAULT` en Android ES el SDK de Google) y un `<UrlTile>` Carto Voyager (datos OSM, sin key) como única capa — `tile.openstreetmap.org` directo 403ea sin `User-Agent` y el loader de pantalla completa tapaba el trazado. Polyline verde esmeralda y marcadores de inicio/fin/checkpoints nítidos.
   6. ✅ Paginación y control de carga: `routeService.listPublishedRoutesPaginated` para consumo eficiente de Firestore.
   7. ✅ Gate amigable: acciones protegidas (descarga/tracking) invitan a sesión sin perder contexto.
-- **Estado real y brecha (10%):** visualización y catálogo completamente operativos. Pendiente: pruebas en matriz física multi-dispositivo.
+- **Estado real y brecha (10%):** visualización y catálogo completamente operativos. Pendiente: verificación en Android físico (fondo + trazado + pins sobre Carto) y matriz multi-dispositivo. Nota: el logo Google persiste abajo-izquierda porque el renderer Android ES el SDK de Google; solo desaparece con MapLibre dev-build (V2).
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/route.schemas.ts`, `src/core/domain/geoBounds.ts`.
-  - *Aplicación:* `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` usecases.
-  - *Infraestructura:* `src/infrastructure/database/routeService.ts`, `routeSeed.ts`.
-  - *Presentación:* `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `src/presentation/components/map/TrekMap.tsx`.
-  - *Suite:* `src/tests/map_service_hu3.test.ts`.
+  - _Dominio:_ `src/core/domain/route.schemas.ts`, `src/core/domain/geoBounds.ts`.
+  - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` usecases.
+  - _Infraestructura:_ `src/infrastructure/database/routeService.ts`, `routeSeed.ts`.
+  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `src/presentation/components/map/TrekMap.tsx`.
+  - _Suite:_ `src/tests/map_service_hu3.test.ts`.
 
 ---
 
@@ -122,11 +126,11 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   4. ⚠️ Modo avión: `TrekMap` soporta prop `offlinePackPath` para leer teselas locales (`file://...`). Pendiente verificación física en dispositivo sin red.
 - **Estado real y brecha (45%):** lógica de estimación, modal y soporte de teselas locales en `TrekMap` listos. Falta completar el gestor de descarga masiva a disco (`tileDownloader.ts`).
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`.
-  - *Aplicación:* `DownloadRouteOffline` / `EstimateRouteDownloadSize` usecases.
-  - *Infraestructura:* `src/infrastructure/persistence/tileCacheDB.ts`. Destino: `expo-file-system`.
-  - *Presentación:* `DownloadRouteModal.tsx`, `DownloadsView.tsx`.
-  - *Suite:* `src/tests/offline_hu4.test.ts`.
+  - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`.
+  - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` usecases.
+  - _Infraestructura:_ `src/infrastructure/persistence/tileCacheDB.ts`. Destino: `expo-file-system`.
+  - _Presentación:_ `DownloadRouteModal.tsx`, `DownloadsView.tsx`.
+  - _Suite:_ `src/tests/offline_hu4.test.ts`.
 
 ---
 
@@ -143,11 +147,11 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   6. ⚠️ Exportación de archivo: usecase `ExportTrackFileUseCase` disponible para adjuntar archivo `.gpx` al compartir.
 - **Estado real y brecha (15%):** flujo verificado. Falta enlazar directamente el share sheet con el archivo GPX generado.
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/share.schemas.ts`, `src/core/domain/trackFormats.ts`.
-  - *Aplicación:* `ShareRoute` / `CopyShareLink` / `PublishShareLink` / `ExportTrackFile` usecases.
-  - *Infraestructura:* `src/infrastructure/share/shareService.ts`.
-  - *Presentación:* `ShareModal.tsx`, `RouteDetailView.tsx`.
-  - *Suite:* `src/tests/share_hu5.test.ts`.
+  - _Dominio:_ `src/core/domain/share.schemas.ts`, `src/core/domain/trackFormats.ts`.
+  - _Aplicación:_ `ShareRoute` / `CopyShareLink` / `PublishShareLink` / `ExportTrackFile` usecases.
+  - _Infraestructura:_ `src/infrastructure/share/shareService.ts`.
+  - _Presentación:_ `ShareModal.tsx`, `RouteDetailView.tsx`.
+  - _Suite:_ `src/tests/share_hu5.test.ts`.
 
 ---
 
@@ -163,11 +167,11 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   5. ⚠️ Background GPS: pantalla bloqueada requiere configurar `expo-task-manager` y `ACCESS_BACKGROUND_LOCATION`.
 - **Estado real y brecha (35%):** lógica de estados y métricas 100% probada. Falta migrar vista de tracking a `TrekMap` nativo y background task.
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/activity.ts`, `activity.schemas.ts`, `calculations.ts`.
-  - *Aplicación:* `Start/Begin/RecordPoint/Pause/Resume/Finish/List/GetActivity` usecases.
-  - *Infraestructura:* `activityService.ts`, `locationService.ts`, `useActivityStore.ts`.
-  - *Presentación:* `ActivityView`, `PrepareView`, `TrackingView`, `ResultView`, `HistoryView`.
-  - *Suite:* `src/tests/activity_hu6.test.ts`.
+  - _Dominio:_ `src/core/domain/activity.ts`, `activity.schemas.ts`, `calculations.ts`.
+  - _Aplicación:_ `Start/Begin/RecordPoint/Pause/Resume/Finish/List/GetActivity` usecases.
+  - _Infraestructura:_ `activityService.ts`, `locationService.ts`, `useActivityStore.ts`.
+  - _Presentación:_ `ActivityView`, `PrepareView`, `TrackingView`, `ResultView`, `HistoryView`.
+  - _Suite:_ `src/tests/activity_hu6.test.ts`.
 
 ---
 
@@ -185,11 +189,11 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   7. ⚠️ Edición geométrica fina: undo/clear/drag de puntos individuales en UI.
 - **Estado real y brecha (15%):** persistencia, modelo y motor de importación completos. Falta pulido de botones undo/clear en la interfaz de edición.
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/plan.ts`, `plan.schemas.ts`, `src/core/domain/trackFormats.ts`.
-  - *Aplicación:* `SaveDraft`, `GetDraft`, `UpdatePlan`, `ConfirmStartPoint`, `MarkReadyForGps`, `ImportTrackFile`.
-  - *Infraestructura:* `routeService.ts`, `usePlanStore.ts`.
-  - *Presentación:* `CreateRouteView`, `PlanEditorView`, `DraftsView`.
-  - *Suites:* `src/tests/plan_hu7.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
+  - _Dominio:_ `src/core/domain/plan.ts`, `plan.schemas.ts`, `src/core/domain/trackFormats.ts`.
+  - _Aplicación:_ `SaveDraft`, `GetDraft`, `UpdatePlan`, `ConfirmStartPoint`, `MarkReadyForGps`, `ImportTrackFile`.
+  - _Infraestructura:_ `routeService.ts`, `usePlanStore.ts`.
+  - _Presentación:_ `CreateRouteView`, `PlanEditorView`, `DraftsView`.
+  - _Suites:_ `src/tests/plan_hu7.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
 
 ---
 
@@ -206,11 +210,11 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   6. ⚠️ Grabación con pantalla apagada (background location task).
 - **Estado real y brecha (20%):** registro, métricas, particionamiento y exportación GPX listos. Falta habilitar el background task.
 - **Mapeo Técnico:**
-  - *Dominio:* `activity.schemas.ts`, `calculations.ts`, `src/core/domain/trackFormats.ts`.
-  - *Aplicación:* `AddCheckpoint`, `RecordPoint`, `FinishActivity`, `ExportTrackFile`.
-  - *Infraestructura:* `activityService.ts` (con `saveActivityPointsChunks`), `locationService.ts`.
-  - *Presentación:* `TrackingView.tsx`, `ResultView.tsx`.
-  - *Suites:* `src/tests/activity_hu8.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
+  - _Dominio:_ `activity.schemas.ts`, `calculations.ts`, `src/core/domain/trackFormats.ts`.
+  - _Aplicación:_ `AddCheckpoint`, `RecordPoint`, `FinishActivity`, `ExportTrackFile`.
+  - _Infraestructura:_ `activityService.ts` (con `saveActivityPointsChunks`), `locationService.ts`.
+  - _Presentación:_ `TrackingView.tsx`, `ResultView.tsx`.
+  - _Suites:_ `src/tests/activity_hu8.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
 
 ---
 
@@ -233,30 +237,31 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
   6. ✅ `accountLogs` inmutable en `firestore.rules` con `actorId === auth.uid`.
 - **Estado real y brecha (10%):** RBAC y auditoría 100% funcionales. Falta paginación por cursor si la lista de usuarios supera 50.
 - **Mapeo Técnico:**
-  - *Dominio:* `userManagement.schemas.ts`, `AccountLogEntry` en `types.ts`.
-  - *Aplicación:* `ListUsers`, `GetUserDetail`, `BlockUser`, `UnblockUser`, `AssignRole`.
-  - *Infraestructura:* `accountLogService.ts`, `isAdmin()` en `firestore.rules`.
-  - *Presentación:* `UserManagementView`, `UserCard`, `UserDetailView`, `ConfirmActionModal`.
-  - *Suite:* `src/tests/user_management_hu10.test.ts`.
+  - _Dominio:_ `userManagement.schemas.ts`, `AccountLogEntry` en `types.ts`.
+  - _Aplicación:_ `ListUsers`, `GetUserDetail`, `BlockUser`, `UnblockUser`, `AssignRole`.
+  - _Infraestructura:_ `accountLogService.ts`, `isAdmin()` en `firestore.rules`.
+  - _Presentación:_ `UserManagementView`, `UserCard`, `UserDetailView`, `ConfirmActionModal`.
+  - _Suite:_ `src/tests/user_management_hu10.test.ts`.
 
 ---
 
 ## Matriz de Estado Real y Suites
 
-| HU | Módulo | Estado real | Suite Automatizada |
-| :--- | :--- | :---: | :--- |
-| **HU-01** | Registro | 🟢 95% | `auth_hu1_hu2.test.ts` |
-| **HU-02** | Sesión y perfil | 🟢 90% | `auth_hu1_hu2.test.ts` |
-| **HU-03** | Explorar y mapa | 🟢 90% | `map_service_hu3.test.ts` (TrekMap nativo OSM/Apple) |
-| **HU-04** | Descarga offline | 🟡 55% | `offline_hu4.test.ts` (cálculo de teselas/MB real) |
-| **HU-05** | Compartir ruta | 🟢 85% | `share_hu5.test.ts` |
-| **HU-06** | Realizar ruta (guía) | 🟡 65% | `activity_hu6.test.ts` |
-| **HU-07** | Planificar borrador | 🟢 85% | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts` |
-| **HU-08** | Grabar GPS y GPX | 🟢 80% | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
-| **HU-09** | Moderación | 🚫 — | Eliminada del alcance |
-| **HU-10** | Admin y roles | 🟢 90% | `user_management_hu10.test.ts` |
+| HU        | Módulo               | Estado real | Suite Automatizada                                       |
+| :-------- | :------------------- | :---------: | :------------------------------------------------------- |
+| **HU-01** | Registro             |   🟢 95%    | `auth_hu1_hu2.test.ts`                                   |
+| **HU-02** | Sesión y perfil      |   🟢 90%    | `auth_hu1_hu2.test.ts`                                   |
+| **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (TrekMap nativo OSM/Apple)     |
+| **HU-04** | Descarga offline     |   🟡 55%    | `offline_hu4.test.ts` (cálculo de teselas/MB real)       |
+| **HU-05** | Compartir ruta       |   🟢 85%    | `share_hu5.test.ts`                                      |
+| **HU-06** | Realizar ruta (guía) |   🟡 65%    | `activity_hu6.test.ts`                                   |
+| **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |
+| **HU-08** | Grabar GPS y GPX     |   🟢 80%    | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
+| **HU-09** | Moderación           |    🚫 —     | Eliminada del alcance                                    |
+| **HU-10** | Admin y roles        |   🟢 90%    | `user_management_hu10.test.ts`                           |
 
 ### Comandos Canónicos de Verificación
+
 ```bash
 npm run lint   # tsc --noEmit — DEBE quedar en 0 errores
 npm test       # 9 suites automáticas en serie (>95 casos de prueba en verde)

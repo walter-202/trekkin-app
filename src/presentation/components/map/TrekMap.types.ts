@@ -47,6 +47,12 @@ export interface TrekMapProps {
   showUserLocation?: boolean;
   /** Path to local offline tile directory */
   offlinePackPath?: string;
+  /**
+   * HU-03 Android — Override del template de teselas online.
+   * Por defecto Carto Voyager (datos OSM, sin keys). HU-04 usa `offlinePackPath`
+   * para teselas locales en vez de este template.
+   */
+  tileUrlTemplate?: string;
   /** Fit camera to specific coordinates */
   fitTo?: Array<{ lat: number; lng: number }>;
   /** Custom children (e.g. overlays, buttons) */

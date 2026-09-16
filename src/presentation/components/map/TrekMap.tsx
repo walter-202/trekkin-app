@@ -7,13 +7,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import MapView, {
-  Marker,
-  Polyline,
-  UrlTile,
-  PROVIDER_DEFAULT,
-  type Region,
-} from "react-native-maps";
+import type MapViewType from "react-native-maps";
+import type { Region } from "react-native-maps";
 import { Mountain, MapPin, Flag, Navigation } from "lucide-react-native";
 import { AndeanTheme } from "../../theme";
 import type { TrekMapProps, MapMarker } from "./TrekMap.types";
@@ -24,7 +19,24 @@ import {
 } from "../../../core/domain/geoBounds";
 import type { Coordinates } from "../../../core/domain/types";
 
-const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+/**
+ * HU-03 Web — `react-native-maps` ejecuta sus specs nativas al importarse
+ * (`codegenNativeComponent`), lo que revienta en web ANTES de llegar al fallback.
+ * Por eso solo se importan tipos (borrados en compilación) y los valores se
+ * cargan diferidos y SOLO en nativo; en web este módulo nunca se ejecuta.
+ */
+const NativeMaps: typeof import("react-native-maps") | null =
+  Platform.OS === "web" ? null : require("react-native-maps");
+
+/**
+ * HU-03 Android — Fuente base de teselas online (datos OpenStreetMap, sin API key).
+ * Se usa Carto Voyager y NO `tile.openstreetmap.org` directo: el servidor OSM
+ * exige `User-Agent` válido y estrangula (403) los requests del SDK de mapas,
+ * que `UrlTile` no permite fijar. Carto admite uso en apps con atribución.
+ * Override puntual vía prop `tileUrlTemplate`.
+ */
+const DEFAULT_TILE_URL =
+  "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png";
 
 export const TrekMap: React.FC<TrekMapProps> = ({
   trail = [],
@@ -42,10 +54,11 @@ export const TrekMap: React.FC<TrekMapProps> = ({
   accessibilityLabel,
   showUserLocation = false,
   offlinePackPath,
+  tileUrlTemplate,
   fitTo,
   children,
 }) => {
-  const mapRef = useRef<MapView | null>(null);
+  const mapRef = useRef<MapViewType | null>(null);
 
   // Unifica marcadores recibidos por markers o pointsOfInterest
   const allMarkers = useMemo(() => {
@@ -130,10 +143,21 @@ export const TrekMap: React.FC<TrekMapProps> = ({
     );
   }
 
+  // Nativo: en este punto Platform.OS !== "web", NativeMaps existe sí o sí.
+  // Se desestructura aquí (y no a nivel módulo) para que en web nunca se toque.
+  const {
+    default: MapView,
+    Marker,
+    Polyline,
+    UrlTile,
+    PROVIDER_DEFAULT,
+  } = NativeMaps as typeof import("react-native-maps");
+
   // URL del proveedor de teselas: local si hay paquete offline, de red si online
+  // (override vía `tileUrlTemplate` para espejos con política permisiva).
   const tileUrl = offlinePackPath
     ? `file://${offlinePackPath}/{z}/{x}/{y}.png`
-    : OSM_TILE_URL;
+    : (tileUrlTemplate ?? DEFAULT_TILE_URL);
 
   return (
     <View
@@ -144,6 +168,11 @@ export const TrekMap: React.FC<TrekMapProps> = ({
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         provider={PROVIDER_DEFAULT}
+        // HU-03 Android: `PROVIDER_DEFAULT` en Android ES el SDK de Google Maps
+        // (no existe renderer sin Google en react-native-maps). Con `mapType="none"`
+        // la base Google no se dibuja y el <UrlTile> OSM queda como única capa
+        // de teselas. En iOS se deja `standard` (Apple Maps nativo, gratis).
+        mapType={Platform.OS === "android" ? "none" : "standard"}
         initialRegion={computedRegion}
         onPress={handlePress}
         scrollEnabled={interactive}
@@ -153,11 +182,8 @@ export const TrekMap: React.FC<TrekMapProps> = ({
         showsUserLocation={showUserLocation}
         showsMyLocationButton={showUserLocation && interactive}
         showsCompass={interactive}
-        loadingEnabled
-        loadingIndicatorColor={AndeanTheme.colors.primary}
-        loadingBackgroundColor={AndeanTheme.colors.background}
       >
-        {/* Capa de teselas OpenStreetMap (en Android añade cobertura sin API key de Google) */}
+        {/* Capa base de teselas OSM (Android: única capa visible con mapType="none") */}
         {Platform.OS === "android" && (
           <UrlTile
             urlTemplate={tileUrl}
@@ -244,6 +270,14 @@ export const TrekMap: React.FC<TrekMapProps> = ({
 
       {/* Contenedor para overlays (botones de zoom, badge de desnivel, etc.) */}
       {children}
+
+      {/* Atribución obligatoria por licencia de las teselas (OSM + CARTO).
+          Solo en Android online: iOS usa Apple Maps y offline usa tiles propios. */}
+      {Platform.OS === "android" && !offlinePackPath && (
+        <View style={styles.attribution} pointerEvents="none">
+          <Text style={styles.attributionText}>© OpenStreetMap · © CARTO</Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -311,5 +345,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#3B82F6",
     borderWidth: 2,
     borderColor: AndeanTheme.colors.white,
+  },
+  attribution: {
+    position: "absolute",
+    right: 6,
+    bottom: 4,
+    backgroundColor: "rgba(5, 23, 18, 0.6)",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  attributionText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 9,
   },
 });
