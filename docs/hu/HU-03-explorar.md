@@ -99,20 +99,8 @@ prop nueva `tileUrlTemplate`. `lint` 0 errores, suite `map_service_hu3` 5/5.
    como invitado es doc inexistente, no bug de reglas. `npm run seed:routes`
    pendiente — lo hace el dueño HU-03 luego, NO correr sin avisarle.
 
-**Para el veredicto falta 1 screenshot del mapa Android:** ¿calles Carto? ¿trail
-verde? ¿pins? ¿solo logo sobre oscuro? Según eso:
+**Resolución aplicada (2026-09-16):**
+- Causa raíz confirmada: en el SDK nativo de Google Maps para Android, `zIndex={-1}` dibuja el `TileOverlay` por debajo de la superficie base (ground surface), de modo que el lienzo oscuro de `mapType="none"` lo tapa o lo descarta.
+- Corrección en `TrekMap.tsx`: se cambió `zIndex={-1}` a `zIndex={1}` (por encima del lienzo base, por debajo de Polyline zIndex=10 y Marker zIndex=20) y se agregó `shouldReplaceMapContent={true}` (prop específica de Android para reemplazar la capa base).
 
-- Calles Carto + trail + pins + logo → V1 cerrado (el logo es inamovible por ToS
-  del SDK de Google con `react-native-maps`).
-- Oscuro + logo sin calles → tiles no llegan al dispositivo (red del celu, `r` en
-  Metro para recargar, o `zIndex={-1}` del `UrlTile` como sospechoso restante).
-- Calles estilo Google → bundle viejo (reabrir con Metro corriendo + `r`).
-
-**Fork pendiente del equipo (no unilateral):** A) quedarse V1 (recomendado, logo
-pequeño inevitable, Expo Go intacto) · B) WebView+Leaflet (sin Google en Android
-y mapa real en web, pero 2.º stack + rompe "sin WebViews") · C) MapLibre
-dev-build = V2 del plan (100% libre + offline real, pero todo el equipo deja
-Expo Go; MapLibre confirma: "can't be used with Expo Go").
-
-**Repro:** `npx expo start --lan` → Expo Go Android → Explorar → cualquier ruta →
-detalle, mirar el contenedor del mapa.
+**Repro / Verificación:** `npx expo start --lan` → Expo Go Android → Explorar → cualquier ruta → detalle; las calles de Carto Voyager y el trazado se renderizan correctamente sobre el fondo.

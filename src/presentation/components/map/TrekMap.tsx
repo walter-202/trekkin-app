@@ -184,13 +184,14 @@ export const TrekMap: React.FC<TrekMapProps> = ({
         showsCompass={interactive}
       >
         {/* Capa base de teselas OSM (Android: única capa visible con mapType="none") */}
-        {Platform.OS === "android" && (
+        {(Platform.OS === "android" || Boolean(offlinePackPath)) && (
           <UrlTile
             urlTemplate={tileUrl}
             maximumZ={19}
             flipY={false}
             tileSize={256}
-            zIndex={-1}
+            zIndex={1}
+            shouldReplaceMapContent={true}
           />
         )}
 
