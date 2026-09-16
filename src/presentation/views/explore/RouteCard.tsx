@@ -28,9 +28,9 @@ export const RouteCard: React.FC<{
     >
       <View style={styles.header}>
         <View style={styles.thumb}>
-          {route.photos?.[0] ? (
+          {route.coverImageUrl || route.photos?.[0] ? (
             <Image
-              source={{ uri: route.photos[0] }}
+              source={{ uri: route.coverImageUrl || route.photos[0] }}
               style={styles.thumbImage}
               accessibilityLabel={`Foto de ${route.title}`}
             />

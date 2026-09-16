@@ -17,7 +17,7 @@ import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
-import { PlanMap } from "../../components/map/PlanMap";
+import { TrekMap } from "../../components/map/TrekMap";
 import { ShareModal } from "./ShareModal";
 import { DownloadRouteModal } from "./DownloadRouteModal";
 
@@ -137,7 +137,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
 
       {/* 2. Visual block: mapa nativo compartido + badge de desnivel */}
       <View style={styles.visualBlock}>
-        <PlanMap
+        <TrekMap
           start={{
             lat: route.startPoint.lat,
             lng: route.startPoint.lng,
@@ -193,13 +193,19 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
         </Pressable>
         <Pressable
-          disabled
-          style={[styles.actionBtn, styles.actionDisabled]}
+          onPress={() => setDownloadOpen(true)}
+          style={styles.actionBtn}
           accessibilityRole="button"
-          accessibilityLabel="Descargar ruta offline (próximamente)"
-          accessibilityState={{ disabled: true }}
+          accessibilityLabel="Descargar ruta para uso offline"
         >
-          <Download size={18} color={AndeanTheme.colors.textSecondary} />
+          <Download
+            size={18}
+            color={
+              downloaded
+                ? AndeanTheme.colors.primaryLight
+                : AndeanTheme.colors.textSecondary
+            }
+          />
         </Pressable>
       </View>
 

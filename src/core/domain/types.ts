@@ -69,6 +69,7 @@ export interface RouteModel {
   waypoints: Coordinates[];
   checkpoints: Checkpoint[];
   photos: string[];
+  coverImageUrl?: string;
   moderationNotes?: string;
   reviewedBy?: string;
   reviewedAt?: number;
