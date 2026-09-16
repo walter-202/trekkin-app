@@ -16,11 +16,14 @@ interface CreateRouteViewProps {
 
 export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => {
   const plan = usePlanStore((s) => s.plan);
-  const { setPoints, saveDraft, saving, setPlanMeta } = usePlanStore();
+  const { setPoints, saveDraft, saving, setPlanMeta, addWaypoint, removeWaypoint, moveWaypoint, undo, clearWaypoints, history } = usePlanStore();
   const [title, setTitle] = useState(plan?.title ?? '');
   const [start, setStart] = useState<PlannedPoint | null>(plan?.startPoint ?? null);
   const [end, setEnd] = useState<PlannedPoint | null>(plan?.endPoint ?? null);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const waypoints = plan?.waypoints ?? [];
+  const isUndoAvailable = history.length > 0;
 
   const handleSave = async () => {
     setLocalError(null);
@@ -63,6 +66,13 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
         end={end}
         onStartChange={setStart}
         onEndChange={setEnd}
+        waypoints={waypoints}
+        onAddWaypoint={addWaypoint}
+        onRemoveWaypoint={removeWaypoint}
+        onWaypointDrag={moveWaypoint}
+        onUndo={undo}
+        onClearWaypoints={clearWaypoints}
+        canUndo={isUndoAvailable}
       />
 
       {localError && <Text style={styles.error}>{localError}</Text>}

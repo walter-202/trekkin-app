@@ -46,5 +46,31 @@ export const ConfirmStartPointSchema = z.object({
   start: PlannedPointSchema,
 });
 
+/**
+ * C7 — Waypoints intermedios: schemas para agregar, eliminar y mover puntos.
+ */
+export const WaypointSchema = CoordsSchema.extend({
+  name: z.string().trim().max(80, 'El nombre del punto es demasiado largo').optional(),
+});
+
+export const AddWaypointSchema = z.object({
+  lat: z.number().min(-90).max(90, 'Latitud fuera de rango'),
+  lng: z.number().min(-180).max(180, 'Longitud fuera de rango'),
+  index: z.number().int().min(-1).optional().default(-1),
+});
+
+export const RemoveWaypointSchema = z.object({
+  index: z.number().int().min(0, 'Índice inválido'),
+});
+
+export const MoveWaypointSchema = z.object({
+  index: z.number().int().min(0, 'Índice inválido'),
+  lat: z.number().min(-90).max(90, 'Latitud fuera de rango'),
+  lng: z.number().min(-180).max(180, 'Longitud fuera de rango'),
+});
+
 export type SaveDraftInput = z.infer<typeof SaveDraftSchema>;
 export type ConfirmStartPointInput = z.infer<typeof ConfirmStartPointSchema>;
+export type AddWaypointInput = z.infer<typeof AddWaypointSchema>;
+export type RemoveWaypointInput = z.infer<typeof RemoveWaypointSchema>;
+export type MoveWaypointInput = z.infer<typeof MoveWaypointSchema>;

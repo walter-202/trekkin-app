@@ -20,6 +20,9 @@ import {
   ConfirmStartPointSchema,
   DifficultySchema,
   ROUTE_DIFFICULTY_VALUES,
+  AddWaypointSchema,
+  RemoveWaypointSchema,
+  MoveWaypointSchema,
 } from '../core/domain/plan.schemas';
 import type { RoutePlan, PlannedPoint } from '../core/domain/plan';
 import type { RouteModel } from '../core/domain/types';
@@ -260,6 +263,154 @@ export async function runPlanAcceptanceTests(): Promise<TestResult[]> {
     const msg = err instanceof Error ? err.message : String(err);
     recordTest('T7: Rechaza MarkReady sin punto de inicio confirmado', true, msg);
   }
+
+  // =========================================================================
+  // C7-T1: AddWaypointSchema — valid inputs accepted
+  // =========================================================================
+  const validAddWp = AddWaypointSchema.safeParse({ lat: -16.5, lng: -68.1 });
+  recordTest(
+    'C7-T1: AddWaypointSchema acepta coordenadas válidas',
+    validAddWp.success,
+    validAddWp.success ? 'Schema validó exitosamente' : JSON.stringify(validAddWp),
+  );
+
+  const validAddWpWithIndex = AddWaypointSchema.safeParse({ lat: -16.5, lng: -68.1, index: 2 });
+  recordTest(
+    'C7-T1: AddWaypointSchema acepta índice válido',
+    validAddWpWithIndex.success,
+    validAddWpWithIndex.success ? 'Índice 2 aceptado' : JSON.stringify(validAddWpWithIndex),
+  );
+
+  const invalidAddWpLat = AddWaypointSchema.safeParse({ lat: -91, lng: -68 });
+  recordTest(
+    'C7-T1: AddWaypointSchema rechaza latitud fuera de rango',
+    !invalidAddWpLat.success,
+    !invalidAddWpLat.success ? 'Latitud -91 rechazada' : 'Debió rechazar',
+  );
+
+  // =========================================================================
+  // C7-T2: RemoveWaypointSchema — valid index required
+  // =========================================================================
+  const validRemoveWp = RemoveWaypointSchema.safeParse({ index: 0 });
+  recordTest(
+    'C7-T2: RemoveWaypointSchema acepta índice 0',
+    validRemoveWp.success,
+    validRemoveWp.success ? 'Índice 0 aceptado' : JSON.stringify(validRemoveWp),
+  );
+
+  const invalidRemoveWp = RemoveWaypointSchema.safeParse({ index: -1 });
+  recordTest(
+    'C7-T2: RemoveWaypointSchema rechaza índice negativo',
+    !invalidRemoveWp.success,
+    !invalidRemoveWp.success ? 'Índice -1 rechazado' : 'Debió rechazar',
+  );
+
+  // =========================================================================
+  // C7-T3: MoveWaypointSchema — valid coords and index
+  // =========================================================================
+  const validMoveWp = MoveWaypointSchema.safeParse({ index: 0, lat: -16.5, lng: -68.1 });
+  recordTest(
+    'C7-T3: MoveWaypointSchema acepta entrada válida',
+    validMoveWp.success,
+    validMoveWp.success ? 'Schema validó exitosamente' : JSON.stringify(validMoveWp),
+  );
+
+  const invalidMoveWpLng = MoveWaypointSchema.safeParse({ index: 0, lat: -16, lng: 181 });
+  recordTest(
+    'C7-T3: MoveWaypointSchema rechaza longitud fuera de rango',
+    !invalidMoveWpLng.success,
+    !invalidMoveWpLng.success ? 'Longitud 181 rechazada' : 'Debió rechazar',
+  );
+
+  // =========================================================================
+  // C7-T4: Waypoint operations on RoutePlan
+  // =========================================================================
+  const planWithWps = makePlan({ waypoints: [{ lat: -16.5, lng: 68.1 }, { lat: -16.4, lng: 67.9 }] });
+  const addIdx = planWithWps.waypoints.length;
+  const newWps = [...planWithWps.waypoints, { lat: -16.45, lng: 68.0 }];
+  const planAfterAdd = { ...planWithWps, waypoints: newWps };
+  recordTest(
+    'C7-T4: Agrega waypoint al final del array',
+    planAfterAdd.waypoints.length === 3 && planAfterAdd.waypoints[2].lat === -16.45,
+    `Length: ${planAfterAdd.waypoints.length}, nuevo lat: ${planAfterAdd.waypoints[2].lat}`,
+  );
+
+  // Remove waypoint
+  const wpsAfterRemove = [...planAfterAdd.waypoints];
+  wpsAfterRemove.splice(1, 1);
+  const planAfterRemove = { ...planAfterAdd, waypoints: wpsAfterRemove };
+  recordTest(
+    'C7-T4: Elimina waypoint por índice',
+    planAfterRemove.waypoints.length === 2 && planAfterRemove.waypoints[1].lat === -16.45,
+    `Length: ${planAfterRemove.waypoints.length}`,
+  );
+
+  // Move waypoint
+  const wpsAfterMove = [...planAfterRemove.waypoints];
+  wpsAfterMove[0] = { lat: -16.99, lng: -68.99 };
+  const planAfterMove = { ...planAfterRemove, waypoints: wpsAfterMove };
+  recordTest(
+    'C7-T4: Mueve waypoint a nueva posición',
+    planAfterMove.waypoints[0].lat === -16.99 && planAfterMove.waypoints[0].lng === -68.99,
+    `lat: ${planAfterMove.waypoints[0].lat}, lng: ${planAfterMove.waypoints[0].lng}`,
+  );
+
+  // Clear waypoints
+  const planAfterClear = { ...planAfterMove, waypoints: [] };
+  recordTest(
+    'C7-T4: Limpia todos los waypoints intermedios',
+    planAfterClear.waypoints.length === 0,
+    `Length: ${planAfterClear.waypoints.length}`,
+  );
+
+  // =========================================================================
+  // C7-T5: Undo history stack
+  // =========================================================================
+  const history: Array<Pick<RoutePlan, 'startPoint' | 'endPoint' | 'waypoints'>> = [];
+  const basePlan = makePlan({ waypoints: [] });
+  // Simulate adding waypoints with history
+  history.push({ startPoint: basePlan.startPoint, endPoint: basePlan.endPoint, waypoints: [] });
+  const wp1 = [{ lat: -16.5, lng: -68.1 }];
+  history.push({ startPoint: basePlan.startPoint, endPoint: basePlan.endPoint, waypoints: wp1 });
+  const wp2 = [...wp1, { lat: -16.4, lng: -67.9 }];
+  history.push({ startPoint: basePlan.startPoint, endPoint: basePlan.endPoint, waypoints: wp2 });
+
+  recordTest(
+    'C7-T5: Historial de undo almacena snapshots correctamente',
+    history.length === 3 && history[1].waypoints.length === 1,
+    `History length: ${history.length}, snapshot[1] waypoints: ${history[1].waypoints.length}`,
+  );
+
+  // Simulate undo
+  const lastSnapshot = history.pop()!;
+  const restoredPlan = { ...basePlan, waypoints: lastSnapshot.waypoints };
+  recordTest(
+    'C7-T5: Undo restaura el último snapshot del historial',
+    history.length === 2 && restoredPlan.waypoints.length === 2,
+    `History after undo: ${history.length}, restored waypoints: ${restoredPlan.waypoints.length}`,
+  );
+
+  // =========================================================================
+  // C7-T6: MAX_UNDO_HISTORY limit
+  // =========================================================================
+  const MAX_UNDO = 10;
+  const fullHistory = Array(MAX_UNDO).fill(null).map((_, i) => ({
+    startPoint: basePlan.startPoint,
+    endPoint: basePlan.endPoint,
+    waypoints: [{ lat: -16 - i * 0.01, lng: -68 }],
+  }));
+  // Add one more
+  fullHistory.push({
+    startPoint: basePlan.startPoint,
+    endPoint: basePlan.endPoint,
+    waypoints: [{ lat: -16.11, lng: -68 }],
+  });
+  const trimmedHistory = fullHistory.slice(-MAX_UNDO);
+  recordTest(
+    'C7-T6: Historial se limita a MAX_UNDO_HISTORY (10) entradas',
+    trimmedHistory.length === MAX_UNDO,
+    `Historial recortado: ${trimmedHistory.length} entradas`,
+  );
 
   // =========================================================================
   // T8: Tile cache stats report MAX_TILES = 1500

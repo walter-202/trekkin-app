@@ -11,7 +11,7 @@ import {
   type PanResponderInstance,
 } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
-import { Minus, Plus } from 'lucide-react-native';
+import { Minus, Plus, Undo2, Trash2 } from 'lucide-react-native';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import {
   tileCache,
@@ -83,6 +83,20 @@ interface PlanMapProps {
   checkpoints?: PointOfInterest[] | Array<{ id: string; lat: number; lng: number; name?: string; notes?: string }>;
   track?: TrailPoint[];
   fitTo?: Array<{ lat: number; lng: number }>;
+  /** Waypoints intermedios para edición (HU-07 C7). */
+  waypoints?: PlannedPoint[];
+  /** Callback al soltar un waypoint arrastrado. */
+  onWaypointDrag?: (index: number, lat: number, lng: number) => void;
+  /** Callback al tocar el mapa en modo waypoint (agrega punto intermedio). */
+  onAddWaypoint?: (lat: number, lng: number) => void;
+  /** Callback para deshacer último cambio. */
+  onUndo?: () => void;
+  /** Callback para borrar todos los waypoints intermedios. */
+  onClearWaypoints?: () => void;
+  /** Indica si hay acciones de undo disponibles. */
+  canUndo?: boolean;
+  /** Indica si hay waypoints intermedios para borrar. */
+  hasWaypoints?: boolean;
 }
 
 interface ViewState {
@@ -117,6 +131,8 @@ const COLOR_START = '#10B981';
 const COLOR_END = '#F59E0B';
 const COLOR_CURRENT = '#3B82F6';
 const COLOR_TRAIL = '#10B981';
+const COLOR_WAYPOINT = '#8B5CF6';
+const DRAG_THRESHOLD = 20;
 
 function resolveInitialView(p: PlanMapProps): ViewState {
   if (p.initialRegion) {
@@ -173,6 +189,13 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
     routeWaypoints,
     checkpoints,
     track,
+    waypoints,
+    onWaypointDrag,
+    onAddWaypoint,
+    onUndo,
+    onClearWaypoints,
+    canUndo = false,
+    hasWaypoints = false,
   } = props;
 
   const activeTrail = trail ?? routeWaypoints;
@@ -202,13 +225,16 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
   const inFlight = useRef<Set<string>>(new Set());
   const attemptsRef = useRef<Record<string, number>>({});
   const gesture = useRef({
-    mode: 'idle' as 'idle' | 'pan' | 'pinch',
+    mode: 'idle' as 'idle' | 'pan' | 'pinch' | 'drag',
     lastDx: 0,
     lastDy: 0,
     pinchDist: 0,
     baseZoom: DEFAULT_VIEW.zoom,
     baseLat: 0,
     baseLng: 0,
+    dragIndex: -1,
+    dragStartX: 0,
+    dragStartY: 0,
   }).current;
 
   pressRef.current = onPressCoordinate;
@@ -314,6 +340,32 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
         gesture.baseZoom = v.zoom;
         gesture.baseLat = v.lat;
         gesture.baseLng = v.lng;
+      } else if (waypoints && waypoints.length > 0 && onWaypointDrag) {
+        // Check if touch is near a waypoint marker
+        const touch = touches[0];
+        const origin = originRef.current;
+        const touchX = touch.pageX - origin.x;
+        const touchY = touch.pageY - origin.y;
+        let foundIndex = -1;
+        for (let i = 0; i < waypoints.length; i++) {
+          const sp = toScreen(waypoints[i]);
+          if (Math.hypot(touchX - sp.x, touchY - sp.y) < 24) {
+            foundIndex = i;
+            break;
+          }
+        }
+        if (foundIndex >= 0) {
+          gesture.mode = 'drag';
+          gesture.dragIndex = foundIndex;
+          gesture.dragStartX = touch.pageX;
+          gesture.dragStartY = touch.pageY;
+          gesture.lastDx = 0;
+          gesture.lastDy = 0;
+        } else {
+          gesture.mode = 'pan';
+          gesture.lastDx = 0;
+          gesture.lastDy = 0;
+        }
       } else {
         gesture.mode = 'pan';
         gesture.lastDx = 0;
@@ -356,6 +408,9 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
               });
             }
           }
+        } else if (gesture.mode === 'drag') {
+          // Dragging a waypoint - visual feedback only, actual update on release
+          return;
         } else {
           if (gesture.mode === 'pinch') {
             gesture.mode = 'pan';
@@ -370,15 +425,35 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
           if (dx !== 0 || dy !== 0) panBy(dx, dy);
         }
       },
-      onPanResponderRelease: (_evt, gs) => {
+      onPanResponderRelease: (evt, gs) => {
         const moved = Math.hypot(gs.dx, gs.dy);
-        if (gesture.mode === 'pan' && moved <= TAP_RADIUS) {
-          pressRef.current?.(
-            screenToLatLng(
-              gs.x0 - originRef.current.x,
-              gs.y0 - originRef.current.y,
-            ),
+        if (gesture.mode === 'drag') {
+          // Complete waypoint drag
+          const touch = evt.nativeEvent;
+          const dragMoved = Math.hypot(
+            touch.pageX - gesture.dragStartX,
+            touch.pageY - gesture.dragStartY,
           );
+          if (dragMoved > DRAG_THRESHOLD && gesture.dragIndex >= 0) {
+            const origin = originRef.current;
+            const newPos = screenToLatLng(
+              touch.pageX - origin.x,
+              touch.pageY - origin.y,
+            );
+            onWaypointDrag?.(gesture.dragIndex, newPos.lat, newPos.lng);
+          }
+          gesture.dragIndex = -1;
+        } else if (gesture.mode === 'pan' && moved <= TAP_RADIUS) {
+          const tapPos = screenToLatLng(
+            gs.x0 - originRef.current.x,
+            gs.y0 - originRef.current.y,
+          );
+          // If onAddWaypoint callback exists, use it; otherwise use onPressCoordinate
+          if (onAddWaypoint) {
+            onAddWaypoint(tapPos.lat, tapPos.lng);
+          } else {
+            pressRef.current?.(tapPos);
+          }
         }
         gesture.mode = 'idle';
       },
@@ -617,6 +692,17 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
               label={poi.name}
             />
           ))}
+          {waypoints?.map((wp, i) => (
+            <View
+              key={`wp-${i}`}
+              pointerEvents="none"
+              style={[styles.markerWrap, { left: toScreen(wp).x - 9, top: toScreen(wp).y - 9 }]}
+            >
+              <View style={[styles.marker, { backgroundColor: COLOR_WAYPOINT }]}>
+                <Text style={styles.waypointIndex}>{i + 1}</Text>
+              </View>
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -637,6 +723,24 @@ export const PlanMap: React.FC<PlanMapProps> = (props) => {
             >
               <Minus size={16} color={AndeanTheme.colors.primaryLight} />
             </Pressable>
+            {canUndo && onUndo && (
+              <Pressable
+                onPress={onUndo}
+                style={({ pressed }) => [styles.controlBtn, pressed && styles.controlBtnPressed]}
+                accessibilityLabel="Deshacer último cambio"
+              >
+                <Undo2 size={16} color={AndeanTheme.colors.primaryLight} />
+              </Pressable>
+            )}
+            {hasWaypoints && onClearWaypoints && (
+              <Pressable
+                onPress={onClearWaypoints}
+                style={({ pressed }) => [styles.controlBtn, styles.controlBtnDanger, pressed && styles.controlBtnPressed]}
+                accessibilityLabel="Borrar todos los waypoints"
+              >
+                <Trash2 size={16} color="#FCA5A5" />
+              </Pressable>
+            )}
           </View>
           <View pointerEvents="none" style={styles.attributionRow}>
             <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
@@ -706,6 +810,15 @@ const styles = StyleSheet.create({
   },
   controlBtnPressed: {
     opacity: 0.6,
+  },
+  controlBtnDanger: {
+    borderColor: '#7F1D1D',
+  },
+  waypointIndex: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   attributionRow: {
     alignSelf: 'flex-start',

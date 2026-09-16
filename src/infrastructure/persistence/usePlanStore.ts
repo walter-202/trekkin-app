@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { PlannedPoint, RoutePlan } from '../../core/domain/plan';
+import type { PlannedPoint, RoutePlan, PlanHistoryEntry } from '../../core/domain/plan';
+import { MAX_UNDO_HISTORY } from '../../core/domain/plan';
 import type { RouteDifficulty, RouteModel } from '../../core/domain/types';
 import { appStorage } from './storage';
 import { routeService } from '../database/routeService';
@@ -42,6 +43,7 @@ interface PlanState {
   saving: boolean;
   error: string | null;
   lastSavedAt: number | null;
+  history: PlanHistoryEntry[];
   initializePlan: (uid: string, creatorName: string, forceNew?: boolean) => Promise<void>;
   newDraftPlan: (uid: string, creatorName: string) => Promise<void>;
   setPoints: (start: PlannedPoint, end: PlannedPoint) => Promise<boolean>;
@@ -52,6 +54,12 @@ interface PlanState {
   updatePlan: () => Promise<boolean>;
   confirmStart: (start: PlannedPoint) => Promise<boolean>;
   markReadyForGps: () => Promise<boolean>;
+  addWaypoint: (lat: number, lng: number, index?: number) => void;
+  removeWaypoint: (index: number) => void;
+  moveWaypoint: (index: number, lat: number, lng: number) => void;
+  undo: () => void;
+  clearWaypoints: () => void;
+  canUndo: () => boolean;
   clearPlan: () => Promise<void>;
   clearError: () => void;
 }
@@ -63,6 +71,7 @@ export const usePlanStore = create<PlanState>((set, get) => ({
   saving: false,
   error: null,
   lastSavedAt: null,
+  history: [],
 
   initializePlan: async (uid, creatorName, forceNew = false) => {
     set({ isLoading: true, error: null });
@@ -199,6 +208,104 @@ export const usePlanStore = create<PlanState>((set, get) => ({
     set({ plan: null, error: null, lastSavedAt: null });
     await appStorage.removeItem(AUTOSAVE_KEY);
   },
+
+  addWaypoint: (lat, lng, index) => {
+    const plan = get().plan;
+    if (!plan) return;
+    // Push current state to history before modification
+    const snapshot: PlanHistoryEntry = {
+      snapshot: {
+        startPoint: plan.startPoint,
+        endPoint: plan.endPoint,
+        waypoints: [...plan.waypoints],
+      },
+      timestamp: Date.now(),
+    };
+    const newHistory = [...get().history, snapshot].slice(-MAX_UNDO_HISTORY);
+    const newWaypoints = [...plan.waypoints];
+    const point = { lat, lng };
+    if (index !== undefined && index >= 0 && index <= newWaypoints.length) {
+      newWaypoints.splice(index, 0, point);
+    } else {
+      newWaypoints.push(point);
+    }
+    const next: RoutePlan = { ...plan, waypoints: newWaypoints, updatedAt: Date.now() };
+    saveLocalPlan(next);
+    set({ plan: next, history: newHistory });
+  },
+
+  removeWaypoint: (index) => {
+    const plan = get().plan;
+    if (!plan || index < 0 || index >= plan.waypoints.length) return;
+    const snapshot: PlanHistoryEntry = {
+      snapshot: {
+        startPoint: plan.startPoint,
+        endPoint: plan.endPoint,
+        waypoints: [...plan.waypoints],
+      },
+      timestamp: Date.now(),
+    };
+    const newHistory = [...get().history, snapshot].slice(-MAX_UNDO_HISTORY);
+    const newWaypoints = [...plan.waypoints];
+    newWaypoints.splice(index, 1);
+    const next: RoutePlan = { ...plan, waypoints: newWaypoints, updatedAt: Date.now() };
+    saveLocalPlan(next);
+    set({ plan: next, history: newHistory });
+  },
+
+  moveWaypoint: (index, lat, lng) => {
+    const plan = get().plan;
+    if (!plan || index < 0 || index >= plan.waypoints.length) return;
+    const snapshot: PlanHistoryEntry = {
+      snapshot: {
+        startPoint: plan.startPoint,
+        endPoint: plan.endPoint,
+        waypoints: [...plan.waypoints],
+      },
+      timestamp: Date.now(),
+    };
+    const newHistory = [...get().history, snapshot].slice(-MAX_UNDO_HISTORY);
+    const newWaypoints = [...plan.waypoints];
+    newWaypoints[index] = { lat, lng };
+    const next: RoutePlan = { ...plan, waypoints: newWaypoints, updatedAt: Date.now() };
+    saveLocalPlan(next);
+    set({ plan: next, history: newHistory });
+  },
+
+  undo: () => {
+    const { history, plan } = get();
+    if (history.length === 0 || !plan) return;
+    const last = history[history.length - 1];
+    const newHistory = history.slice(0, -1);
+    const next: RoutePlan = {
+      ...plan,
+      startPoint: last.snapshot.startPoint,
+      endPoint: last.snapshot.endPoint,
+      waypoints: last.snapshot.waypoints,
+      updatedAt: Date.now(),
+    };
+    saveLocalPlan(next);
+    set({ plan: next, history: newHistory });
+  },
+
+  clearWaypoints: () => {
+    const plan = get().plan;
+    if (!plan || plan.waypoints.length === 0) return;
+    const snapshot: PlanHistoryEntry = {
+      snapshot: {
+        startPoint: plan.startPoint,
+        endPoint: plan.endPoint,
+        waypoints: [...plan.waypoints],
+      },
+      timestamp: Date.now(),
+    };
+    const newHistory = [...get().history, snapshot].slice(-MAX_UNDO_HISTORY);
+    const next: RoutePlan = { ...plan, waypoints: [], updatedAt: Date.now() };
+    saveLocalPlan(next);
+    set({ plan: next, history: newHistory });
+  },
+
+  canUndo: () => get().history.length > 0,
 
   clearError: () => set({ error: null }),
 }));

@@ -31,7 +31,7 @@ const DIFFICULTIES: { value: RouteDifficulty; label: string; color: string }[] =
 
 export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) => {
   const plan = usePlanStore((s) => s.plan);
-  const { saving, updatePlan, setPoints, setPlanMeta } = usePlanStore();
+  const { saving, updatePlan, setPoints, setPlanMeta, addWaypoint, removeWaypoint, moveWaypoint, undo, clearWaypoints, canUndo, history } = usePlanStore();
 
   const [title, setTitle] = useState(plan?.title ?? '');
   const [difficulty, setDifficulty] = useState<RouteDifficulty>(plan?.difficulty ?? 'moderado');
@@ -39,6 +39,9 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
   const [end, setEnd] = useState<PlannedPoint | null>(plan?.endPoint ?? null);
   const [savedOk, setSavedOk] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const waypoints = plan?.waypoints ?? [];
+  const isUndoAvailable = history.length > 0;
 
   const handleSave = async () => {
     setLocalError(null);
@@ -93,7 +96,20 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
       </View>
 
       <Text style={styles.microLabel}>PUNTOS DE LA RUTA</Text>
-      <PlanPointPicker start={start} end={end} onStartChange={setStart} onEndChange={setEnd} height={260} />
+      <PlanPointPicker
+        start={start}
+        end={end}
+        onStartChange={setStart}
+        onEndChange={setEnd}
+        height={260}
+        waypoints={waypoints}
+        onAddWaypoint={addWaypoint}
+        onRemoveWaypoint={removeWaypoint}
+        onWaypointDrag={moveWaypoint}
+        onUndo={undo}
+        onClearWaypoints={clearWaypoints}
+        canUndo={isUndoAvailable}
+      />
 
       <View style={styles.confirmBadge}>
         <Pin size={14} color={plan?.startPointConfirmed ? '#34D399' : '#9CA3AF'} />
