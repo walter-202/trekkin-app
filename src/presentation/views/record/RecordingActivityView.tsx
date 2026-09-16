@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -29,10 +29,13 @@ import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import {
   calculatePaceMinPerKm,
   calculateAverageSpeedKmh,
-  formatDuration,
-  formatPace,
+  accumulatedDistanceKm,
+  remainingDistanceToEndKm,
 } from '../../../core/domain/calculations';
+import { activeElapsedMs, ACTIVITY_CONFIG } from '../../../core/domain/activity';
+import { formatDuration, formatPace } from '../../utils/format';
 import type { CheckpointCategory } from '../../../core/domain/types';
+import type { PlannedPoint } from '../../../core/domain/plan';
 
 interface RecordingActivityViewProps {
   onFinished: () => void;
@@ -54,22 +57,17 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
   onCancel,
 }) => {
   const plan = usePlanStore((s) => s.plan);
-  const {
-    activity,
-    status,
-    currentPosition,
-    recordedPoints,
-    distanceCoveredKm,
-    remainingDistanceKm,
-    durationSeconds,
-    checkpoints,
-    gpsError,
-    pauseActivity,
-    resumeActivity,
-    addCheckpoint,
-    finishActivity,
-  } = useActivityStore();
+  const live = useActivityStore((s) => s.live);
+  const gpsError = useActivityStore((s) => s.error);
+  const finishing = useActivityStore((s) => s.finishing);
 
+  const pauseActivity = useActivityStore((s) => s.pauseActivity);
+  const resumeActivity = useActivityStore((s) => s.resumeActivity);
+  const addCheckpoint = useActivityStore((s) => s.addCheckpoint);
+  const finishActivity = useActivityStore((s) => s.finishActivity);
+  const startWatch = useActivityStore((s) => s.startWatch);
+
+  const [, setTick] = useState(0);
   const [checkpointModalVisible, setCheckpointModalVisible] = useState(false);
   const [cpName, setCpName] = useState('');
   const [cpCategory, setCpCategory] = useState<CheckpointCategory>('vista');
@@ -77,13 +75,57 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
   const [addingCheckpoint, setAddingCheckpoint] = useState(false);
   const [savingCheckpointSuccess, setSavingCheckpointSuccess] = useState(false);
 
-  const isPaused = status === 'paused';
+  // Intervalo de 1s para refrescar métricas de tiempo transcurrido
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Asegurar seguimiento GPS si la actividad está en curso
+  useEffect(() => {
+    const current = useActivityStore.getState().live;
+    if (current && current.phase === 'in_progress') {
+      useActivityStore.getState().startWatch();
+    }
+    return () => {
+      useActivityStore.getState().stopWatch();
+    };
+  }, []);
+
+  const isPaused = live?.phase === 'paused';
+  const recordedPoints = live?.recordedPoints ?? [];
+  const lastPoint = recordedPoints[recordedPoints.length - 1];
+  const currentPosition: PlannedPoint | undefined = lastPoint
+    ? { lat: lastPoint.lat, lng: lastPoint.lng, name: 'Mi ubicación' }
+    : plan?.startPoint
+      ? { lat: plan.startPoint.lat, lng: plan.startPoint.lng, name: 'Punto de inicio' }
+      : undefined;
+
+  const distanceCoveredKm = accumulatedDistanceKm(recordedPoints, {
+    minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+    maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+  });
+  const durationSeconds = live ? Math.round(activeElapsedMs(live) / 1000) : 0;
+  const checkpoints = live?.newCheckpoints ?? [];
+
+  const routePolyline = [
+    ...(live?.route.waypoints ?? plan?.waypoints ?? []),
+    ...(live?.route.endPoint ? [live.route.endPoint] : plan?.endPoint ? [plan.endPoint] : []),
+  ];
+  const remainingDistanceKm =
+    lastPoint && routePolyline.length > 0
+      ? remainingDistanceToEndKm(lastPoint, routePolyline)
+      : 0;
+
   const pace = calculatePaceMinPerKm(distanceCoveredKm, durationSeconds);
   const speed = calculateAverageSpeedKmh(distanceCoveredKm, durationSeconds);
 
   const handleTogglePause = async () => {
     if (isPaused) {
-      await resumeActivity();
+      const ok = await resumeActivity();
+      if (ok) {
+        await startWatch();
+      }
     } else {
       await pauseActivity();
     }
@@ -102,9 +144,13 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
       return;
     }
     setAddingCheckpoint(true);
+    const cpLat = lastPoint?.lat ?? plan?.startPoint?.lat ?? 0;
+    const cpLng = lastPoint?.lng ?? plan?.startPoint?.lng ?? 0;
     const ok = await addCheckpoint({
       name: cpName.trim(),
       category: cpCategory,
+      lat: cpLat,
+      lng: cpLng,
       notes: cpNotes.trim() ? cpNotes.trim() : undefined,
     });
     setAddingCheckpoint(false);
@@ -128,8 +174,8 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
           text: 'Finalizar recorrido',
           style: 'destructive',
           onPress: async () => {
-            const ok = await finishActivity();
-            if (ok) {
+            const result = await finishActivity();
+            if (result) {
               onFinished();
             }
           },
@@ -278,10 +324,21 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
 
             <Pressable
               onPress={handleConfirmFinish}
-              style={({ pressed }) => [styles.finishBtn, pressed && styles.finishBtnPressed]}
+              disabled={finishing}
+              style={({ pressed }) => [
+                styles.finishBtn,
+                pressed && styles.finishBtnPressed,
+                finishing && styles.btnDisabled,
+              ]}
             >
-              <CheckCircle2 size={18} color="#FFFFFF" />
-              <Text style={styles.finishBtnText}>FINALIZAR</Text>
+              {finishing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <CheckCircle2 size={18} color="#FFFFFF" />
+                  <Text style={styles.finishBtnText}>FINALIZAR</Text>
+                </>
+              )}
             </Pressable>
           </View>
         </View>

@@ -180,4 +180,4 @@ const styles = StyleSheet.create({
   },
   doneBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
   pressed: { opacity: 0.8 },
-});
+});

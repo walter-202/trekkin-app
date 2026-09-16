@@ -26,10 +26,11 @@ import { routeService } from '../../../infrastructure/database/routeService';
 import {
   calculatePaceMinPerKm,
   calculateAverageSpeedKmh,
-  formatDuration,
-  formatPace,
   suggestRouteDifficulty,
+  accumulatedDistanceKm,
 } from '../../../core/domain/calculations';
+import { activeElapsedMs } from '../../../core/domain/activity';
+import { formatDuration, formatPace } from '../../utils/format';
 import type { RouteDifficulty } from '../../../core/domain/types';
 
 interface ActivitySummaryViewProps {
@@ -45,12 +46,14 @@ const DIFFICULTY_LABEL: Record<RouteDifficulty, { label: string; color: string }
 
 export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone }) => {
   const plan = usePlanStore((s) => s.plan);
-  const { activity, checkpoints, suggestedDifficulty, clearActivity } = useActivityStore();
+  const live = useActivityStore((s) => s.live);
+  const lastResult = useActivityStore((s) => s.lastResult);
+  const clearLive = useActivityStore((s) => s.clearLive);
 
   const [savingRoute, setSavingRoute] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  if (!activity) {
+  if (!live && !lastResult) {
     return (
       <View style={styles.center}>
         <Text style={styles.muted}>No hay actividad para mostrar.</Text>
@@ -61,12 +64,14 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
     );
   }
 
-  const distanceKm = activity.distanceCoveredKm;
-  const durationSec = activity.durationSeconds;
+  const recordedPoints = lastResult?.recordedPoints ?? live?.recordedPoints ?? [];
+  const checkpoints = live?.newCheckpoints ?? [];
+  const distanceKm = lastResult?.distanceCoveredKm ?? accumulatedDistanceKm(recordedPoints);
+  const durationSec =
+    lastResult?.durationSeconds ?? (live ? Math.round(activeElapsedMs(live) / 1000) : 0);
   const pace = calculatePaceMinPerKm(distanceKm, durationSec);
   const speed = calculateAverageSpeedKmh(distanceKm, durationSec);
-  const finalDifficulty: RouteDifficulty =
-    suggestedDifficulty ?? suggestRouteDifficulty(distanceKm);
+  const finalDifficulty: RouteDifficulty = suggestRouteDifficulty(distanceKm);
 
   const handleSaveRoute = async () => {
     setSavingRoute(true);
@@ -77,7 +82,7 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
         await routeService.updateRoute(plan.id, {
           distanceKm,
           durationMinutes: Math.max(1, Math.round(durationSec / 60)),
-          waypoints: activity.recordedPoints,
+          waypoints: recordedPoints,
           checkpoints: checkpoints,
           difficulty: finalDifficulty,
           status: 'in_review',
@@ -86,17 +91,14 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
       }
 
       setSavedSuccess(true);
-      setTimeout(() => {
-        clearActivity();
-        usePlanStore.getState().clearPlan();
+      setTimeout(async () => {
+        await clearLive();
+        await usePlanStore.getState().clearPlan();
         onDone();
       }, 1800);
-    } catch (err: any) {
-      Alert.alert(
-        'Aviso',
-        'La actividad quedó guardada en tu perfil. ' +
-          (err?.message ?? 'No se pudo actualizar la ruta.')
-      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'No se pudo actualizar la ruta.';
+      Alert.alert('Aviso', `La actividad quedó guardada en tu perfil. ${msg}`);
     } finally {
       setSavingRoute(false);
     }
@@ -112,7 +114,7 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
           text: 'Descartar',
           style: 'destructive',
           onPress: async () => {
-            await clearActivity();
+            await clearLive();
             onDone();
           },
         },
@@ -136,7 +138,7 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
       {/* MAPA RESUMEN */}
       <View style={styles.mapWrap}>
         <PlanMap
-          trail={activity.recordedPoints}
+          trail={recordedPoints}
           pointsOfInterest={checkpoints}
           start={plan?.startPoint}
           end={plan?.endPoint}
@@ -178,7 +180,7 @@ export const ActivitySummaryView: React.FC<ActivitySummaryViewProps> = ({ onDone
           <View style={styles.metricCell}>
             <Radio size={14} color="#9CA3AF" />
             <Text style={styles.metricLabel}>PUNTOS GPS</Text>
-            <Text style={styles.metricVal}>{activity.recordedPoints.length}</Text>
+            <Text style={styles.metricVal}>{recordedPoints.length}</Text>
           </View>
 
           <View style={styles.metricCell}>

@@ -4,6 +4,8 @@ import { ArrowLeft, X } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
+import { appStorage } from '../../../infrastructure/persistence/storage';
+import type { LiveActivity } from '../../../core/domain/activity';
 import { DraftsView } from './DraftsView';
 import { CreateRouteView } from './CreateRouteView';
 import { PlanEditorView } from './PlanEditorView';
@@ -51,14 +53,20 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     }
 
     // Si ya existe una sesión de grabación activa o recuperable en almacenamiento local
-    const activeActivity = useActivityStore.getState().activity;
-    const activeStatus = useActivityStore.getState().status;
-    if (activeActivity && (activeStatus === 'in_progress' || activeStatus === 'paused')) {
+    const live = useActivityStore.getState().live;
+    if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
       setStep('recording');
     } else {
-      useActivityStore.getState().loadSavedActivity().then((hasActiveSession) => {
-        if (hasActiveSession) {
-          setStep('recording');
+      appStorage.getItem('trekking_activity_autosave').then((raw) => {
+        if (!raw) return;
+        try {
+          const parsed = JSON.parse(raw) as LiveActivity;
+          if (parsed && (parsed.phase === 'in_progress' || parsed.phase === 'paused')) {
+            useActivityStore.setState({ live: parsed });
+            setStep('recording');
+          }
+        } catch {
+          // ignore corrupted data
         }
       });
     }
@@ -67,29 +75,40 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   if (!currentUser) return null;
 
   const goBack = () => {
-    if (step === 'create') setStep('drafts');
-    else if (step === 'editor') setStep('drafts');
-    else if (step === 'confirm') setStep('editor');
-    else if (step === 'ready') setStep('drafts');
-    else if (step === 'recording') {
-      Alert.alert(
-        'Grabación en curso',
-        'La actividad sigue registrándose en primer plano. ¿Deseas pausar y volver al menú?',
-        [
-          { text: 'Continuar grabando', style: 'cancel' },
-          {
-            text: 'Salir al menú',
-            onPress: () => {
-              useActivityStore.getState().pauseActivity();
-              setStep('drafts');
+    switch (step) {
+      case 'create':
+      case 'editor':
+        setStep('drafts');
+        break;
+      case 'confirm':
+        setStep('editor');
+        break;
+      case 'ready':
+        setStep('drafts');
+        break;
+      case 'recording':
+        Alert.alert(
+          'Grabación en curso',
+          'La actividad sigue registrándose en primer plano. ¿Deseas pausar y volver al menú?',
+          [
+            { text: 'Continuar grabando', style: 'cancel' },
+            {
+              text: 'Salir al menú',
+              onPress: async () => {
+                await useActivityStore.getState().pauseActivity();
+                setStep('drafts');
+              },
             },
-          },
-        ]
-      );
-    } else if (step === 'summary') {
-      setStep('drafts');
-    } else if (onClose) {
-      onClose();
+          ]
+        );
+        break;
+      case 'summary':
+        setStep('drafts');
+        break;
+      case 'drafts':
+      default:
+        if (onClose) onClose();
+        break;
     }
   };
 
@@ -107,17 +126,41 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 
   const handleStartRecording = async () => {
     if (!currentUser) return;
-    const dest = plan?.endPoint ? { lat: plan.endPoint.lat, lng: plan.endPoint.lng } : undefined;
-    const ok = await useActivityStore.getState().startActivity({
+    const now = Date.now();
+    const liveActivity: LiveActivity = {
+      id: `activity-${now}-${Math.random().toString(36).slice(2, 8)}`,
       userId: currentUser.uid,
-      userName: currentUser.displayName,
-      routeId: plan?.id,
-      routeTitle: plan?.title,
-      destination: dest,
-    });
-    if (ok) {
-      setStep('recording');
-    }
+      userName: currentUser.displayName ?? 'Senderista',
+      route: {
+        routeId: plan?.id ?? `plan-${now}`,
+        routeTitle: plan?.title || 'Ruta planificada',
+        startPoint: plan?.startPoint
+          ? { name: plan.startPoint.name ?? 'Punto de inicio', lat: plan.startPoint.lat, lng: plan.startPoint.lng }
+          : { name: 'Punto de inicio', lat: 0, lng: 0 },
+        endPoint: plan?.endPoint
+          ? { name: plan.endPoint.name ?? 'Destino', lat: plan.endPoint.lat, lng: plan.endPoint.lng }
+          : { name: 'Destino', lat: 0, lng: 0 },
+        waypoints: plan?.waypoints ?? [],
+        checkpoints: [],
+        distanceKm: 0,
+        durationMinutes: 0,
+        difficulty: plan?.difficulty ?? 'facil',
+      },
+      phase: 'in_progress',
+      startedAt: now,
+      lastResumedAt: now,
+      accumulatedActiveMs: 0,
+      recordedPoints: plan?.startPoint ? [{ lat: plan.startPoint.lat, lng: plan.startPoint.lng }] : [],
+      completedCheckpoints: [],
+      newCheckpoints: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await appStorage.setItem('trekking_activity_autosave', JSON.stringify(liveActivity));
+    useActivityStore.setState({ live: liveActivity });
+    await useActivityStore.getState().startWatch();
+    setStep('recording');
   };
 
   return (
@@ -157,9 +200,9 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
       )}
       {step === 'summary' && (
         <ActivitySummaryView
-          onDone={() => {
-            usePlanStore.getState().clearPlan();
-            useActivityStore.getState().clearActivity();
+          onDone={async () => {
+            await usePlanStore.getState().clearPlan();
+            await useActivityStore.getState().clearLive();
             setStep('drafts');
           }}
         />
@@ -198,4 +241,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     paddingBottom: 8,
   },
-});
+});
