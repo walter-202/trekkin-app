@@ -9,6 +9,8 @@ import {
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import type { RouteModel } from "../../core/domain/types";
@@ -39,17 +41,50 @@ function cleanUpdates(
 export const routeService = {
   // ---------- HU-03: catálogo público/aprobado ----------
 
-  async listPublishedRoutes(): Promise<RouteModel[]> {
+  /**
+   * Lista rutas publicadas aplicando un límite por defecto para proteger la cuota de Firestore.
+   */
+  async listPublishedRoutes(limitCount: number = 20): Promise<RouteModel[]> {
     try {
       const q = query(
         collection(db, ROUTES_COLLECTION),
         where("status", "==", "published"),
+        limit(limitCount),
       );
       const snapshot = await getDocs(q);
       return snapshot.docs.map((d) => ({
         ...(d.data() as RouteModel),
         id: d.id,
       }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, ROUTES_COLLECTION);
+    }
+  },
+
+  /**
+   * Paginación por cursor para explorar el catálogo en bloques sin saturar la red ni memoria.
+   */
+  async listPublishedRoutesPaginated(
+    pageSize: number = 20,
+    lastDoc?: any,
+  ): Promise<{ routes: RouteModel[]; lastVisible: any }> {
+    try {
+      const constraints: any[] = [
+        where("status", "==", "published"),
+        limit(pageSize),
+      ];
+      if (lastDoc) {
+        constraints.push(startAfter(lastDoc));
+      }
+      const q = query(collection(db, ROUTES_COLLECTION), ...constraints);
+      const snapshot = await getDocs(q);
+      const routes = snapshot.docs.map((d) => ({
+        ...(d.data() as RouteModel),
+        id: d.id,
+      }));
+      const lastVisible =
+        snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+      return { routes, lastVisible };
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, ROUTES_COLLECTION);
     }
