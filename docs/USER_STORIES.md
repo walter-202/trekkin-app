@@ -166,8 +166,9 @@
 - **Mapeo Técnico:**
   - *Dominio:* `activity.schemas.ts`, `calculations.ts`. Destino: `trackFormats.ts` (`buildGPX11`).
   - *Aplicación:* `AddCheckpoint/RecordPoint/FinishActivity`. Destino: `ExportTrackFile`.
-  - *Infraestructura:* `locationService.ts`, `useActivityStore.ts`. Destino: `expo-sharing`/`Share`.
-  - *Presentación:* `TrackingView.tsx`, `ResultView.tsx`.
+- *Infraestructura:* `locationService.ts` (opciones de precisión: `High` para grabación, defaults `Balanced` intactos), `useActivityStore.ts`. Destino: `expo-sharing`/`Share`.
+- *Presentación:* `TrackingView.tsx`, `ResultView.tsx`. `formatPace` en `presentation/utils/format.ts`.
+- *Evidencia rescate cruz→main (2026-09-16):* `calculateTrackDistanceKm` / `calculateRemainingDistanceKm` / `suggestRouteDifficulty` en `core/domain/calculations.ts` (aditivos, sin romper `calculateTotalDistanceKm` filtrado ni `calculatePaceMinPerKm: string`). No se traen las vistas `Recording/Summary` (745/391 líneas, violan vista delgada) ni el cambio rompedor de firma. Suite `activity_hu8.test.ts` intacta.
 
 ---
 

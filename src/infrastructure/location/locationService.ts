@@ -20,6 +20,19 @@ export interface LocationWatch {
   remove: () => void;
 }
 
+/**
+ * Opciones de precisión para GPS (rescate cruz→main, HU-08, 2026-09-16).
+ * Los defaults conservan el comportamiento HU-06 (Balanced, 8 m, 3 s);
+ * la grabación (HU-08) pasa `Accuracy.High` + intervalos más finos.
+ */
+export interface LocationAccuracyOptions {
+  accuracy?: Location.Accuracy;
+  /** Metros mínimos entre actualizaciones (filtro anti-ruido). */
+  distanceInterval?: number;
+  /** Milisegundos mínimos entre actualizaciones. */
+  timeInterval?: number;
+}
+
 function toGpsPosition(pos: Location.LocationObject): GpsPosition {
   return {
     latitude: pos.coords.latitude,
@@ -48,14 +61,18 @@ export const locationService = {
    * Obtiene la posición actual (pide permiso si aún no se concedió).
    * Devuelve null si el permiso fue denegado o no se pudo obtener la posición.
    */
-  async getCurrentPosition(): Promise<GpsPosition | null> {
+  async getCurrentPosition(
+    options?: Pick<LocationAccuracyOptions, "accuracy">,
+  ): Promise<GpsPosition | null> {
     if (!(await this.hasForegroundPermission())) {
       if (!(await this.requestForegroundPermission())) {
         return null;
       }
     }
     try {
-      const pos = await Location.getCurrentPositionAsync({});
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: options?.accuracy ?? Location.Accuracy.Balanced,
+      });
       return toGpsPosition(pos);
     } catch {
       return null;
@@ -68,6 +85,7 @@ export const locationService = {
    */
   async startWatching(
     onUpdate: (position: GpsPosition) => void,
+    options?: LocationAccuracyOptions,
   ): Promise<LocationWatch | null> {
     if (!(await this.hasForegroundPermission())) {
       if (!(await this.requestForegroundPermission())) {
@@ -77,9 +95,9 @@ export const locationService = {
     try {
       const sub = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.Balanced,
-          distanceInterval: 8,
-          timeInterval: 3000,
+          accuracy: options?.accuracy ?? Location.Accuracy.Balanced,
+          distanceInterval: options?.distanceInterval ?? 8,
+          timeInterval: options?.timeInterval ?? 3000,
         },
         (pos) => onUpdate(toGpsPosition(pos)),
       );
