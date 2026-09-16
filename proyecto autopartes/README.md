@@ -32,7 +32,9 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
 
 ## Estado
 
-- **HU-01 (Fase 1)**: scaffold Gradle completo + Registro/Login/Logout + Gate por rol,
-  implementados con dominio puro + Room local + sesión segura (SharedPreferences privadas).
-  Compilación y matrix emulador: **pendientes del equipo** (no hay toolchain Android en la
-  máquina de desarrollo).
+- **HU-01 (Fase A)** — Registro/Login/Logout + Gate: implementado (dominio + Room + sesión).
+- **HU-04 (Fase A)** — Catálogo público + búsqueda nombre/OEM + tarjeta resumen: implementado
+  (dominio + Room con seed demo + Compose con debounce 300ms).
+- **HU-03 (Fase A)** — Garaje Virtual: próximo en la cola de Fase A.
+- Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
+  (no hay toolchain Android en la máquina de desarrollo).

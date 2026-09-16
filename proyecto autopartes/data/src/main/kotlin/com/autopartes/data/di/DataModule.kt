@@ -3,11 +3,14 @@ package com.autopartes.data.di
 import android.content.Context
 import androidx.room.Room
 import com.autopartes.data.local.AppDatabase
+import com.autopartes.data.local.CatalogDao
 import com.autopartes.data.local.PasswordHasher
 import com.autopartes.data.local.UserDao
+import com.autopartes.data.repository.CatalogRepositoryImpl
 import com.autopartes.data.repository.SessionManagerImpl
 import com.autopartes.data.repository.StubBearerTokenGenerator
 import com.autopartes.data.repository.UserRepositoryImpl
+import com.autopartes.domain.repository.CatalogRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
@@ -26,10 +29,15 @@ object DataModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "autopartes.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "autopartes.db")
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     fun provideUserDao(database: AppDatabase): UserDao = database.userDao()
+
+    @Provides
+    fun provideCatalogDao(database: AppDatabase): CatalogDao = database.catalogDao()
 
     @Provides
     fun providePasswordHasher(): PasswordHasher = PasswordHasher()
@@ -42,6 +50,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindUserRepository(impl: UserRepositoryImpl): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCatalogRepository(impl: CatalogRepositoryImpl): CatalogRepository
 
     @Binds
     @Singleton

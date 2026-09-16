@@ -1,12 +1,18 @@
 package com.autopartes.app.navigation
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.NavHost
@@ -14,6 +20,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.autopartes.app.ui.auth.LoginScreen
 import com.autopartes.app.ui.auth.RegisterScreen
+import com.autopartes.app.ui.catalog.CatalogScreen
+import com.autopartes.app.ui.components.MainTab
+import com.autopartes.app.ui.components.MainTabs
 import com.autopartes.app.ui.home.HomeScreen
 import com.autopartes.app.ui.session.SessionUiState
 import com.autopartes.app.ui.session.SessionViewModel
@@ -25,26 +34,51 @@ private object AuthRoutes {
 
 /**
  * Gate de autenticacion (RF-01 C4 / RF-08).
- * Sin sesion -> flujo auth; con sesion -> pantalla principal del rol.
- * Las rutas por rol (catálogo HU-04, mostrador HU-06, admin HU-02) cuelgan aqui.
+ * - Catalogo: publico, sin sesion (RF-07; el detalle completo exige login en HU-05).
+ * - Cuenta: con sesion -> HomeScreen; sin sesion -> flujo Login/Registro.
+ * Rutas por rol (mostrador HU-06, admin HU-02) cuelgan de este Gate en fases B/C.
  */
 @Composable
 fun AutopartesNavHost(viewModel: SessionViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var tab by rememberSaveable { mutableStateOf(MainTab.CATALOGO) }
 
-    when (val current = state) {
-        SessionUiState.Cargando -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+    Column(Modifier.fillMaxSize()) {
+        MainTabs(selected = tab, onSelect = { tab = it })
+
+        ContentArea(
+            tab = tab,
+            state = state,
+            viewModel = viewModel
+        )
+    }
+}
+
+@Composable
+private fun ContentArea(
+    tab: MainTab,
+    state: SessionUiState,
+    viewModel: SessionViewModel
+) {
+    when (tab) {
+        MainTab.CATALOGO -> CatalogScreen()
+
+        MainTab.CUENTA -> when (state) {
+            SessionUiState.Cargando -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        }
 
-        is SessionUiState.ConSesion -> {
-            HomeScreen(session = current.session, onLogout = viewModel::logout)
-        }
+            is SessionUiState.ConSesion -> HomeScreen(
+                session = state.session,
+                onLogout = viewModel::logout
+            )
 
-        is SessionUiState.SinSesion -> {
-            AuthNavHost(viewModel = viewModel, mensaje = current.mensaje)
+            is SessionUiState.SinSesion -> AuthNavHost(
+                viewModel = viewModel,
+                mensaje = state.mensaje
+            )
         }
     }
 }

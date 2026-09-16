@@ -96,6 +96,9 @@
      (`RF-07 C1`).
   4. Si hay vehículo activo (HU-03), la búsqueda respeta la compatibilidad (`RF-05 C3`).
 - Verificación: búsquedas EOF+nombre; timing <2s.
+- Estado actual: **Fase A — HU-04 scaffold implementado** (catálogo público + búsqueda
+  nombre/OEM con debounce, tarjeta resumen con placeholder de imagen). Filtro por vehículo
+  activo (RF-05 C3) llega con HU-03. Timings y matriz emulador: pendientes del equipo.
 
 ## HU-05: Ficha técnica y compartición — (fase B)
 
