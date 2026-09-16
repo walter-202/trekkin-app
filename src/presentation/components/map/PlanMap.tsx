@@ -69,6 +69,13 @@ export interface MapRegion {
  * HU-03: visualización de trazado completo (`trail` → Polyline,
  * `pointsOfInterest` → marcadores).
  */
+interface PlanRegion {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+}
+
 interface PlanMapProps {
   start?: PlannedPoint | null;
   end?: PlannedPoint | null;
@@ -858,5 +865,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 1,
     overflow: 'hidden',
+  },
+  map: {
+    flex: 1,
   },
 });

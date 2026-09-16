@@ -8,3 +8,6 @@ coverage/
 *.log
 .env*
 !.env.example
+# Generados por development builds (expo prebuild / expo run)
+android/
+ios/

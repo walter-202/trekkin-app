@@ -16,6 +16,11 @@ npx expo-doctor    # Salud Expo SDK 57 — antes de tocar app.json/deps nativas/
 
 Verificación mínima antes de dar por terminada una tarea: `npm run lint` + `npm test` + prueba en Expo Go del flujo tocado. Si tocaste `app.json`, deps nativas o permisos → suma `npx expo-doctor`. (Suite `npm test`: 16 casos HU-01/02 + Firestore en vivo.)
 
+> **Mapa = development build**: Expo Go no incluye ningún mapa nativo (ni Google Maps ni MapLibre).
+> Las vistas con `PlanMap` (`PlanPointPicker`, `StartPointConfirmView`, `PlanEditorView`) se prueban
+> con `npx expo run:android`, `npx expo run:ios` o un build de EAS. El plugin del mapa vive en
+> `app.json` (`@maplibre/maplibre-react-native`).
+
 ## Arquitectura (Clean Architecture + puertos — respetar capas)
 
 ```
