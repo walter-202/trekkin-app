@@ -4,13 +4,18 @@ import android.content.Context
 import androidx.room.Room
 import com.autopartes.data.local.AppDatabase
 import com.autopartes.data.local.CatalogDao
+import com.autopartes.data.local.GarageDao
 import com.autopartes.data.local.PasswordHasher
 import com.autopartes.data.local.UserDao
 import com.autopartes.data.repository.CatalogRepositoryImpl
+import com.autopartes.data.repository.CompatibilityRepositoryImpl
+import com.autopartes.data.repository.GarageRepositoryImpl
 import com.autopartes.data.repository.SessionManagerImpl
 import com.autopartes.data.repository.StubBearerTokenGenerator
 import com.autopartes.data.repository.UserRepositoryImpl
 import com.autopartes.domain.repository.CatalogRepository
+import com.autopartes.domain.repository.CompatibilityRepository
+import com.autopartes.domain.repository.GarageRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
@@ -40,6 +45,9 @@ object DataModule {
     fun provideCatalogDao(database: AppDatabase): CatalogDao = database.catalogDao()
 
     @Provides
+    fun provideGarageDao(database: AppDatabase): GarageDao = database.garageDao()
+
+    @Provides
     fun providePasswordHasher(): PasswordHasher = PasswordHasher()
 }
 
@@ -62,4 +70,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindTokenGenerator(impl: StubBearerTokenGenerator): TokenGenerator
+
+    @Binds
+    @Singleton
+    abstract fun bindGarageRepository(impl: GarageRepositoryImpl): GarageRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCompatibilityRepository(impl: CompatibilityRepositoryImpl): CompatibilityRepository
 }

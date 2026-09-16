@@ -35,6 +35,8 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
 - **HU-01 (Fase A)** — Registro/Login/Logout + Gate: implementado (dominio + Room + sesión).
 - **HU-04 (Fase A)** — Catálogo público + búsqueda nombre/OEM + tarjeta resumen: implementado
   (dominio + Room con seed demo + Compose con debounce 300ms).
-- **HU-03 (Fase A)** — Garaje Virtual: próximo en la cola de Fase A.
+- **HU-03 (Fase A)** — Garaje Virtual sin placa: implementado (tabs Cuenta → "Mis vehículos",
+  alta/edición, único vehículo activo, seed demo de compatibilidades y filtro del catálogo
+  por vehículo activo — RF-05 C2).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

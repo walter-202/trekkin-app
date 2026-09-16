@@ -83,6 +83,16 @@
   4. El vehículo activo acota el catálogo a partes compatibles (`vehicle_compatibilities`)
      (`RF-05 C2`).
 - Verificación: alta + cambio de vehículo activo recalcula el catálogo visible.
+- Estado actual: **Fase A — HU-03 implementado**. `:domain` (Vehicle, GarageRepository,
+  CompatibilityRepository, usecases Register/Update/SetActive/List/GetActive +
+  SearchCatalogForActiveVehicle), `:data` (Room `vehicles` + `vehicle_compatibilities`
+  transaccional, seed demo por marca en `GarageSeed`), `:app` (garaje dentro del tab
+  Cuenta: `GarageNavHost` lista→alta→edición, `GarageViewModel`, marcado de activo con
+  mensaje de confirmación). La búsqueda del catálogo (HU-04) se acota por el vehículo
+  activo (RF-05 C2) vía `SearchCatalogForActiveVehicle`; sin sesión, sin vehículo activo o
+  sin compatibilidades registradas la búsqueda no se acota (regla de seguridad del
+  scaffold). Tests de dominio nuevos (RegisterVehicle, UpdateVehicle, SetActiveVehicle,
+  SearchCatalogForActiveVehicle). Compilación/matriz emulador: pendientes del equipo.
 
 ## HU-04: Catálogo y búsqueda — (fase A)
 
@@ -96,9 +106,10 @@
      (`RF-07 C1`).
   4. Si hay vehículo activo (HU-03), la búsqueda respeta la compatibilidad (`RF-05 C3`).
 - Verificación: búsquedas EOF+nombre; timing <2s.
-- Estado actual: **Fase A — HU-04 scaffold implementado** (catálogo público + búsqueda
-  nombre/OEM con debounce, tarjeta resumen con placeholder de imagen). Filtro por vehículo
-  activo (RF-05 C3) llega con HU-03. Timings y matriz emulador: pendientes del equipo.
+- Estado actual: **Fase A — HU-04 implementado** (catálogo público + búsqueda
+  nombre/OEM con debounce, tarjeta resumen con placeholder de imagen). El filtro por
+  vehículo activo (RF-05 C3) llegó con HU-03 (`SearchCatalogForActiveVehicle`). Timings y
+  matriz emulador: pendientes del equipo.
 
 ## HU-05: Ficha técnica y compartición — (fase B)
 

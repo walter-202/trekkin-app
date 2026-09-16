@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.autopartes.domain.error.CatalogError
 import com.autopartes.domain.model.CatalogSummary
-import com.autopartes.domain.usecase.SearchCatalog
+import com.autopartes.domain.usecase.SearchCatalogForActiveVehicle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -24,11 +24,12 @@ sealed interface CatalogUiState {
 
 /**
  * Busqueda con debounce (300ms) para sentirla rapida en teclado (RF-06, RNF-02).
- * Publico: no exige sesion (el gate de detalle es HU-05).
+ * Publico: no exige sesion (el gate de detalle es HU-05). Si el usuario tiene un
+ * vehiculo activo (HU-03), la busqueda se acota a repuestos compatibles (RF-05 C2).
  */
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
-    private val searchCatalog: SearchCatalog
+    private val searchCatalog: SearchCatalogForActiveVehicle
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<CatalogUiState>(CatalogUiState.Inicial)

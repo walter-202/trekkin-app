@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,9 +17,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.autopartes.domain.model.UserSession
 
-/** Pantalla post-login (RF-01 C4). Muestra perfil, rol y botón de logout. */
+/** Pantalla post-login (RF-01 C4). Muestra perfil, rol y acceso al garaje (HU-03). */
 @Composable
-fun HomeScreen(session: UserSession, onLogout: () -> Unit) {
+fun HomeScreen(
+    session: UserSession,
+    onLogout: () -> Unit,
+    onOpenGarage: () -> Unit
+) {
     val user = session.user
 
     Column(
@@ -53,6 +58,15 @@ fun HomeScreen(session: UserSession, onLogout: () -> Unit) {
         )
 
         Spacer(Modifier.height(32.dp))
+
+        OutlinedButton(
+            onClick = onOpenGarage,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("MIS VEHÍCULOS")
+        }
+
+        Spacer(Modifier.height(12.dp))
 
         Button(
             onClick = onLogout,

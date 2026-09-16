@@ -23,6 +23,7 @@ import com.autopartes.app.ui.auth.RegisterScreen
 import com.autopartes.app.ui.catalog.CatalogScreen
 import com.autopartes.app.ui.components.MainTab
 import com.autopartes.app.ui.components.MainTabs
+import com.autopartes.app.ui.garage.GarageNavHost
 import com.autopartes.app.ui.home.HomeScreen
 import com.autopartes.app.ui.session.SessionUiState
 import com.autopartes.app.ui.session.SessionViewModel
@@ -70,9 +71,9 @@ private fun ContentArea(
                 }
             }
 
-            is SessionUiState.ConSesion -> HomeScreen(
-                session = state.session,
-                onLogout = viewModel::logout
+            is SessionUiState.ConSesion -> AccountNavHost(
+                state = state,
+                viewModel = viewModel
             )
 
             is SessionUiState.SinSesion -> AuthNavHost(
@@ -80,6 +81,25 @@ private fun ContentArea(
                 mensaje = state.mensaje
             )
         }
+    }
+}
+
+/**
+ * Area autenticada de la pestaña Cuenta (RF-01 C4): perfil + garaje virtual (HU-03).
+ * El garaje solo se muestra con sesión (Gate); el catálogo es público.
+ */
+@Composable
+private fun AccountNavHost(state: SessionUiState.ConSesion, viewModel: SessionViewModel) {
+    var inGarage by rememberSaveable { mutableStateOf(false) }
+
+    if (inGarage) {
+        GarageNavHost(onExitGarage = { inGarage = false })
+    } else {
+        HomeScreen(
+            session = state.session,
+            onLogout = viewModel::logout,
+            onOpenGarage = { inGarage = true }
+        )
     }
 }
 
