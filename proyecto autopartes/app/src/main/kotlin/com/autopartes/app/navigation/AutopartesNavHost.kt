@@ -24,6 +24,7 @@ import com.autopartes.app.ui.admin.AdminNavHost
 import com.autopartes.app.ui.catalog.CatalogScreen
 import com.autopartes.app.ui.components.MainTab
 import com.autopartes.app.ui.components.MainTabs
+import com.autopartes.app.ui.counter.CounterScreen
 import com.autopartes.app.ui.garage.GarageNavHost
 import com.autopartes.app.ui.home.HomeScreen
 import com.autopartes.app.ui.session.SessionUiState
@@ -39,18 +40,24 @@ private object AuthRoutes {
  * Gate de autenticacion (RF-01 C4 / RF-08).
  * - Catalogo: publico, sin sesion (RF-07; el detalle completo exige login en HU-05).
  * - Cuenta: con sesion -> HomeScreen; sin sesion -> flujo Login/Registro.
- * Rutas por rol (mostrador HU-06, admin HU-02) cuelgan de este Gate en fases B/C.
+ * - Mostrador (HU-06) y Usuarios (HU-02): tabs por rol cuelgan de este Gate.
  */
 @Composable
 fun AutopartesNavHost(viewModel: SessionViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(MainTab.CATALOGO) }
 
-    val esAdmin = (state as? SessionUiState.ConSesion)
-        ?.session?.user?.rol == UserRole.ADMIN
+    val rol = (state as? SessionUiState.ConSesion)?.session?.user?.rol
+    val esAdmin = rol == UserRole.ADMIN
+    val esVendedorOAdmin = rol == UserRole.VENDEDOR || rol == UserRole.ADMIN
 
     Column(Modifier.fillMaxSize()) {
-        MainTabs(selected = tab, onSelect = { tab = it }, showAdmin = esAdmin)
+        MainTabs(
+            selected = tab,
+            onSelect = { tab = it },
+            showAdmin = esAdmin,
+            showMostrador = esVendedorOAdmin
+        )
 
         ContentArea(
             tab = tab,
@@ -68,6 +75,19 @@ private fun ContentArea(
 ) {
     when (tab) {
         MainTab.CATALOGO -> CatalogScreen()
+
+        MainTab.MOSTRADOR -> when (state) {
+            is SessionUiState.ConSesion ->
+                if (state.session.user.rol == UserRole.VENDEDOR ||
+                    state.session.user.rol == UserRole.ADMIN
+                ) {
+                    CounterScreen()
+                } else {
+                    CatalogScreen()
+                }
+
+            else -> CatalogScreen()
+        }
 
         MainTab.USUARIOS -> when (state) {
             is SessionUiState.ConSesion ->

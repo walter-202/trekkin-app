@@ -3,10 +3,12 @@ package com.autopartes.app.di
 import com.autopartes.domain.repository.CatalogRepository
 import com.autopartes.domain.repository.CompatibilityRepository
 import com.autopartes.domain.repository.GarageRepository
+import com.autopartes.domain.repository.InventoryRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
 import com.autopartes.domain.usecase.AssignRole
+import com.autopartes.domain.usecase.CounterQuery
 import com.autopartes.domain.usecase.GetActiveVehicle
 import com.autopartes.domain.usecase.GetCurrentSession
 import com.autopartes.domain.usecase.ListMyVehicles
@@ -79,6 +81,13 @@ object UseCaseModule {
         repository: UserRepository,
         sessionManager: SessionManager
     ): SetAccountStatus = SetAccountStatus(repository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideCounterQuery(
+        repository: InventoryRepository,
+        sessionManager: SessionManager
+    ): CounterQuery = CounterQuery(repository, sessionManager)
 
     @Provides
     @Singleton

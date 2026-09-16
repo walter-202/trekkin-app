@@ -12,18 +12,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-enum class MainTab { CATALOGO, CUENTA, USUARIOS }
+enum class MainTab { CATALOGO, CUENTA, MOSTRADOR, USUARIOS }
 
 /**
- * Selector simple de pestañas (Catálogo público / Cuenta / Usuarios). Es el contenedor
- * del Gate: el detalle completo exige login recién en HU-05; el catálogo es público (RF-07).
- * El tab "Usuarios" solo se muestra con rol admin (RF-04 C1, HU-02).
+ * Selector simple de pestañas (Catálogo público / Cuenta / Mostrador / Usuarios).
+ * Es el contenedor del Gate: el detalle completo exige login recién en HU-05;
+ * el catálogo es público (RF-07). El tab "Mostrador" solo se muestra a vendedor o
+ * admin (RF-10 C1) y "Usuarios" solo a admin (RF-04 C1, HU-02).
  */
 @Composable
 fun MainTabs(
     selected: MainTab,
     onSelect: (MainTab) -> Unit,
-    showAdmin: Boolean
+    showAdmin: Boolean,
+    showMostrador: Boolean
 ) {
     Row(Modifier.fillMaxWidth()) {
         TabItem(
@@ -38,6 +40,14 @@ fun MainTabs(
             modifier = Modifier.weight(1f),
             onClick = { onSelect(MainTab.CUENTA) }
         )
+        if (showMostrador) {
+            TabItem(
+                label = "Mostrador",
+                selected = selected == MainTab.MOSTRADOR,
+                modifier = Modifier.weight(1f),
+                onClick = { onSelect(MainTab.MOSTRADOR) }
+            )
+        }
         if (showAdmin) {
             TabItem(
                 label = "Usuarios",

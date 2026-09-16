@@ -142,6 +142,19 @@
   2. Búsqueda inmediata por teclado (nombre común u OEM) sin pasos extra (`RF-10 C2`).
   3. Despliegue instantáneo de **precio y stock acumulado** del grupo OEM (`RF-10 C3`).
 - Verificación: 3 caracteres → resultado; time-to-result <2s.
+- Estado actual: **implementada** (decisión del equipo: precio por variante + stock total en
+  el mostrador; solo el stock se acumula). `:domain` (`CounterHit`, puerto
+  `InventoryRepository`, `CounterError`, usecase `CounterQuery` con RBAC vendedor/admin por
+  sesión activa), `:data` (Room `inventory` en versión 4, `InventoryDao`
+  con `SUM(cantidad)` por variante, `InventorySeed` demo sobre las variantes v-1…v-10 del
+  `CatalogSeed`, `InventoryRepositoryImpl` reutiliza `CatalogDao` para nombre/OEM),
+  `:app` (tab `Mostrador` solo vendedor/admin en `MainTabs` + Gate, `CounterViewModel` con
+  debounce 300ms → sensación directa al teclear, `CounterScreen` busca y agrupa por grupo
+  OEM con precio por variante y `stockTotal`). Tests de dominio nuevos
+  (`CounterQueryTest`: vendedor OK, admin OK, cliente/sin sesión → `SoloVendedores`,
+  búsqueda vacía → `BusquedaInvalida`, sin coincidencias → lista vacía). Compilación
+  (`./gradlew build`), detekt, timing <2s y matriz emulador: **pendientes del equipo**
+  (sin toolchain Android en la máquina).
 
 ## HU-07: Inventario agrupado OEM y reorden — (fase C)
 

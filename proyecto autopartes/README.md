@@ -41,5 +41,9 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
 - **HU-02 (Fase B)** — Panel de administración de usuarios: implementado (tab "Usuarios" solo
   admin, búsqueda + filtros rol/estado, cambio de rol y bloqueo/desbloqueo con confirmación,
   `token_version` + kick en vivo RF-04 C5, seed admin demo `admin@autopartes.bo`/`Admin123456`).
+- **HU-06 (Fase B)** — Mostrador vendedor: implementado (tab "Mostrador" solo vendedor/admin,
+  Consulta Rápida con debounce 300ms por nombre común u OEM, precio por variante + stock
+  total del grupo OEM — RF-10 C3 —, Room `inventory` v4 con seed demo, RECOMENDADO por el
+  equipo: solo el stock se acumula).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

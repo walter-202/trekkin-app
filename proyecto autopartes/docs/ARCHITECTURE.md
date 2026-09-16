@@ -40,9 +40,22 @@
   `visitante → Splash/Login`; `autenticado → Home`; rutas de rol protegidas por
   `NavArgument`/`hasRole` (cliente/vendedor/admin), espejo del Gate de trekk-in-app.
   El tab **Usuarios** (HU-02) solo se monta con rol `admin` y el `MainTab` tercero es
-  condicional (`esAdmin`).
+  condicional (`esAdmin`); el tab **Mostrador** (HU-06) solo se monta con rol
+  `vendedor` o `admin` (`esVendedorOAdmin`).
 - **Ficha técnica (RF-08)**: la ruta de detalle es navegable por visitante pero muestra
   solo resumen; pantalla completa exige login.
+
+## 3b. Mostrador vendedor (HU-06, RF-10)
+
+- `CounterQuery` (`:domain`) valida **RBAC en dominio** (cuenta activa con rol `vendedor`
+  o `admin` vía `SessionManager.currentSession()`) antes de consultar; la UI solo esconde
+  el tab (defensa en profundidad, nunca seguridad sola en UI).
+- `InventoryRepositoryImpl` (`:data`) reutiliza `CatalogDao` (nombre común y código OEM
+  con `LIKE` indexado) y pregunta stock con `InventoryDao.stockByVariantIds`
+  → `SELECT partVariantId, SUM(cantidad) … GROUP BY partVariantId`; el total del grupo
+  OEM = Σ del stock de sus variantes (RF-10 C3, RF-11 C1). Room `inventory` versión 4.
+- `CounterViewModel` (`:app`) aplica **debounce 300ms** para sentir la búsqueda inmediata
+  al teclear (RF-10 C2); `CounterScreen` muestra precio por variante + `stockTotal`.
 
 ## 4. Patrón de capa por feature (espejo de trekk-in-app)
 
