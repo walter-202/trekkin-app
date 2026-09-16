@@ -16,6 +16,7 @@ class LoginUser(
 ) {
 
     suspend operator fun invoke(email: String, password: String): UserSession {
+        repository.ensureSeeded()
         val user = repository.authenticate(email.trim().lowercase(), password)
         val session = UserSession(accessToken = tokenGenerator.generate(user), user = user)
         sessionManager.save(session)

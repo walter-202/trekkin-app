@@ -30,6 +30,7 @@ class SessionManagerImpl @Inject constructor(
             .putString(KEY_EMAIL, user.email)
             .putString(KEY_ROL, user.rol.name)
             .putString(KEY_ESTADO, user.estado.name)
+            .putInt(KEY_TOKEN_VERSION, user.tokenVersion)
             .apply()
     }
 
@@ -40,13 +41,15 @@ class SessionManagerImpl @Inject constructor(
         val nombre = prefs.getString(KEY_NOMBRE, "") ?: ""
         val rol = prefs.getString(KEY_ROL, UserRole.CLIENTE.name) ?: UserRole.CLIENTE.name
         val estado = prefs.getString(KEY_ESTADO, AccountStatus.ACTIVO.name) ?: AccountStatus.ACTIVO.name
+        val tokenVersion = prefs.getInt(KEY_TOKEN_VERSION, 0)
 
         val user = User(
             id = userId,
             nombreCompleto = nombre,
             email = email,
             rol = UserRole.valueOf(rol),
-            estado = AccountStatus.valueOf(estado)
+            estado = AccountStatus.valueOf(estado),
+            tokenVersion = tokenVersion
         )
         UserSession(accessToken = token, user = user)
     }
@@ -63,5 +66,6 @@ class SessionManagerImpl @Inject constructor(
         const val KEY_EMAIL = "email"
         const val KEY_ROL = "rol"
         const val KEY_ESTADO = "estado"
+        const val KEY_TOKEN_VERSION = "token_version"
     }
 }

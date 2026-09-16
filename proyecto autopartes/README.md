@@ -38,5 +38,8 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
 - **HU-03 (Fase A)** — Garaje Virtual sin placa: implementado (tabs Cuenta → "Mis vehículos",
   alta/edición, único vehículo activo, seed demo de compatibilidades y filtro del catálogo
   por vehículo activo — RF-05 C2).
+- **HU-02 (Fase B)** — Panel de administración de usuarios: implementado (tab "Usuarios" solo
+  admin, búsqueda + filtros rol/estado, cambio de rol y bloqueo/desbloqueo con confirmación,
+  `token_version` + kick en vivo RF-04 C5, seed admin demo `admin@autopartes.bo`/`Admin123456`).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

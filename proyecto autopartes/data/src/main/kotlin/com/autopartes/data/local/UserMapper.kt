@@ -10,5 +10,6 @@ fun UserEntity.toDomain(): User = User(
     nombreCompleto = nombreCompleto,
     email = email,
     rol = UserRole.valueOf(rol),
-    estado = AccountStatus.valueOf(estado)
+    estado = AccountStatus.valueOf(estado),
+    tokenVersion = tokenVersion
 )

@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.autopartes.app.ui.auth.LoginScreen
 import com.autopartes.app.ui.auth.RegisterScreen
+import com.autopartes.app.ui.admin.AdminNavHost
 import com.autopartes.app.ui.catalog.CatalogScreen
 import com.autopartes.app.ui.components.MainTab
 import com.autopartes.app.ui.components.MainTabs
@@ -27,6 +28,7 @@ import com.autopartes.app.ui.garage.GarageNavHost
 import com.autopartes.app.ui.home.HomeScreen
 import com.autopartes.app.ui.session.SessionUiState
 import com.autopartes.app.ui.session.SessionViewModel
+import com.autopartes.domain.model.UserRole
 
 private object AuthRoutes {
     const val LOGIN = "login"
@@ -44,8 +46,11 @@ fun AutopartesNavHost(viewModel: SessionViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(MainTab.CATALOGO) }
 
+    val esAdmin = (state as? SessionUiState.ConSesion)
+        ?.session?.user?.rol == UserRole.ADMIN
+
     Column(Modifier.fillMaxSize()) {
-        MainTabs(selected = tab, onSelect = { tab = it })
+        MainTabs(selected = tab, onSelect = { tab = it }, showAdmin = esAdmin)
 
         ContentArea(
             tab = tab,
@@ -63,6 +68,17 @@ private fun ContentArea(
 ) {
     when (tab) {
         MainTab.CATALOGO -> CatalogScreen()
+
+        MainTab.USUARIOS -> when (state) {
+            is SessionUiState.ConSesion ->
+                if (state.session.user.rol == UserRole.ADMIN) {
+                    AdminNavHost(onKick = viewModel::revalidar)
+                } else {
+                    CatalogScreen()
+                }
+
+            else -> CatalogScreen()
+        }
 
         MainTab.CUENTA -> when (state) {
             SessionUiState.Cargando -> {

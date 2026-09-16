@@ -72,4 +72,17 @@ class SessionViewModel @Inject constructor(
             _state.value = SessionUiState.SinSesion()
         }
     }
+
+    /**
+     * Rehidrata la sesion contra la base (RF-04 C5, HU-02): tras una operacion del admin
+     * (cambio de rol o bloqueo) [GetCurrentSession] revalida tokenVersion/estado y, si la
+     * sesion quedo invalida (kick en vivo), deriva a SinSesion.
+     */
+    fun revalidar() {
+        viewModelScope.launch {
+            val session = getCurrentSession()
+            _state.value = session?.let { SessionUiState.ConSesion(it) }
+                ?: SessionUiState.SinSesion("Tu sesión fue invalidada por el administrador.")
+        }
+    }
 }

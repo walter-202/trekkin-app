@@ -6,9 +6,11 @@ import com.autopartes.domain.repository.GarageRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
+import com.autopartes.domain.usecase.AssignRole
 import com.autopartes.domain.usecase.GetActiveVehicle
 import com.autopartes.domain.usecase.GetCurrentSession
 import com.autopartes.domain.usecase.ListMyVehicles
+import com.autopartes.domain.usecase.ListUsers
 import com.autopartes.domain.usecase.LoginUser
 import com.autopartes.domain.usecase.LogoutUser
 import com.autopartes.domain.usecase.RegisterUser
@@ -16,6 +18,7 @@ import com.autopartes.domain.usecase.RegisterVehicle
 import com.autopartes.domain.usecase.SearchCatalog
 import com.autopartes.domain.usecase.SearchCatalogForActiveVehicle
 import com.autopartes.domain.usecase.SetActiveVehicle
+import com.autopartes.domain.usecase.SetAccountStatus
 import com.autopartes.domain.usecase.UpdateVehicle
 import dagger.Module
 import dagger.Provides
@@ -24,7 +27,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Bindings de los casos de uso del dominio (HU-01/03/04). El dominio es 100% puro
+ * Bindings de los casos de uso del dominio (HU-01/02/03/04). El dominio es 100% puro
  * (sin anotaciones de DI); aqui (capa de composicion) se cablean los puertos
  * inyectados por Hilt hacia los uscases. Cada clase es stateless: un singleton basta.
  */
@@ -51,8 +54,31 @@ object UseCaseModule {
 
     @Provides
     @Singleton
-    fun provideGetCurrentSession(sessionManager: SessionManager): GetCurrentSession =
-        GetCurrentSession(sessionManager)
+    fun provideGetCurrentSession(
+        sessionManager: SessionManager,
+        userRepository: UserRepository
+    ): GetCurrentSession = GetCurrentSession(sessionManager, userRepository)
+
+    @Provides
+    @Singleton
+    fun provideListUsers(
+        repository: UserRepository,
+        sessionManager: SessionManager
+    ): ListUsers = ListUsers(repository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideAssignRole(
+        repository: UserRepository,
+        sessionManager: SessionManager
+    ): AssignRole = AssignRole(repository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideSetAccountStatus(
+        repository: UserRepository,
+        sessionManager: SessionManager
+    ): SetAccountStatus = SetAccountStatus(repository, sessionManager)
 
     @Provides
     @Singleton

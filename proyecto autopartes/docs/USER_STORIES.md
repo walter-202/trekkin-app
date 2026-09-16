@@ -69,6 +69,15 @@
      (kick en vivo) (`RF-04 C5`).
   6. Confirma la operación con mensaje de éxito (`RF-04 C6`).
 - Verificación: matriz admin/cliente/vendedor en emulador; bloqueo revoca sesión activa.
+- Estado actual: **implementada** (`:domain` `ListUsers`/`AssignRole`/`SetAccountStatus` con
+  RBAC por sesión activa + `User.tokenVersion`; `:data` `updateRol`/`updateEstado` incrementan
+  `token_version`, `UserDao` ampliado y seed admin demo `UserSeed`; `:app` tab `Usuarios`
+  solo admin (`MainTabs` + Gate), `AdminNavHost` lista → detalle con modal de confirmación,
+  búsqueda + `FilterChip` de rol/estado; kick en vivo en `GetCurrentSession` + `SessionViewModel.revalidar`).
+  Compilación (`./gradlew build`), detekt y matriz admin/cliente/vendedor: **pendientes del equipo**
+  (sin toolchain Android en la máquina).
+- Nota demo: la cuenta `admin@autopartes.bo` / `Admin123456` (seed `UserSeed`, solo si la
+  tabla `users` está vacía) permite probar el panel; el registro siempre crea rol `cliente`.
 
 ## HU-03: Garaje Virtual sin placa — (fase A)
 
