@@ -132,6 +132,18 @@
   3. Compartir mediante Intenciones nativas: **WhatsApp** y **copiar enlace**
      (`RF-09 C1`).
 - Verificación: visitante→login→ficha; share abre WhatsApp/copia URL.
+- Estado actual: **implementada** (desde la tarjeta del catálogo HU-04, tocable, se abre la
+  ficha). `:domain` (`ProductDetail` con `esCompleta`, `CatalogError.ProductoNoEncontrado`,
+  `CatalogRepository.getDetail` y usecase `GetProductDetail` que aplica el Gate RF-08: sin
+  sesión devuelve resumen sin variantes/precio/stock), `:data` (`CatalogDao.findOemById`,
+  `CatalogRepositoryImpl.getDetail` entrega la ficha factual con variantes + `SUM(inventory)`
+  del grupo OEM vía `InventoryDao`), `:app` (`DetailViewModel`, `ProductDetailScreen` con
+  resumen + panel "Iniciar sesión" para visitantes y, con sesión, variantes/precio/stock +
+  botones **WhatsApp** (Intent nativo; fallback al chooser si no está instalado) y **Copiar
+  enlace** vía portapapeles, enlace `https://autopartes.bo/o/{codigoOem}`). Tests de dominio
+  nuevos (`GetProductDetailTest`: visitante → resumen, cliente autenticado → ficha completa,
+  oem inexistente → `ProductoNoEncontrado`). Compilación (`./gradlew build`), detekt y matriz
+  emulador: **pendientes del equipo** (sin toolchain Android en la máquina).
 
 ## HU-06: Mostrador vendedor — (fase B)
 

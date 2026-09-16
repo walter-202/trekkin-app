@@ -45,5 +45,9 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
   Consulta Rápida con debounce 300ms por nombre común u OEM, precio por variante + stock
   total del grupo OEM — RF-10 C3 —, Room `inventory` v4 con seed demo, RECOMENDADO por el
   equipo: solo el stock se acumula).
+- **HU-05 (Fase B)** — Ficha técnica y compartición: implementado (tocar una tarjeta del
+  catálogo abre la ficha; Gate RF-08 en dominio: visitante ve resumen + invitación a login,
+  autenticado ve variantes/precio/stock acumulado; compartir por WhatsApp — Intent nativo —
+  y copiar enlace `https://autopartes.bo/o/{codigoOem}`).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

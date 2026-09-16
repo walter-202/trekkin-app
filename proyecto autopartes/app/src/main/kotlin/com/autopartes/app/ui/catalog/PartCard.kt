@@ -1,5 +1,6 @@
 package com.autopartes.app.ui.catalog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,14 +23,15 @@ import com.autopartes.domain.model.OemPart
 
 /**
  * Tarjeta resumen del catalogo (RF-07 C1): imagen (placeholder), nombre, marca, precio y
- * codigo OEM. Imagenes reales llegan con la API (V2); el placeholder usa iniciales.
+ * codigo OEM. Al tocar abre la ficha técnica (HU-05, RF-08). Imagenes reales llegan con
+ * la API (V2); el placeholder usa iniciales.
  */
 @Composable
-fun PartCard(summary: CatalogSummary) {
+fun PartCard(summary: CatalogSummary, onClick: () -> Unit = {}) {
     val part = summary.oemPart
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 2.dp
     ) {

@@ -11,6 +11,7 @@ import com.autopartes.domain.usecase.AssignRole
 import com.autopartes.domain.usecase.CounterQuery
 import com.autopartes.domain.usecase.GetActiveVehicle
 import com.autopartes.domain.usecase.GetCurrentSession
+import com.autopartes.domain.usecase.GetProductDetail
 import com.autopartes.domain.usecase.ListMyVehicles
 import com.autopartes.domain.usecase.ListUsers
 import com.autopartes.domain.usecase.LoginUser
@@ -93,6 +94,13 @@ object UseCaseModule {
     @Singleton
     fun provideSearchCatalog(repository: CatalogRepository): SearchCatalog =
         SearchCatalog(repository)
+
+    @Provides
+    @Singleton
+    fun provideGetProductDetail(
+        repository: CatalogRepository,
+        sessionManager: SessionManager
+    ): GetProductDetail = GetProductDetail(repository, sessionManager)
 
     @Provides
     @Singleton

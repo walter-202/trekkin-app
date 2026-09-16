@@ -43,7 +43,10 @@
   condicional (`esAdmin`); el tab **Mostrador** (HU-06) solo se monta con rol
   `vendedor` o `admin` (`esVendedorOAdmin`).
 - **Ficha técnica (RF-08)**: la ruta de detalle es navegable por visitante pero muestra
-  solo resumen; pantalla completa exige login.
+  solo resumen; pantalla completa exige login. El gate vive en el use case `GetProductDetail`
+  (dominio): sin sesión devuelve `ProductDetail` con `variantes`/`stockTotal` nulos y
+  `esCompleta=false`; la UI pinta el panel "Iniciar sesión" y, autenticado, las acciones
+  de compartición (RF-09: Intent WhatsApp + copiar enlace `https://autopartes.bo/o/{codigoOem}`).
 
 ## 3b. Mostrador vendedor (HU-06, RF-10)
 

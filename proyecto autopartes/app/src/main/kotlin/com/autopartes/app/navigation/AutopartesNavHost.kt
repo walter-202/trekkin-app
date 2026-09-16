@@ -62,7 +62,8 @@ fun AutopartesNavHost(viewModel: SessionViewModel = hiltViewModel()) {
         ContentArea(
             tab = tab,
             state = state,
-            viewModel = viewModel
+            viewModel = viewModel,
+            onTabSelect = { tab = it }
         )
     }
 }
@@ -71,10 +72,14 @@ fun AutopartesNavHost(viewModel: SessionViewModel = hiltViewModel()) {
 private fun ContentArea(
     tab: MainTab,
     state: SessionUiState,
-    viewModel: SessionViewModel
+    viewModel: SessionViewModel,
+    onTabSelect: (MainTab) -> Unit
 ) {
     when (tab) {
-        MainTab.CATALOGO -> CatalogScreen()
+        MainTab.CATALOGO -> CatalogScreen(
+            sesionActiva = state is SessionUiState.ConSesion,
+            onOpenLogin = { onTabSelect(MainTab.CUENTA) }
+        )
 
         MainTab.MOSTRADOR -> when (state) {
             is SessionUiState.ConSesion ->
@@ -83,10 +88,16 @@ private fun ContentArea(
                 ) {
                     CounterScreen()
                 } else {
-                    CatalogScreen()
+                    CatalogScreen(
+                        sesionActiva = true,
+                        onOpenLogin = { onTabSelect(MainTab.CUENTA) }
+                    )
                 }
 
-            else -> CatalogScreen()
+            else -> CatalogScreen(
+                sesionActiva = false,
+                onOpenLogin = { onTabSelect(MainTab.CUENTA) }
+            )
         }
 
         MainTab.USUARIOS -> when (state) {
@@ -94,10 +105,16 @@ private fun ContentArea(
                 if (state.session.user.rol == UserRole.ADMIN) {
                     AdminNavHost(onKick = viewModel::revalidar)
                 } else {
-                    CatalogScreen()
+                    CatalogScreen(
+                        sesionActiva = true,
+                        onOpenLogin = { onTabSelect(MainTab.CUENTA) }
+                    )
                 }
 
-            else -> CatalogScreen()
+            else -> CatalogScreen(
+                sesionActiva = false,
+                onOpenLogin = { onTabSelect(MainTab.CUENTA) }
+            )
         }
 
         MainTab.CUENTA -> when (state) {

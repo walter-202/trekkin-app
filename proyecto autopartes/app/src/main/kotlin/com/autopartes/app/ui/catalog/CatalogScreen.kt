@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,13 +29,36 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.autopartes.app.ui.components.BannerMensaje
 
 /**
- * Pantalla publica de catalogo y busqueda (HU-04, RF-06/RF-07).
- * Accesible sin sesion; la ficha técnica (detalle/precio/stock) exige login en HU-05.
+ * Pantalla publica de catalogo y busqueda (HU-04, RF-06/RF-07) + ficha tecnica (HU-05).
+ * La búsqueda es libre; al tocar una tarjeta se abre la ficha: completa si hay sesión
+ * activa (Gate RF-08) y con invitación a login si es visitante.
  */
 @Composable
-fun CatalogScreen(viewModel: CatalogViewModel = hiltViewModel()) {
+fun CatalogScreen(
+    sesionActiva: Boolean,
+    onOpenLogin: () -> Unit,
+    viewModel: CatalogViewModel = hiltViewModel(),
+    detailViewModel: DetailViewModel = hiltViewModel()
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val detailState by detailViewModel.state.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
+    var selectedOemId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val oemId = selectedOemId
+    if (oemId != null) {
+        LaunchedEffect(oemId) { detailViewModel.load(oemId) }
+        ProductDetailScreen(
+            sesionActiva = sesionActiva,
+            onBack = { selectedOemId = null },
+            onOpenLogin = {
+                selectedOemId = null
+                onOpenLogin()
+            },
+            detailState = detailState
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -82,7 +106,7 @@ fun CatalogScreen(viewModel: CatalogViewModel = hiltViewModel()) {
             is CatalogUiState.Resultado -> {
                 LazyColumn {
                     items(current.items, key = { it.oemPart.id }) { item ->
-                        PartCard(item)
+                        PartCard(item, onClick = { selectedOemId = item.oemPart.id })
                     }
                 }
             }
@@ -95,7 +119,7 @@ fun CatalogScreen(viewModel: CatalogViewModel = hiltViewModel()) {
 private fun CatalogScreenPreview() {
     MaterialTheme {
         Column(Modifier.padding(16.dp)) {
-            PartCard(sample)
+            PartCard(sample, onClick = {})
         }
     }
 }

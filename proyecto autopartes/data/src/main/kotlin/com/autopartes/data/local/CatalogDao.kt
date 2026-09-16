@@ -22,6 +22,9 @@ interface CatalogDao {
     @Query("SELECT * FROM part_variants WHERE oemPartId IN (:oemIds)")
     suspend fun findVariantsByOemIds(oemIds: List<String>): List<PartVariantEntity>
 
+    @Query("SELECT * FROM oem_parts WHERE id = :id LIMIT 1")
+    suspend fun findOemById(id: String): OemPartEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertOemParts(parts: List<OemPartEntity>)
 
