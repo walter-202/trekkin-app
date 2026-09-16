@@ -179,6 +179,22 @@
      (`RF-12 C1`).
   3. Panel de alertas visuales de **Stock Crítico** para el admin (`RF-12 C2`).
 - Verificación: dos variantes del mismo OEM suman en una tarjeta; alerta si Σ ≤ reorder.
+- Estado actual: **implementada** (decisión del equipo: el panel es solo admin, RF-11/RF-12;
+  reutiliza `inventory`/`oem_parts`/`part_variants` de HU-06, sin tablas nuevas).
+  `:domain` (`OemStockGroup` con `esCritico = stockTotal <= reorderPoint`, puerto
+  `InventoryRepository.stockAgrupadoPorOem()`, `InventoryError.SoloAdmin`, usecase
+  `ListCriticalStockGroups` con RBAC solo admin por sesión activa y orden por `stockTotal`
+  ascendente), `:data` (`CatalogDao.getAllOemParts` agregado; `InventoryRepositoryImpl`
+  reutiliza `findVariantsByOemIds` + `InventoryDao.stockByVariantIds` — mismos DAOs de
+  HU-06, sin duplicar consultas), `:app` (hub `AdminNavHost`: tarjetas "Gestión de
+  Usuarios" / "Stock Crítico", ruta `stock-critico` con `CriticalStockViewModel` +
+  `CriticalStockScreen` con tarjeta de color de alerta que muestra fabricantes,
+  `stockTotal` vs `reorderPoint`; provider en `UseCaseModule`; todo bajo el Gate admin
+  del tab Usuarios). Tests de dominio nuevos (`ListCriticalStockGroupsTest`: admin ve solo
+  críticos ordenados, cliente/vendedor/sin sesión → `SoloAdmin`) y
+  `FakeInventoryRepository` ampliado con un grupo crítico coherente con el seed (o-5).
+  Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
+  (sin toolchain Android en la máquina).
 
 ## HU-08: Sugerencia de Orden de Compra — (fase C, Should)
 

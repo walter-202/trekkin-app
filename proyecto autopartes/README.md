@@ -49,5 +49,9 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
   catálogo abre la ficha; Gate RF-08 en dominio: visitante ve resumen + invitación a login,
   autenticado ve variantes/precio/stock acumulado; compartir por WhatsApp — Intent nativo —
   y copiar enlace `https://autopartes.bo/o/{codigoOem}`).
+- **HU-07 (Fase C)** — Stock crítico por OEM: implementado (hub del panel admin → "Stock
+  Crítico" solo con rol admin: grupos OEM con stock = Σ del stock de sus variantes y alerta
+  visual cuando `stock ≤ reorder_point` (RF-11/RF-12); reutiliza `inventory` de HU-06 sin
+  tablas nuevas).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

@@ -13,6 +13,9 @@ interface CatalogDao {
     @Query("SELECT COUNT(*) FROM oem_parts")
     suspend fun countOemParts(): Int
 
+    @Query("SELECT * FROM oem_parts")
+    suspend fun getAllOemParts(): List<OemPartEntity>
+
     @Query("SELECT * FROM oem_parts WHERE codigo_oem LIKE '%' || :query || '%' COLLATE NOCASE")
     suspend fun searchByCodigoOem(query: String): List<OemPartEntity>
 

@@ -12,6 +12,7 @@ import com.autopartes.domain.usecase.CounterQuery
 import com.autopartes.domain.usecase.GetActiveVehicle
 import com.autopartes.domain.usecase.GetCurrentSession
 import com.autopartes.domain.usecase.GetProductDetail
+import com.autopartes.domain.usecase.ListCriticalStockGroups
 import com.autopartes.domain.usecase.ListMyVehicles
 import com.autopartes.domain.usecase.ListUsers
 import com.autopartes.domain.usecase.LoginUser
@@ -89,6 +90,13 @@ object UseCaseModule {
         repository: InventoryRepository,
         sessionManager: SessionManager
     ): CounterQuery = CounterQuery(repository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideListCriticalStockGroups(
+        repository: InventoryRepository,
+        sessionManager: SessionManager
+    ): ListCriticalStockGroups = ListCriticalStockGroups(repository, sessionManager)
 
     @Provides
     @Singleton
