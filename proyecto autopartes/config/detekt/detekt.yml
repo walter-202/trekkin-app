@@ -1,0 +1,3 @@
+# Umbral holgado para el scaffold HU-01; el equipo debe ajustarlo al estandar.
+build:
+  maxIssues: 200

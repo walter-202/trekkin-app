@@ -51,6 +51,9 @@
   5. Mensajes de error descriptivos ante credenciales inválidas/bloqueo (`RF-01 C5`, HU-02).
 - Verificación: registrar→login→logout en emulador Android 8.0+; sesión persiste tras
   reinicio; logout revoca.
+- Estado actual: **Fase A — scaffold HU-01 implementado** (`:domain` usecases+puertos,
+  `:data` Room local + sesión, `:app` Compose + Gate). Compilación (`./gradlew build`)
+  y matriz emulador: **pendientes del equipo** (sin toolchain Android en la máquina).
 
 ## HU-02: Panel de administración de usuarios — (fase B)
 
