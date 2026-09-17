@@ -16,7 +16,7 @@ import {
   Circle,
   ListChecks,
 } from "lucide-react-native";
-import { PlanMap } from "../../components/map/PlanMap";
+import { TrekMap } from "../../components/map/TrekMap";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import {
   activeElapsedMs,
@@ -121,10 +121,10 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
         </View>
       )}
 
-      <PlanMap
-        routeWaypoints={live.route.waypoints}
+      <TrekMap
+        trail={live.route.waypoints}
         track={live.recordedPoints}
-        checkpoints={live.route.checkpoints}
+        pointsOfInterest={live.route.checkpoints}
         start={
           live.route
             ? {

@@ -6,7 +6,7 @@ import {
   Trophy,
   Map as MapIcon,
 } from "lucide-react-native";
-import { PlanMap } from "../../components/map/PlanMap";
+import { TrekMap } from "../../components/map/TrekMap";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
 import type { TrekkinActivity } from "../../../core/domain/types";
 
@@ -71,7 +71,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </View>
       )}
 
-      <PlanMap
+      <TrekMap
         track={saved.recordedPoints}
         start={
           first

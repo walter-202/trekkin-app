@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { Navigation, CheckCircle2 } from 'lucide-react-native';
-import { PlanMap } from '../../components/map/PlanMap';
+import { TrekMap } from '../../components/map/TrekMap';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
 
@@ -81,7 +81,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
           <Text style={styles.muted}>Obteniendo tu ubicación…</Text>
         </View>
       ) : (
-        <PlanMap
+        <TrekMap
           start={target}
           currentLocation={current}
           onPressCoordinate={(c) => setPending({ lat: c.lat, lng: c.lng, name: 'Inicio confirmado' })}
