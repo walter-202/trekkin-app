@@ -4,7 +4,7 @@
 > Regla de validación vigente: **100% solo con matriz Expo Go + dev-build completa + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
 >
 > **Alcance real consolidado:**
-> - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (80%), HU-10 (90%).
+> - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (100%), HU-08 (80%), HU-10 (90%).
 > - **🟡 En progreso / pendientes de campo:** HU-06 (65%), HU-04 (55%).
 > - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
 
@@ -265,7 +265,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-07: Planificar Nueva Ruta (Borrador) — 🟢 85% funcional
+## HU-07: Planificar Nueva Ruta (Borrador) — 🟢 100% funcional
 
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** explorador **quiero** trazar puntos provisionales o importar un archivo de ruta **para** consolidar datos antes de la expedición.
@@ -276,14 +276,14 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   4. ✅ Importación de archivos externos: `ImportTrackFileUseCase` listo para parsear `.gpx`, `.kml` y `.csv` con simplificación Ramer-Douglas-Peucker automática.
   5. ✅ Dual: Firestore `routes/{id}` `status:'draft'` + autosave Zustand/AsyncStorage.
   6. ✅ `DraftsView` + `PlanEditorView` (listar y editar borradores).
-  7. ⚠️ Edición geométrica fina: undo/clear/drag de puntos individuales en UI.
-- **Estado real y brecha (15%):** persistencia, modelo y motor de importación completos. Falta pulido de botones undo/clear en la interfaz de edición.
+  7. ✅ Edición geométrica fina: undo/clear/drag de puntos individuales en UI — historial de 10 snapshots, marcadores de waypoints intermedios arrastrables (púrpura), botones flotantes Undo/Clear en el mapa, tab "PTS" con lista de gestión.
+- **Estado real y brecha (0%):** todos los criterios funcionales completos. Persistencia, modelo, importación, drag de waypoints, undo/clear y tests unitarios verificados (33 pruebas HU-07).
 - **Mapeo Técnico:**
-  - *Dominio:* `src/core/domain/plan.ts`, `plan.schemas.ts`, `src/core/domain/trackFormats.ts`.
+  - *Dominio:* `src/core/domain/plan.ts` (`PlanHistoryEntry`, `MAX_UNDO_HISTORY`), `plan.schemas.ts` (`AddWaypointSchema`, `RemoveWaypointSchema`, `MoveWaypointSchema`), `src/core/domain/trackFormats.ts`.
   - *Aplicación:* `SaveDraft`, `GetDraft`, `UpdatePlan`, `ConfirmStartPoint`, `MarkReadyForGps`, `ImportTrackFile`.
-  - *Infraestructura:* `routeService.ts`, `usePlanStore.ts`.
-  - *Presentación:* `CreateRouteView`, `PlanEditorView`, `DraftsView`.
-  - *Suites:* `src/tests/plan_hu7.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
+  - *Infraestructura:* `routeService.ts`, `usePlanStore.ts` (acciones: `addWaypoint`, `removeWaypoint`, `moveWaypoint`, `undo`, `clearWaypoints`, `canUndo` + historial).
+  - *Presentación:* `CreateRouteView`, `PlanEditorView`, `DraftsView`, `PlanPointPicker.tsx` (tab waypoints + lista), `PlanMap.tsx` (drag de marcadores + botones undo/clear).
+  - *Suites:* `src/tests/plan_hu7.test.ts` (33 pruebas, 12 nuevas para C7), `src/tests/track_formats_hu7_hu8.test.ts`.
 
 ---
 
@@ -345,7 +345,7 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | **HU-04** | Descarga offline | 🟡 55% | `offline_hu4.test.ts` (cálculo de teselas/MB real) |
 | **HU-05** | Compartir ruta | 🟢 85% | `share_hu5.test.ts` |
 | **HU-06** | Realizar ruta (guía) | 🟡 65% | `activity_hu6.test.ts` |
-| **HU-07** | Planificar borrador | 🟢 85% | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts` |
+| **HU-07** | Planificar borrador | 🟢 100% | `plan_hu7.test.ts` (33 pruebas) + `track_formats_hu7_hu8.test.ts` |
 | **HU-08** | Grabar GPS y GPX | 🟢 80% | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
 | **HU-09** | Moderación | 🚫 — | Eliminada del alcance |
 | **HU-10** | Admin y roles | 🟢 90% | `user_management_hu10.test.ts` |
