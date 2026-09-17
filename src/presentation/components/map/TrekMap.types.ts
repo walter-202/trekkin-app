@@ -18,43 +18,36 @@ export interface MapRegion {
   longitudeDelta: number;
 }
 
+/**
+ * Contrato estable de `<TrekMap />` — las HUs programan contra esto.
+ * V1 pinta con MapLibre GL JS (web DOM / WebView en Expo Go).
+ * V2 puede cambiar a @maplibre/maplibre-react-native sin tocar las vistas.
+ */
 export interface TrekMapProps {
-  /** Trail points (coordinates of the route) */
+  /** Trazado oficial de la ruta (HU-03 / HU-06). */
   trail?: Coordinates[];
-  /** Start point of the route */
+  /** Recorrido GPS grabado (HU-06 / HU-08). */
+  track?: Coordinates[];
   start?: { lat: number; lng: number; name?: string } | null;
-  /** End point of the route */
   end?: { lat: number; lng: number; name?: string } | null;
-  /** Current GPS position of the user */
   currentLocation?: { lat: number; lng: number } | null;
-  /** Checkpoints / Points of interest */
   pointsOfInterest?: MapMarker[];
   markers?: MapMarker[];
-  /** Initial camera region */
   initialRegion?: MapRegion;
-  /** Fixed height or uses style */
   height?: number;
-  /** Style override */
   style?: StyleProp<ViewStyle>;
-  /** User tap callback with coordinates */
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;
   onPress?: (coords: { lat: number; lng: number }) => void;
-  /** Enable / disable map interaction */
   interactive?: boolean;
-  /** Accessibility label */
   accessibilityLabel?: string;
-  /** Show user location marker */
   showUserLocation?: boolean;
-  /** Path to local offline tile directory */
-  offlinePackPath?: string;
   /**
-   * HU-03 Android — Override del template de teselas online.
-   * Por defecto Carto Voyager (datos OSM, sin keys). HU-04 usa `offlinePackPath`
-   * para teselas locales en vez de este template.
+   * Reservado HU-04: ruta a pack local (PMTiles/MBTiles).
+   * V1 online ignora este campo; no usar carpetas PNG.
    */
+  offlinePackPath?: string;
+  /** @deprecated V1 ya no usa UrlTile; se conserva por compatibilidad. */
   tileUrlTemplate?: string;
-  /** Fit camera to specific coordinates */
   fitTo?: Array<{ lat: number; lng: number }>;
-  /** Custom children (e.g. overlays, buttons) */
   children?: React.ReactNode;
 }

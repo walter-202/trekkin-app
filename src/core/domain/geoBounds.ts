@@ -65,7 +65,7 @@ export function computeBoundingBox(
 }
 
 /**
- * Converts a bounding box to a MapRegion suitable for react-native-maps.
+ * Converts a bounding box to a camera region (lat/lng + deltas).
  */
 export function boundsToRegion(bounds: GeoBounds): MapRegionCalculated {
   const latitude = (bounds.minLat + bounds.maxLat) / 2;
