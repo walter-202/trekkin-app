@@ -30,12 +30,16 @@ export function formatDurationMinutes(totalMinutes: number): string {
   return `${h} h ${m} min`;
 }
 
+/**
+ * Formatea un ritmo numérico (min/km) como "mm'ss"/km.
+ * Rescate cruz→main (HU-08, 2026-09-16). Cero lógica de negocio.
+ */
 export function formatPace(paceMinPerKm: number): string {
   if (paceMinPerKm <= 0 || !Number.isFinite(paceMinPerKm)) {
-    return "--'--\"/km";
+    return "--:--/km";
   }
   const mins = Math.floor(paceMinPerKm);
   const secs = Math.round((paceMinPerKm - mins) * 60);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${pad(mins)}'${pad(secs)}" /km`;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(mins)}'${pad(secs)}"/km`;
 }

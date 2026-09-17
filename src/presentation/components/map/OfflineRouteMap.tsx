@@ -26,7 +26,8 @@ const projectPoint = (
 };
 
 /**
- * HU-04 T6 — Mapa vectorial offline (react-native-svg).
+ * DEPRECATED — no usar. El mapa canónico es `<TrekMap />` (MapLibre).
+ * HU-04 T6 — retícula SVG sin teselas de fondo (no es mapa base offline).
  * Render del mapa descargado a partir de la geometría almacenada en el
  * dispositivo: fondo topográfico + retícula + trazado + puntos inicio/fin
  * + puntos relevantes. Sin red, sin tiles nativos: válido en Expo Go.

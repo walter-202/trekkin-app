@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { CloudOff } from "lucide-react-native";
-import { PlanMap } from "../../components/map/PlanMap";
+import { TrekMap } from "../../components/map/TrekMap";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
@@ -116,7 +116,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         </View>
       )}
 
-      <PlanMap
+      <TrekMap
         track={activity.recordedPoints}
         start={
           first

@@ -51,3 +51,22 @@ src/presentation/views/explore/ExploreView.tsx       (catálogo + detalle + mapa
 - ❌ Guardar el rol desde el cliente sin verificarlo en `firestore.rules`.
 - ❌ Poner lógica de negocio dentro del `View` (debe vivir en el use case).
 - ❌ Romper la paleta (`#051712` fondo, `#0E2E24` tarjeta, `#1A4537` borde, `#10B981` acento).
+- ❌ Segundo motor de mapas (`react-native-maps`, `PlanMap`, Google SDK). Usar `<TrekMap />`.
+
+## 10. Mapas (HU-03/04/06/07/08)
+
+Sigue el checklist de arriba para dominio/aplicación; el **renderer** no es un módulo de negocio.
+
+1. Contrato: `src/presentation/components/map/TrekMap.types.ts` (`TrekMapProps`).
+2. Estilo online: `src/infrastructure/map/mapStyle.ts` (OpenFreeMap). HU-03 **no** descarga pack.
+3. Vistas: importar `{ TrekMap }` desde `presentation/components/map/TrekMap`.
+   Metro elige `TrekMap.web.tsx` o `TrekMap.native.tsx`.
+4. Plan y formatos: `docs/plan/plan_mapas_on_offline.md`. Packs HU-04: `docs/plan/offline_maps.md`.
+5. Probar: `pnpm start` → `w` (http://localhost:8081) y QR Expo Go. V2 nativo: `expo prebuild` + `expo run:android` (rompe Expo Go).
+
+```
+src/infrastructure/map/mapStyle.ts
+src/infrastructure/map/mapBridge.ts
+src/presentation/components/map/TrekMap.tsx
+src/presentation/views/explore/RouteDetailView.tsx   ← ya monta TrekMap
+```

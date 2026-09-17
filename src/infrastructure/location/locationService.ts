@@ -20,9 +20,16 @@ export interface LocationWatch {
   remove: () => void;
 }
 
-export interface WatchOptions {
+/**
+ * Opciones de precisión para GPS (rescate cruz→main, HU-08, 2026-09-16).
+ * Los defaults conservan el comportamiento HU-06 (Balanced, 8 m, 3 s);
+ * la grabación (HU-08) pasa `Accuracy.High` + intervalos más finos.
+ */
+export interface LocationAccuracyOptions {
   accuracy?: Location.Accuracy;
+  /** Metros mínimos entre actualizaciones (filtro anti-ruido). */
   distanceInterval?: number;
+  /** Milisegundos mínimos entre actualizaciones. */
   timeInterval?: number;
 }
 
@@ -55,7 +62,7 @@ export const locationService = {
    * Devuelve null si el permiso fue denegado o no se pudo obtener la posición.
    */
   async getCurrentPosition(
-    options?: WatchOptions,
+    options?: Pick<LocationAccuracyOptions, "accuracy">,
   ): Promise<GpsPosition | null> {
     if (!(await this.hasForegroundPermission())) {
       if (!(await this.requestForegroundPermission())) {
@@ -78,7 +85,7 @@ export const locationService = {
    */
   async startWatching(
     onUpdate: (position: GpsPosition) => void,
-    options?: WatchOptions,
+    options?: LocationAccuracyOptions,
   ): Promise<LocationWatch | null> {
     if (!(await this.hasForegroundPermission())) {
       if (!(await this.requestForegroundPermission())) {

@@ -70,6 +70,7 @@ Actualizar dueño: solo `displayName, username, avatarUrl, summitsCount, gpsAccu
 | `waypoints` | list | — | ≤ 5000 `{lat, lng, altitude?, timestamp?}`. |
 | `checkpoints` | list | — | ≤ 100 (ver subtabla). |
 | `photos` | list | — | ≤ 50 URLs. |
+| `coverImageUrl` | string | — | ≤ 500 URL de portada referencial subida por el usuario. |
 | `moderationNotes` | string | — | ≤ 2000 (notas de revisión del admin). |
 | `reviewedBy` / `reviewedAt` | string / number | — | ≤ 150 / timestamp ms. |
 | `createdAt` / `updatedAt` | number | — | Timestamps ms. |
@@ -101,6 +102,11 @@ lo usa `DraftsView`).
 | `createdAt` | number | — | |
 
 Reglas: todo exige dueño (`userId == auth.uid`); borrar = dueño o admin.
+
+### `activities/{activityId}/points/{chunkId}` — subcolección chunked (BK-030)
+Para grabaciones de más de 500 puntos GPS, los datos se particionan en documentos de 500 coordenadas (`chunk_0`, `chunk_1`, …) evitando superar el límite de 1 MB por documento de Firestore y optimizando lecturas.
+Campos: `chunkIndex` (number), `points` (list de `{lat, lng, altitude?, timestamp?}`), `count` (number), `updatedAt` (number).
+Reglas: lectura y escritura exclusivas del dueño de la actividad padre.
 
 ## `reviews/{reviewId}` — auditoría admin (sin HU-09: solo admin)
 

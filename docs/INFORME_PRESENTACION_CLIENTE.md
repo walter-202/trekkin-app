@@ -26,12 +26,12 @@ Semáforo: 🟢 funciona · 🟡 a medias · 🔴 pendiente.
 | :--- | :--- | :---: | :--- |
 | HU-01 Crear cuenta | Registrarse con nombre, correo, alias y contraseña | 🟢 95% | Verificación de correo |
 | HU-02 Entrar y perfil | Entrar, ver mi ficha, cambiar nombre/alias, salir | 🟢 90% | Cambio de contraseña y tema visual |
-| HU-03 Ver rutas | Catálogo abierto, buscar, filtrar por dificultad, ver detalle | 🟡 70% | Mapa de fondo vectorial que funcione en el teléfono (hoy da error 403 fuera de La Paz). Tareas BK-001 a BK-004 |
-| HU-04 Llevar sin internet | Botón descargar ruta | 🔴 35% | Descarga real del mapa (hoy solo guarda textos, no el mapa). Tareas BK-010 a BK-014 |
+| HU-03 Ver rutas | Catálogo abierto, fotos de portada, detalle con mapa MapLibre (OSM/OpenFreeMap, sin Google de pago) | 🟢 90% | Probar en Expo Go Android y en http://localhost:8081 |
+| HU-04 Llevar sin internet | Botón descargar ruta y cálculo real de MB | 🟡 55% | Descarga física de teselas a almacenamiento local |
 | HU-05 Compartir | Enviar ruta por enlace y WhatsApp/Telegram | 🟢 85% | Adjuntar el archivo de la caminata al mensaje |
-| HU-06 Caminar con guía | Seguir la ruta con GPS, pausar, terminar, ver historial | 🟡 60% | Que siga grabando con pantalla apagada, que te avise si te sales del camino. Tareas BK-023, BK-033 |
-| HU-07 Planear ruta | Marcar inicio y destino, guardar borrador | 🟡 70% | Poder subir un archivo de caminata como punto de partida, mover puntos. Tareas BK-021, BK-041 |
-| HU-08 Grabar ruta nueva | Grabar mi caminata y sus paradas | 🟡 60% | Exportar el archivo de la caminata para usarlo en Garmin/Wikiloc. Tarea BK-022 |
+| HU-06 Caminar con guía | Seguir la ruta con GPS, pausar, terminar, ver historial | 🟡 65% | Que siga grabando con pantalla apagada, migrar vista a TrekMap |
+| HU-07 Planear ruta | Marcar puntos, guardar borrador e importar GPX/KML | 🟢 85% | Edición fina de puntos en pantalla (deshacer/borrar) |
+| HU-08 Grabar ruta nueva | Grabar caminata, paradas y exportar archivo GPX | 🟢 80% | Grabación con pantalla bloqueada |
 | HU-09 Moderación | — | 🚫 Eliminada | Los admin revisan; no hay rol moderador |
 | HU-10 Administrar | Ver usuarios, bloquear, cambiar roles, con registro de todo | 🟢 90% | Paginar listas largas |
 

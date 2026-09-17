@@ -56,6 +56,9 @@ export interface MapRegion {
 }
 
 /**
+ * DEPRECATED — no usar. El mapa canónico es `<TrekMap />` (MapLibre).
+ * Se conserva el archivo para no romper diffs históricos; las vistas ya migraron.
+ *
  * Mapa compartido — HU-07 + HU-03.
  *
  * Renderiza teselas de OpenStreetMap con primitivas nativas de React Native

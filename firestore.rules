@@ -170,6 +170,12 @@ service cloud.firestore {
                        incoming().userId == existing().userId;
       allow delete: if isSignedIn() &&
                        (resource.data.userId == request.auth.uid || isAdmin());
+
+      // Subcolección chunked para actividades largas (>500 puntos)
+      match /points/{chunkId} {
+        allow read, write: if isSignedIn() &&
+          get(/databases/$(database)/documents/activities/$(activityId)).data.userId == request.auth.uid;
+      }
     }
 
     // Reviews collection rules (Auditing — sin HU-09 solo el admin las emite)

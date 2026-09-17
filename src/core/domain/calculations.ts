@@ -374,9 +374,56 @@ export function calculateElevationDeltaM(
       }
     }
   }
+  return { gainM: Math.round(gainM), lossM: Math.round(lossM) };
+}
 
-  return {
-    gainM: Math.round(gainM),
-    lossM: Math.round(lossM),
-  };
+/* ------------------------------------------------------------------ */
+/* Rescate cruz→main (HU-08, 2026-09-16): helpers aditivos, sin tocar   */
+/* el contrato existente (calculateTotalDistanceKm sigue filtrado).     */
+/* ------------------------------------------------------------------ */
+
+/** Suma las distancias de cada segmento consecutivo (sin filtrado). */
+export function calculateTrackDistanceKm(
+  points: Array<{ lat: number; lng: number }>,
+): number {
+  if (!points || points.length < 2) {
+    return 0;
+  }
+  let totalKm = 0;
+  for (let i = 1; i < points.length; i++) {
+    totalKm += haversineKm(points[i - 1], points[i]);
+  }
+  return Math.round(totalKm * 1000) / 1000;
+}
+
+/** Distancia directa restante hacia el destino (línea recta, no sobre trazado). */
+export function calculateRemainingDistanceKm(
+  current: { lat: number; lng: number } | null | undefined,
+  destination: { lat: number; lng: number } | null | undefined,
+): number {
+  if (!current || !destination) {
+    return 0;
+  }
+  return haversineDistanceKm(current, destination);
+}
+
+/**
+ * Sugiere la dificultad de una ruta a partir de distancia y desnivel.
+ * Se conserva para HU-08 (resumen de grabación).
+ */
+export function suggestRouteDifficulty(
+  distanceKm: number,
+  elevationGainM?: number,
+): RouteDifficulty {
+  const gain = elevationGainM ?? 0;
+  if (distanceKm >= 20 || gain >= 1200) {
+    return "experto";
+  }
+  if (distanceKm >= 12 || gain >= 700) {
+    return "dificil";
+  }
+  if (distanceKm >= 5 || gain >= 250) {
+    return "moderado";
+  }
+  return "facil";
 }

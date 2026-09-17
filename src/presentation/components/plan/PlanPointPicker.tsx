@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MapPin, Flag } from 'lucide-react-native';
-import { PlanMap } from '../map/PlanMap';
+import { TrekMap } from '../map/TrekMap';
 import type { PlannedPoint } from '../../../core/domain/plan';
 
 /**
@@ -53,7 +53,7 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
         </Pressable>
       </View>
 
-      <PlanMap
+      <TrekMap
         start={start}
         end={end}
         onPressCoordinate={handlePress}

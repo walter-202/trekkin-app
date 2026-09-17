@@ -16,7 +16,7 @@ import {
   ListChecks,
   Play,
 } from "lucide-react-native";
-import { PlanMap } from "../../components/map/PlanMap";
+import { TrekMap } from "../../components/map/TrekMap";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import {
   locationService,
@@ -104,9 +104,9 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
         </Text>
       </View>
 
-      <PlanMap
-        routeWaypoints={route.waypoints}
-        checkpoints={route.checkpoints}
+      <TrekMap
+        trail={route.waypoints}
+        pointsOfInterest={route.checkpoints}
         start={toPlannedPoint(route.startPoint)}
         end={toPlannedPoint(route.endPoint)}
         currentLocation={
@@ -114,7 +114,6 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
             ? {
                 lat: position.latitude,
                 lng: position.longitude,
-                name: "Tu ubicación",
               }
             : undefined
         }

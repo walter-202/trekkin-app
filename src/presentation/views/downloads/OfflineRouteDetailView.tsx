@@ -24,7 +24,7 @@ import { GetOfflineRouteUseCase } from "../../../core/application/offline/GetOff
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
-import { OfflineRouteMap } from "../../components/map/OfflineRouteMap";
+import { TrekMap } from "../../components/map/TrekMap";
 
 interface OfflineRouteDetailViewProps {
   routeId: string;
@@ -105,7 +105,14 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
       <Text style={styles.title}>{record.title}</Text>
       <Text style={styles.region}>{record.region}</Text>
 
-      <OfflineRouteMap route={record} height={240} />
+      <TrekMap
+        trail={record.trail}
+        pointsOfInterest={record.checkpoints}
+        start={record.startPoint}
+        end={record.endPoint}
+        height={240}
+        accessibilityLabel={`Mapa de ${record.title}`}
+      />
 
       <View style={styles.grid}>
         <View style={styles.metric}>
