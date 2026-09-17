@@ -10,7 +10,7 @@ import {
   locationService,
   type GpsPosition,
   type LocationWatch,
-  type WatchOptions,
+  type LocationAccuracyOptions,
 } from "../location/locationService";
 import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
@@ -92,7 +92,7 @@ interface ActivityState {
   resumeActivity: () => Promise<boolean>;
   finishActivity: () => Promise<FinishActivityResult | null>;
   addCheckpoint: (input: AddCheckpointInput) => Promise<boolean>;
-  startWatch: (options?: WatchOptions) => Promise<boolean>;
+  startWatch: (options?: LocationAccuracyOptions) => Promise<boolean>;
   stopWatch: () => void;
   listActivities: (uid: string) => Promise<void>;
   loadActivity: (id: string, uid: string) => Promise<TrekkinActivity | null>;
@@ -261,9 +261,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     } catch (err: unknown) {
       set({
         error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo registrar la parada",
+          err instanceof Error ? err.message : "No se pudo registrar la parada",
       });
       return false;
     }

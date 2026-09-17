@@ -35,19 +35,11 @@ export const activityService = {
     const docPath = `${ACTIVITIES_COLLECTION}/${activity.id}`;
 
     try {
-      const docRef = doc(
-        db,
-        ACTIVITIES_COLLECTION,
-        activity.id,
-      );
+      const docRef = doc(db, ACTIVITIES_COLLECTION, activity.id);
 
       await setDoc(docRef, activity);
     } catch (error) {
-      handleFirestoreError(
-        error,
-        OperationType.CREATE,
-        docPath,
-      );
+      handleFirestoreError(error, OperationType.CREATE, docPath);
     }
   },
 
@@ -59,42 +51,26 @@ export const activityService = {
     const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
 
     try {
-      const clean = cleanUpdates(
-        updates as Record<string, unknown>,
-      );
+      const clean = cleanUpdates(updates as Record<string, unknown>);
 
       if (Object.keys(clean).length === 0) {
         return;
       }
 
-      const docRef = doc(
-        db,
-        ACTIVITIES_COLLECTION,
-        id,
-      );
+      const docRef = doc(db, ACTIVITIES_COLLECTION, id);
 
       await updateDoc(docRef, clean);
     } catch (error) {
-      handleFirestoreError(
-        error,
-        OperationType.UPDATE,
-        docPath,
-      );
+      handleFirestoreError(error, OperationType.UPDATE, docPath);
     }
   },
 
   /** Obtiene una actividad por su ID. */
-  async getActivity(
-    id: string,
-  ): Promise<TrekkinActivity | null> {
+  async getActivity(id: string): Promise<TrekkinActivity | null> {
     const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
 
     try {
-      const docRef = doc(
-        db,
-        ACTIVITIES_COLLECTION,
-        id,
-      );
+      const docRef = doc(db, ACTIVITIES_COLLECTION, id);
 
       const snapshot = await getDoc(docRef);
 
@@ -104,11 +80,22 @@ export const activityService = {
 
       return snapshot.data() as TrekkinActivity;
     } catch (error) {
-      handleFirestoreError(
-        error,
-        OperationType.GET,
-        docPath,
+      handleFirestoreError(error, OperationType.GET, docPath);
+    }
+  },
+
+  /** Lista las actividades de un usuario (puerto listByUser de HU-06). */
+  async listUserActivities(uid: string): Promise<TrekkinActivity[]> {
+    const collectionPath = ACTIVITIES_COLLECTION;
+    try {
+      const q = query(
+        collection(db, ACTIVITIES_COLLECTION),
+        where("userId", "==", uid),
       );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map((d) => d.data() as TrekkinActivity);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     }
   },
 

@@ -27,9 +27,7 @@ export function haversineKm(
 
   const h =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(la1) *
-      Math.cos(la2) *
-      Math.sin(dLng / 2) ** 2;
+    Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) ** 2;
 
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
@@ -208,10 +206,7 @@ function projectOnSegmentKm(
   const dy = by - ay;
   const len2 = dx * dx + dy * dy;
 
-  let t =
-    len2 > 0
-      ? ((px - ax) * dx + (py - ay) * dy) / len2
-      : 0;
+  let t = len2 > 0 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
 
   t = Math.max(0, Math.min(1, t));
 
@@ -264,18 +259,13 @@ export function projectOnPolyline(
   let traveled = 0;
 
   for (let i = 0; i < route.length - 1; i++) {
-    const projection = projectOnSegmentKm(
-      point,
-      route[i],
-      route[i + 1],
-    );
+    const projection = projectOnSegmentKm(point, route[i], route[i + 1]);
 
     if (projection.distanceToLineKm < best.distance) {
       best = {
         nearestIndex: i,
         projection: projection.projection,
-        pathKmFromStart:
-          traveled + projection.alongFromA,
+        pathKmFromStart: traveled + projection.alongFromA,
         distance: projection.distanceToLineKm,
       };
     }
@@ -309,10 +299,7 @@ export function remainingDistanceToEndKm(
 
   const projection = projectOnPolyline(position, route);
 
-  return Math.max(
-    0,
-    total - projection.pathKmFromStart,
-  );
+  return Math.max(0, total - projection.pathKmFromStart);
 }
 
 /** Comprueba si dos puntos están dentro de un radio determinado. */
@@ -350,9 +337,10 @@ export function suggestRouteDifficulty(
 }
 
 /** Calcula desnivel positivo y negativo acumulado. */
-export function calculateElevationDeltaM(
-  points: Coordinates[],
-): { gainM: number; lossM: number } {
+export function calculateElevationDeltaM(points: Coordinates[]): {
+  gainM: number;
+  lossM: number;
+} {
   let gainM = 0;
   let lossM = 0;
 
@@ -360,12 +348,8 @@ export function calculateElevationDeltaM(
     const previousAltitude = points[i - 1].altitude;
     const currentAltitude = points[i].altitude;
 
-    if (
-      previousAltitude != null &&
-      currentAltitude != null
-    ) {
-      const delta =
-        currentAltitude - previousAltitude;
+    if (previousAltitude != null && currentAltitude != null) {
+      const delta = currentAltitude - previousAltitude;
 
       if (delta > 0) {
         gainM += delta;
@@ -375,55 +359,4 @@ export function calculateElevationDeltaM(
     }
   }
   return { gainM: Math.round(gainM), lossM: Math.round(lossM) };
-}
-
-/* ------------------------------------------------------------------ */
-/* Rescate cruz→main (HU-08, 2026-09-16): helpers aditivos, sin tocar   */
-/* el contrato existente (calculateTotalDistanceKm sigue filtrado).     */
-/* ------------------------------------------------------------------ */
-
-/** Suma las distancias de cada segmento consecutivo (sin filtrado). */
-export function calculateTrackDistanceKm(
-  points: Array<{ lat: number; lng: number }>,
-): number {
-  if (!points || points.length < 2) {
-    return 0;
-  }
-  let totalKm = 0;
-  for (let i = 1; i < points.length; i++) {
-    totalKm += haversineKm(points[i - 1], points[i]);
-  }
-  return Math.round(totalKm * 1000) / 1000;
-}
-
-/** Distancia directa restante hacia el destino (línea recta, no sobre trazado). */
-export function calculateRemainingDistanceKm(
-  current: { lat: number; lng: number } | null | undefined,
-  destination: { lat: number; lng: number } | null | undefined,
-): number {
-  if (!current || !destination) {
-    return 0;
-  }
-  return haversineDistanceKm(current, destination);
-}
-
-/**
- * Sugiere la dificultad de una ruta a partir de distancia y desnivel.
- * Se conserva para HU-08 (resumen de grabación).
- */
-export function suggestRouteDifficulty(
-  distanceKm: number,
-  elevationGainM?: number,
-): RouteDifficulty {
-  const gain = elevationGainM ?? 0;
-  if (distanceKm >= 20 || gain >= 1200) {
-    return "experto";
-  }
-  if (distanceKm >= 12 || gain >= 700) {
-    return "dificil";
-  }
-  if (distanceKm >= 5 || gain >= 250) {
-    return "moderado";
-  }
-  return "facil";
 }
