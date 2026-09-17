@@ -23,11 +23,11 @@
 
 ## 2. Catálogo de módulos Gradle
 
-| Módulo    | Contenido                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | HU    |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `:domain` | entidades (`User` con `tokenVersion`, `Vehicle`, `OemPart`, `PartVariant`, `Inventory`, `OemStockGroup`, `Supplier`, `PurchaseOrderDraft`), casos de uso (RegisterUser, LoginUser, LogoutUser, GetCurrentSession, ListUsers, AssignRole, SetAccountStatus, RegisterVehicle, UpdateVehicle, SetActiveVehicle, ListMyVehicles, GetActiveVehicle, SearchCatalog, SearchCatalogForActiveVehicle, GetProductDetail, CounterQuery, ListCriticalStockGroups, GeneratePurchaseOrder…), puertos (`UserRepository`, `GarageRepository`, `CompatibilityRepository`, `CatalogRepository`, `InventoryRepository`, `OrderRepository`, `SessionManager`) | todas |
-| `:data`   | Room DAOs, Retrofit/OkHttp API, `UserRepositoryImpl`, `GarageRepositoryImpl`, `CompatibilityRepositoryImpl`, `CatalogRepositoryImpl`, `InventoryRepositoryImpl`, `OrderRepositoryImpl`, `SessionManagerImpl` (JWT + EncryptedSharedPreferences), mappers                                                                                                                                                                                                                                                                                                                                                                                  | todas |
-| `:app`    | Compose screens por HU, ViewModels, Navigation + **Gate por rol**, Hilt modules (DataModule en `:data`, UseCaseModule en `:app`), tema                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | todas |
+| Módulo    | Contenido                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | HU    |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `:domain` | entidades (`User` con `tokenVersion`, `Vehicle`, `OemPart`, `PartVariant`, `Inventory`, `OemStockGroup`, `PurchaseOrderDraft`, `PurchaseOrderLine`), casos de uso (RegisterUser, LoginUser, LogoutUser, GetCurrentSession, ListUsers, AssignRole, SetAccountStatus, RegisterVehicle, UpdateVehicle, SetActiveVehicle, ListMyVehicles, GetActiveVehicle, SearchCatalog, SearchCatalogForActiveVehicle, GetProductDetail, CounterQuery, ListCriticalStockGroups, GeneratePurchaseOrder…), puertos (`UserRepository`, `GarageRepository`, `CompatibilityRepository`, `CatalogRepository`, `InventoryRepository`, `PurchaseOrderRepository`, `SessionManager`) | todas |
+| `:data`   | Room DAOs (incluye `suppliers`/`purchase_order_drafts`/`purchase_order_lines`), Retrofit/OkHttp API, `UserRepositoryImpl`, `GarageRepositoryImpl`, `CompatibilityRepositoryImpl`, `CatalogRepositoryImpl`, `InventoryRepositoryImpl`, `PurchaseOrderRepositoryImpl`, `SessionManagerImpl` (JWT + EncryptedSharedPreferences), mappers                                                                                                                                                                                                                                                                                                                      | todas |
+| `:app`    | Compose screens por HU, ViewModels, Navigation + **Gate por rol**, Hilt modules (DataModule en `:data`, UseCaseModule en `:app`), tema                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | todas |
 
 ## 3. Autenticación y Gate (RF-01, RF-08, RF-04)
 
@@ -71,9 +71,31 @@
   (mismos DAOs que HU-06): el stock del grupo = Σ de sus variantes (RF-11 C1) y
   `fabricantes` son las marcas únicas del grupo.
 - `AdminNavHost` (`:app`) es ahora un **hub admin** (Inicio → "Gestión de Usuarios" /
-  "Stock Crítico"); la ruta `stock-critico` monta `CriticalStockViewModel` +
+  "Stock Crítico" / "Sugerencia de OC"); la ruta `stock-critico` monta `CriticalStockViewModel` +
   `CriticalStockScreen` con tarjeta de alerta (color de error) mostrando fabricantes,
   `stockTotal` vs `reorderPoint`. Todo cuelga del Gate admin del tab Usuarios (RF-04 C1).
+
+## 3d. Sugerencia de Orden de Compra (HU-08, RF-13)
+
+- `GeneratePurchaseOrder` (`:domain`) valida **RBAC en dominio** (solo rol `admin` vía
+  `SessionManager.currentSession()`; lanza `OrderError.SoloAdmin` si no) y delega en el
+  puerto `PurchaseOrderRepository.generarBorradorDeOC()`. `OrderError` sigue el patrón
+  sealed de `CounterError` (`SoloAdmin`, `SinGruposBajoReorden`, `ProveedorNoEncontrado`,
+  `ErrorDesconocido`).
+- `PurchaseOrderRepositoryImpl` (`:data`) reutiliza **el mismo**
+  `InventoryRepository.stockAgrupadoPorOem` de HU-07 (sin duplicar el agrupamiento):
+  filtra `stockTotal < reorderPoint` (RF-13 C2, solo grupos bajo reorden), calcula
+  `cantidadRequerida = reorderPoint - stockTotal` (mín. 0; excluye grupos con 0), elige
+  proveedor con una heurística documentada (proveedor cuya razón social matchea la marca
+  del grupo más urgente; respaldo: primero del `SupplierSeed`) y persiste borrador +
+  líneas en una transacción `OrderDao.guardarBorrador` con `estado = "borrador"` (RF-13 C3).
+- Room **v5** agrega `suppliers`, `purchase_order_drafts` y `purchase_order_lines`
+  (mirror de DATABASE.md §3.9/§3.10/§3.11, campo a campo: `supplier_id→suppliers`,
+  `created_by→users`, `oem_part_id→oem_parts`, `stock_actual`, `cantidad_requerida`).
+- `AdminNavHost` (`:app`) agrega la card "Sugerencia de OC" y la ruta `oc-sugerencia` que
+  monta `PurchaseOrderViewModel` (Inicial/Cargando/Datos/Error + reintentar) y
+  `PurchaseOrderScreen` (botón "Generar borrador de OC", tarjeta de proveedor, badge
+  `borrador`, líneas repuesto/stock/cantidad). Todo cuelga del Gate admin.
 
 ## 4. Patrón de capa por feature (espejo de trekk-in-app)
 

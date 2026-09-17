@@ -25,13 +25,15 @@ private object AdminRoutes {
     const val LISTA = "usuarios"
     const val DETALLE = "usuarios/{userId}"
     const val STOCK = "stock-critico"
+    const val OC_SUGERENCIA = "oc-sugerencia"
 
     fun detalle(userId: String) = "usuarios/$userId"
 }
 
 /**
- * Navegación interna del panel de administración (HU-02 + HU-07): hub de módulos →
- * "Gestión de Usuarios" (lista → detalle) y "Stock Crítico" (RF-12 C2).
+ * Navegación interna del panel de administración (HU-02 + HU-07 + HU-08): hub de módulos →
+ * "Gestión de Usuarios" (lista → detalle), "Stock Crítico" (RF-12 C2) y "Sugerencia de OC"
+ * (RF-13).
  * Solo se monta desde una sesión con rol admin (Gate, RF-04 C1).
  * [onKick] rehidrata la sesión tras operar sobre la propia cuenta (RF-04 C5).
  */
@@ -47,7 +49,8 @@ fun AdminNavHost(
         composable(AdminRoutes.INICIO) {
             AdminHomeScreen(
                 onOpenUsuarios = { navController.navigate(AdminRoutes.LISTA) },
-                onOpenStock = { navController.navigate(AdminRoutes.STOCK) }
+                onOpenStock = { navController.navigate(AdminRoutes.STOCK) },
+                onOpenOC = { navController.navigate(AdminRoutes.OC_SUGERENCIA) }
             )
         }
         composable(AdminRoutes.LISTA) {
@@ -77,14 +80,18 @@ fun AdminNavHost(
         composable(AdminRoutes.STOCK) {
             CriticalStockScreen()
         }
+        composable(AdminRoutes.OC_SUGERENCIA) {
+            PurchaseOrderScreen()
+        }
     }
 }
 
-/** Hub del panel de administración: entrada a los módulos Usuarios (HU-02) y Stock Crítico (HU-07). */
+/** Hub del panel de administración: entrada a los módulos Usuarios (HU-02), Stock Crítico (HU-07) y Sugerencia de OC (HU-08). */
 @Composable
 private fun AdminHomeScreen(
     onOpenUsuarios: () -> Unit,
-    onOpenStock: () -> Unit
+    onOpenStock: () -> Unit,
+    onOpenOC: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -98,7 +105,7 @@ private fun AdminHomeScreen(
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "Módulos de administración: usuarios (RF-04) y stock crítico por OEM (RF-12).",
+            text = "Módulos de administración: usuarios (RF-04), stock crítico por OEM (RF-12) y sugerencia de OC (RF-13).",
             style = MaterialTheme.typography.bodyMedium
         )
 
@@ -114,6 +121,12 @@ private fun AdminHomeScreen(
             titulo = "Stock Crítico",
             descripcion = "Inventario agrupado por OEM y alertas de punto de reorden (HU-07).",
             onClick = onOpenStock
+        )
+        Spacer(Modifier.height(12.dp))
+        AdminModuleCard(
+            titulo = "Sugerencia de OC",
+            descripcion = "Borrador de orden de compra solo con lo bajo reorden (HU-08).",
+            onClick = onOpenOC
         )
     }
 }

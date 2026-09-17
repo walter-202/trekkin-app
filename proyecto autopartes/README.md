@@ -53,5 +53,11 @@ matriz de emulador Android 8.0+ (flujo feliz + un caso de error) por cada HU cer
   Crítico" solo con rol admin: grupos OEM con stock = Σ del stock de sus variantes y alerta
   visual cuando `stock ≤ reorder_point` (RF-11/RF-12); reutiliza `inventory` de HU-06 sin
   tablas nuevas).
+- **HU-08 (Fase C)** — Sugerencia de Orden de Compra: implementado (card "Sugerencia de OC"
+  en el hub admin solo con rol admin: "Generar borrador de OC" calcula solo los grupos bajo
+  reorden con `cantidad_requerida = reorder_point − stock_actual` (mín. 0), elige proveedor
+  (heurística por marca) y guarda la OC en estado `borrador` editable (RF-13); Room v5 con
+  `suppliers` + `purchase_order_drafts` + `purchase_order_lines`, seed demo
+  Bosch/Denso/TRW).
 - Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (no hay toolchain Android en la máquina de desarrollo).

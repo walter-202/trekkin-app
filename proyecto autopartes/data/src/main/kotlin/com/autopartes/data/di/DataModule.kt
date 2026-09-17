@@ -6,12 +6,15 @@ import com.autopartes.data.local.AppDatabase
 import com.autopartes.data.local.CatalogDao
 import com.autopartes.data.local.GarageDao
 import com.autopartes.data.local.InventoryDao
+import com.autopartes.data.local.OrderDao
 import com.autopartes.data.local.PasswordHasher
+import com.autopartes.data.local.SupplierDao
 import com.autopartes.data.local.UserDao
 import com.autopartes.data.repository.CatalogRepositoryImpl
 import com.autopartes.data.repository.CompatibilityRepositoryImpl
 import com.autopartes.data.repository.GarageRepositoryImpl
 import com.autopartes.data.repository.InventoryRepositoryImpl
+import com.autopartes.data.repository.PurchaseOrderRepositoryImpl
 import com.autopartes.data.repository.SessionManagerImpl
 import com.autopartes.data.repository.StubBearerTokenGenerator
 import com.autopartes.data.repository.UserRepositoryImpl
@@ -19,6 +22,7 @@ import com.autopartes.domain.repository.CatalogRepository
 import com.autopartes.domain.repository.CompatibilityRepository
 import com.autopartes.domain.repository.GarageRepository
 import com.autopartes.domain.repository.InventoryRepository
+import com.autopartes.domain.repository.PurchaseOrderRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
@@ -52,6 +56,12 @@ object DataModule {
 
     @Provides
     fun provideInventoryDao(database: AppDatabase): InventoryDao = database.inventoryDao()
+
+    @Provides
+    fun provideSupplierDao(database: AppDatabase): SupplierDao = database.supplierDao()
+
+    @Provides
+    fun provideOrderDao(database: AppDatabase): OrderDao = database.orderDao()
 
     @Provides
     fun providePasswordHasher(): PasswordHasher = PasswordHasher()
@@ -88,4 +98,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindInventoryRepository(impl: InventoryRepositoryImpl): InventoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPurchaseOrderRepository(impl: PurchaseOrderRepositoryImpl): PurchaseOrderRepository
 }

@@ -196,7 +196,7 @@
   Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
   (sin toolchain Android en la máquina).
 
-## HU-08: Sugerencia de Orden de Compra — (fase C, Should)
+## HU-08: Sugerencia de Orden de Compra — (fase C, Should) ✅ implementada
 
 - **Rol:** Administrador. **Como** admin **quiero** generar automáticamente un borrador de
   OC **para** reabastecer solo lo necesario con proveedor y cantidad.
@@ -206,6 +206,28 @@
   2. `cantidad_requerida = reorder_point − stock_actual` (mín. 0, solo grupos bajo reorden)
      (`RF-13 C2`).
   3. La OC queda en estado `borrador` editable (`RF-13 C3`).
+- Estado actual: **implementada** (fase C completa con HU-07, RF-13). `:domain`
+  (`PurchaseOrderDraft` con `ESTADO_BORRADOR`, `PurchaseOrderLine`, puerto
+  `PurchaseOrderRepository.generarBorradorDeOC()`, `OrderError.SoloAdmin /
+SinGruposBajoReorden / ProveedorNoEncontrado / ErrorDesconocido`, usecase
+  `GeneratePurchaseOrder` con RBAC solo admin por sesión activa), `:data` (Room versión 5
+  con `suppliers` + `purchase_order_drafts` + `purchase_order_lines` conforme a
+  DATABASE.md §3.9/§3.10/§3.11; `SupplierSeed` demo por marca del `CatalogSeed`
+  (Bosch/Denso/TRW); `OrderDao.guardarBorrador` transaccional + `SupplierDao`;
+  `PurchaseOrderRepositoryImpl` reutiliza `InventoryRepository.stockAgrupadoPorOem` (el
+  mismo de HU-07) para filtrar solo los grupos bajo reorden y calcular
+  `reorderPoint − stockTotal` (mín. 0), elige proveedor por heurística documentada y
+  persiste con `estado = "borrador"`), `:app` (card "Sugerencia de OC" en el hub
+  `AdminNavHost` + ruta `oc-sugerencia`, `PurchaseOrderViewModel` con rebote `Inicial /
+Cargando / Datos / Error`, `PurchaseOrderScreen` con botón "Generar borrador de OC",
+  tarjeta de proveedor, badge `borrador` y líneas repuesto/stock/cantidad; provider en
+  `UseCaseModule`; todo bajo el Gate admin). Tests de dominio nuevos
+  (`GeneratePurchaseOrderTest`: admin → borrador con `cantidadRequerida` correcta y solo
+  grupos bajo reorden, cliente/vendedor/sin sesión → `SoloAdmin`, sin grupos bajo reorden
+  → `SinGruposBajoReorden`) y `FakePurchaseOrderRepository` en memoria que espeja el
+  cálculo del repositorio real sobre `FakeInventoryRepository` (o-5 crítico del seed).
+  Compilación (`./gradlew build`), detekt y matriz emulador: **pendientes del equipo**
+  (sin toolchain Android en la máquina).
 - Verificación: generar OC con 2 grupos críticos; revisar líneas y proveedor.
 
 ---

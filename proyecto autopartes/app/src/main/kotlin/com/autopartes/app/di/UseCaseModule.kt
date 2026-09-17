@@ -4,11 +4,13 @@ import com.autopartes.domain.repository.CatalogRepository
 import com.autopartes.domain.repository.CompatibilityRepository
 import com.autopartes.domain.repository.GarageRepository
 import com.autopartes.domain.repository.InventoryRepository
+import com.autopartes.domain.repository.PurchaseOrderRepository
 import com.autopartes.domain.repository.SessionManager
 import com.autopartes.domain.repository.TokenGenerator
 import com.autopartes.domain.repository.UserRepository
 import com.autopartes.domain.usecase.AssignRole
 import com.autopartes.domain.usecase.CounterQuery
+import com.autopartes.domain.usecase.GeneratePurchaseOrder
 import com.autopartes.domain.usecase.GetActiveVehicle
 import com.autopartes.domain.usecase.GetCurrentSession
 import com.autopartes.domain.usecase.GetProductDetail
@@ -97,6 +99,13 @@ object UseCaseModule {
         repository: InventoryRepository,
         sessionManager: SessionManager
     ): ListCriticalStockGroups = ListCriticalStockGroups(repository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideGeneratePurchaseOrder(
+        repository: PurchaseOrderRepository,
+        sessionManager: SessionManager
+    ): GeneratePurchaseOrder = GeneratePurchaseOrder(repository, sessionManager)
 
     @Provides
     @Singleton
