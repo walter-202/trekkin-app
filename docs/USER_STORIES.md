@@ -1,12 +1,12 @@
 # trekkin-app — Historias de Usuario (Figura Oficial del Equipo)
 
-> **Revisión técnica consolidada 2026-09-16 (Post-Desbloqueo de Mapas y Firestore).**
-> Regla de validación vigente: **100% solo con matriz Expo Go + dev-build completa + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
+> **Revisión técnica consolidada 2026-09-17 (MapLibre GL — desbloqueo Android/web).**
+> Regla de validación vigente: **100% solo con matriz Expo Go + web localhost + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
 >
 > **Alcance real consolidado:**
 >
 > - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (80%), HU-10 (90%).
-> - **🟡 En progreso / pendientes de campo:** HU-06 (65%), HU-04 (55%).
+> - **🟡 En progreso / pendientes de campo:** HU-06 (70%), HU-04 (55%).
 > - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
 
 ---
@@ -15,15 +15,18 @@
 
 Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, todos los agentes y desarrolladores **DEBEN** ceñirse a estos estándares técnicos:
 
-### 1. Mapas e Interfaz Visual (V1 Expo Go)
+### 1. Mapas e Interfaz Visual (V1 MapLibre — Expo Go + web)
 
-- **Componente Único de Mapa:** Usar [`src/presentation/components/map/TrekMap.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/TrekMap.tsx) con el contrato de props [`TrekMapProps`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/components/map/TrekMap.types.ts).
-  - En **iOS:** Apple Maps nativo (automático, 100% gratuito, 0 API keys).
-  - En **Android / Expo Go:** OpenStreetMap libre vía `<UrlTile />` (0 API keys de Google, sin errores 403).
-  - **PROHIBIDO:** Usar `PlanMap.tsx`, `OfflineRouteMap.tsx`, WebViews innecesarias o implementar renderizadores caseros de teselas con `<Image>`.
+- **Componente Único de Mapa:** [`src/presentation/components/map/TrekMap.tsx`](../src/presentation/components/map/TrekMap.tsx) con [`TrekMapProps`](../src/presentation/components/map/TrekMap.types.ts).
+  - Motor: **MapLibre GL JS** (estilo OpenFreeMap, datos OSM, 0 API keys de Google).
+  - **Web:** GL JS en el DOM (`TrekMap.web.tsx`).
+  - **Android / iOS (Expo Go):** el mismo GL JS en `react-native-webview` (`TrekMap.native.tsx`). No es el SDK de Google: no hay logo Google ni key de billing.
+  - **V2 (opcional, rebuild):** `@maplibre/maplibre-react-native` + `expo prebuild`. Mismo contrato; ver `docs/plan/plan_mapas_on_offline.md`.
+  - **PROHIBIDO:** `react-native-maps`, `PlanMap.tsx`, `OfflineRouteMap.tsx`, teselas PNG caseras, Google Maps API.
 - **Catálogo de Rutas (HU-03 Lista):**
-  - La tarjeta de ruta [`RouteCard.tsx`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/presentation/views/explore/RouteCard.tsx) renderiza la foto de portada subida por los usuarios (`route.coverImageUrl || route.photos?.[0]`) o el placeholder andino.
-  - **CERO llamadas o inicializaciones de mapas en el feed/catálogo**. Carga instantánea a 60 FPS.
+  - La tarjeta [`RouteCard.tsx`](../src/presentation/views/explore/RouteCard.tsx) usa `route.coverImageUrl || route.photos?.[0]` o el placeholder andino.
+  - **CERO mapas en el feed.**
+- **Packs (HU-04, no el detalle):** un archivo PMTiles/MBTiles por ruta. El detalle HU-03 es **online** y no descarga mapa. Anexo: `docs/plan/offline_maps.md`.
 
 ### 2. Formatos GPS y Cálculos Geográficos
 
@@ -102,15 +105,15 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   2. ✅ Búsqueda texto + chips dificultad (`Todas/Fácil/Moderado/Difícil/Experto`) con `RouteFiltersSchema`.
   3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, foto de portada real del usuario (`coverImageUrl || photos[0]`) sin peticiones de mapas.
   4. ✅ `RouteDetailView`: header andino, badge desnivel, métricas (distancia/desnivel/tiempo/modalidad), itinerario, checkpoints con categoría/notas.
-  5. ✅ Mapa nativo con `TrekMap.tsx`: `react-native-maps` nativo (Apple Maps en iOS y OpenStreetMap en Android sin WebViews). En Android se usa `mapType="none"` para apagar la base Google (`PROVIDER_DEFAULT` en Android ES el SDK de Google) y un `<UrlTile>` Carto Voyager (datos OSM, sin key) como única capa — `tile.openstreetmap.org` directo 403ea sin `User-Agent` y el loader de pantalla completa tapaba el trazado. Polyline verde esmeralda y marcadores de inicio/fin/checkpoints nítidos.
+  5. ✅ Mapa con `TrekMap.tsx` (MapLibre GL JS): estilo OpenFreeMap oscuro, polyline del trazado, marcadores inicio/fin/checkpoints. **Sin descargar pack** (HU-03 es consulta online). Web = DOM; Android/iOS Expo Go = WebView con el mismo motor. 0 Google Maps SDK.
   6. ✅ Paginación y control de carga: `routeService.listPublishedRoutesPaginated` para consumo eficiente de Firestore.
   7. ✅ Gate amigable: acciones protegidas (descarga/tracking) invitan a sesión sin perder contexto.
-- **Estado real y brecha (10%):** visualización y catálogo completamente operativos. Pendiente: verificación en Android físico (fondo + trazado + pins sobre Carto) y matriz multi-dispositivo. Nota: el logo Google persiste abajo-izquierda porque el renderer Android ES el SDK de Google; solo desaparece con MapLibre dev-build (V2).
+- **Estado real y brecha (10%):** catálogo y contrato de mapa listos. Pendiente: matriz Expo Go Android + iOS + web localhost del detalle (calles + trazado + pines) y OK del usuario. Plan: `docs/plan/plan_mapas_on_offline.md`.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/route.schemas.ts`, `src/core/domain/geoBounds.ts`.
   - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` usecases.
-  - _Infraestructura:_ `src/infrastructure/database/routeService.ts`, `routeSeed.ts`.
-  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `src/presentation/components/map/TrekMap.tsx`.
+  - _Infraestructura:_ `src/infrastructure/database/routeService.ts`, `routeSeed.ts`, `src/infrastructure/map/mapStyle.ts`.
+  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap.web.tsx` / `TrekMap.native.tsx`.
   - _Suite:_ `src/tests/map_service_hu3.test.ts`.
 
 ---
@@ -122,9 +125,9 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Criterios de Aceptación (DoD):**
   1. ✅ Botón "Descargar ruta" en `RouteDetailView` activo y enlazado a `DownloadRouteModal`.
   2. ✅ Estimación matemática real: cálculo de teselas y MB por bounding box y niveles de zoom (12–15) vía `geoBounds.ts` (`estimateTileCount` y `estimateDownloadSizeMB`).
-  3. ⚠️ Guardado de datos y mapa: guarda JSONs del trazado y waypoints. Pendiente completar la descarga masiva de teselas físicas a `expo-file-system` (`/offline_packs/{routeId}/`).
-  4. ⚠️ Modo avión: `TrekMap` soporta prop `offlinePackPath` para leer teselas locales (`file://...`). Pendiente verificación física en dispositivo sin red.
-- **Estado real y brecha (45%):** lógica de estimación, modal y soporte de teselas locales en `TrekMap` listos. Falta completar el gestor de descarga masiva a disco (`tileDownloader.ts`).
+  3. ⚠️ Guardado: persiste JSON del trazado y waypoints. Pendiente el **pack de fondo** (un `.pmtiles` / `.mbtiles` por ruta, no PNG `{z}/{x}/{y}`). Ver `docs/plan/offline_maps.md`.
+  4. ⚠️ Modo avión: `TrekMap` reserva `offlinePackPath` para el pack local. V1 online aún no lo lee; falta el downloader y la fuente `pmtiles://`.
+- **Estado real y brecha (45%):** estimación, modal y registro local del track listos. Falta el pack vectorial a disco.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`.
   - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` usecases.
@@ -155,17 +158,17 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-06: Realizar una Ruta Existente — 🟡 65% en progreso
+## HU-06: Realizar una Ruta Existente — 🟡 70% en progreso
 
 - **Rol:** Senderista registrado.
 - **Narrativa:** **Como** senderista en campo **quiero** seguir una ruta con GPS en vivo **para** guiarme por el trazado oficial, chequear checkpoints y guardar mi historial.
 - **Criterios de Aceptación (DoD):**
   1. ⚠️ `PrepareView`: muestra ruta + GPS + distancia al inicio.
-  2. ⚠️ `TrackingView`: trazado oficial + posición + HUD (distancia/tiempo/restante) en foreground. Pendiente migrar al nuevo `<TrekMap />` nativo.
+  2. ✅ `TrackingView`: trazado oficial + track GPS + posición + HUD sobre `<TrekMap />`.
   3. ✅ Checkpoints auto-visitados por proximidad (`isNearM`) + manual.
   4. ✅ Pausa/reanuda/finaliza con `completed`/`incomplete` + autosave local + guardado en Firestore.
   5. ⚠️ Background GPS: pantalla bloqueada requiere configurar `expo-task-manager` y `ACCESS_BACKGROUND_LOCATION`.
-- **Estado real y brecha (35%):** lógica de estados y métricas 100% probada. Falta migrar vista de tracking a `TrekMap` nativo y background task.
+- **Estado real y brecha (30%):** lógica de estados/métricas y mapa `TrekMap` en prepare/tracking/resultado. Falta background GPS y matriz en dispositivo.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/activity.ts`, `activity.schemas.ts`, `calculations.ts`.
   - _Aplicación:_ `Start/Begin/RecordPoint/Pause/Resume/Finish/List/GetActivity` usecases.
@@ -251,10 +254,10 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | :-------- | :------------------- | :---------: | :------------------------------------------------------- |
 | **HU-01** | Registro             |   🟢 95%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-02** | Sesión y perfil      |   🟢 90%    | `auth_hu1_hu2.test.ts`                                   |
-| **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (TrekMap nativo OSM/Apple)     |
+| **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (geoBounds) + TrekMap MapLibre |
 | **HU-04** | Descarga offline     |   🟡 55%    | `offline_hu4.test.ts` (cálculo de teselas/MB real)       |
 | **HU-05** | Compartir ruta       |   🟢 85%    | `share_hu5.test.ts`                                      |
-| **HU-06** | Realizar ruta (guía) |   🟡 65%    | `activity_hu6.test.ts`                                   |
+| **HU-06** | Realizar ruta (guía) |   🟡 70%    | `activity_hu6.test.ts`                                   |
 | **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |
 | **HU-08** | Grabar GPS y GPX     |   🟢 80%    | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
 | **HU-09** | Moderación           |    🚫 —     | Eliminada del alcance                                    |

@@ -1,7 +1,7 @@
 # trekkin-app — Arquitectura (Clean Architecture + Expo SDK 57)
 
-Scaffold funcional de **HU-01 (Registrar Cuenta)** y **HU-02 (Iniciar/Cerrar Sesión)**.
-Todo lo demás (HU-03…HU-10) existe solo como **estructura + guía**, sin lógica implementada.
+Scaffold **HU-01 / HU-02** más módulos vivos (explorar, plan, actividad, admin).
+Mapas: un solo `<TrekMap />` (MapLibre GL). Detalle en `docs/plan/plan_mapas_on_offline.md`.
 
 ## 1. Capas y regla de dependencias
 
@@ -60,15 +60,15 @@ Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 → Gate muestra `ExploreView` (catálogo + detalle, `views/explore/`), que lee `isGuest` /
 `isAuthenticated` / `hasRole`. `exitGuest()` vuelve a `AuthView`. HU-01/02 intactas.
 
-## 3. Dónde va cada HU futura
+## 3. Dónde va cada HU
 
 | HU | Vista | Servicio | Dominio |
 |---|---|---|---|
-| HU-03 Explorar rutas | `views/explore/` | `database/routeService.ts` | `domain/route.schemas.ts` |
-| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` | `domain/offline.ts` |
-| HU-05 Compartir | modal en explore | link `https://trekbolivia.bo/r/{id}` | — |
-| HU-06 Actividad GPS | `views/activity/` | `database/activityService.ts` | `domain/activity.schemas.ts` |
-| HU-07/08 Planificar + Grabar | `views/record/` | `expo-location` + routeService | `domain/calculations.ts` |
+| HU-03 Explorar rutas | `views/explore/` + `components/map/TrekMap` | `database/routeService.ts` + `map/mapStyle.ts` | `domain/route.schemas.ts`, `geoBounds.ts` |
+| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` (track JSON; pack PMTiles pendiente) | `domain/offline.ts` |
+| HU-05 Compartir | modal en explore | `share/shareService.ts` | `share.schemas.ts` |
+| HU-06 Actividad GPS | `views/activity/` + `TrekMap` | `activityService.ts`, `locationService.ts` | `activity.schemas.ts` |
+| HU-07/08 Planificar + Grabar | `views/record/` + `TrekMap` | `expo-location` + routeService | `plan.ts`, `calculations.ts`, `trackFormats.ts` |
 | HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
 
 (Sin HU-09: eliminada por el equipo; no hay vista de moderación ni rol moderador.)

@@ -26,7 +26,7 @@ Repo: `expo@57.0.22` · `react-native@0.86.3` · `react@19.2.3` · New Architect
 | Sesión persistente | AsyncStorage vía `src/infrastructure/persistence/storage.ts` |
 | `localStorage` / `window` / `document` | prohibidos en nativo; usar APIs Expo/RN |
 | Google login | `expo-auth-session` o `@react-native-google-signin` (`signInWithPopup` es web) |
-| Mapas/tiles offline (roadmap) | `expo-file-system` + `expo-sqlite`, estimar MB y confirmar antes de descargar |
+| Mapas (HU-03 detalle online; HU-04 pack) | `<TrekMap />` MapLibre GL. Plan: `docs/plan/plan_mapas_on_offline.md`. Offline: PMTiles/MBTiles, no Google. |
 | GPS (roadmap HU-08) | `expo-location`, pedir solo en contexto con explicación |
 
 ## Router de skills oficiales (instalar 1 vez por máquina)

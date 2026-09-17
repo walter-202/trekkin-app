@@ -26,7 +26,7 @@ Semáforo: 🟢 funciona · 🟡 a medias · 🔴 pendiente.
 | :--- | :--- | :---: | :--- |
 | HU-01 Crear cuenta | Registrarse con nombre, correo, alias y contraseña | 🟢 95% | Verificación de correo |
 | HU-02 Entrar y perfil | Entrar, ver mi ficha, cambiar nombre/alias, salir | 🟢 90% | Cambio de contraseña y tema visual |
-| HU-03 Ver rutas | Catálogo abierto, fotos de portada, ver detalle y mapa nativo | 🟢 90% | Pruebas en matriz física de teléfonos |
+| HU-03 Ver rutas | Catálogo abierto, fotos de portada, detalle con mapa MapLibre (OSM/OpenFreeMap, sin Google de pago) | 🟢 90% | Probar en Expo Go Android y en http://localhost:8081 |
 | HU-04 Llevar sin internet | Botón descargar ruta y cálculo real de MB | 🟡 55% | Descarga física de teselas a almacenamiento local |
 | HU-05 Compartir | Enviar ruta por enlace y WhatsApp/Telegram | 🟢 85% | Adjuntar el archivo de la caminata al mensaje |
 | HU-06 Caminar con guía | Seguir la ruta con GPS, pausar, terminar, ver historial | 🟡 65% | Que siga grabando con pantalla apagada, migrar vista a TrekMap |
