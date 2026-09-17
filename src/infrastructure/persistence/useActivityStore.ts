@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
 import { toTrekkinActivity } from "../../core/domain/activity";
 import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
+import type { RoutePlan } from "../../core/domain/plan";
 import { appStorage } from "./storage";
 import { routeService } from "../database/routeService";
 import { SEED_PUBLISHED_ROUTES } from "../database/routeSeed";
@@ -10,8 +11,10 @@ import {
   locationService,
   type GpsPosition,
   type LocationWatch,
+  type LocationAccuracyOptions,
 } from "../location/locationService";
 import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
+import { StartRecordingFromPlanUseCase } from "../../core/application/activity/StartRecordingFromPlan.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
 import { RecordPointUseCase } from "../../core/application/activity/RecordPoint.usecase";
 import { PauseActivityUseCase } from "../../core/application/activity/PauseActivity.usecase";
@@ -85,13 +88,18 @@ interface ActivityState {
     userName: string,
     routeId: string,
   ) => Promise<boolean>;
+  startFromPlan: (
+    plan: RoutePlan,
+    uid: string,
+    userName: string,
+  ) => Promise<boolean>;
   beginTracking: () => Promise<boolean>;
   recordPoint: (p: GpsPosition) => Promise<void>;
   pauseActivity: () => Promise<boolean>;
   resumeActivity: () => Promise<boolean>;
   finishActivity: () => Promise<FinishActivityResult | null>;
   addCheckpoint: (input: AddCheckpointInput) => Promise<boolean>;
-  startWatch: () => Promise<boolean>;
+  startWatch: (options?: LocationAccuracyOptions) => Promise<boolean>;
   stopWatch: () => void;
   listActivities: (uid: string) => Promise<void>;
   loadActivity: (id: string, uid: string) => Promise<TrekkinActivity | null>;
@@ -164,6 +172,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           err instanceof Error
             ? err.message
             : "No se pudo cargar la ruta seleccionada.",
+        isLoading: false,
+      });
+      return false;
+    }
+  },
+
+  startFromPlan: async (plan, uid, userName) => {
+    set({ isLoading: true, error: null });
+    try {
+      const prepared = StartRecordingFromPlanUseCase({
+        plan,
+        userId: uid,
+        userName,
+      });
+      const live = await BeginTrackingUseCase(prepared);
+      await saveLive(live);
+      set({ live, isLoading: false });
+      return true;
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la grabación GPS.",
         isLoading: false,
       });
       return false;
@@ -321,11 +353,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  startWatch: async () => {
+  startWatch: async (options) => {
     get().stopWatch();
     const sub = await locationService.startWatching((p) => {
       get().recordPoint(p);
-    });
+    }, options);
     set({ watch: sub });
     return sub != null;
   },

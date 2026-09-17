@@ -37,4 +37,39 @@ export const shareService = {
       return "dismissed";
     }
   },
+
+  /**
+   * HU-08 — Entrega un .gpx: descarga en web, share sheet en nativo.
+   */
+  async shareGpxFile(fileName: string, content: string): Promise<void> {
+    const g = globalThis as {
+      document?: {
+        createElement: (tag: string) => {
+          href: string;
+          download: string;
+          click: () => void;
+          remove: () => void;
+        };
+        body?: { appendChild: (node: unknown) => void };
+      };
+      Blob?: new (parts: string[], opts: { type: string }) => Blob;
+      URL?: { createObjectURL: (blob: Blob) => string; revokeObjectURL: (url: string) => void };
+    };
+    if (Platform.OS === "web" && g.document && g.Blob && g.URL) {
+      const blob = new g.Blob([content], { type: "application/gpx+xml" });
+      const url = g.URL.createObjectURL(blob);
+      const link = g.document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      g.document.body?.appendChild(link);
+      link.click();
+      link.remove();
+      g.URL.revokeObjectURL(url);
+      return;
+    }
+    await Share.share({
+      title: fileName,
+      message: content,
+    });
+  },
 };

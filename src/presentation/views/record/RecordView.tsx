@@ -1,20 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
+import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
+import { RECORDING_WATCH_OPTIONS } from '../../../infrastructure/location/locationService';
+import type { FinishActivityResult } from '../../../core/application/activity/FinishActivity.usecase';
 import { DraftsView } from './DraftsView';
 import { CreateRouteView } from './CreateRouteView';
 import { PlanEditorView } from './PlanEditorView';
 import { StartPointConfirmView } from './StartPointConfirmView';
 import { ReadyForGpsView } from './ReadyForGpsView';
+import { TrackingView } from '../activity/TrackingView';
+import { ResultView } from '../activity/ResultView';
+import { ActivityDetailView } from '../activity/ActivityDetailView';
+import type { TrekkinActivity } from '../../../core/domain/types';
 
 /**
- * HU-07 — Hub de planificación de rutas.
- * Máquina de estados interna (sin librería de navegación):
- * drafts -> create -> editor -> confirm -> ready.
+ * HU-07 + HU-08 — Planificación y grabación GPS.
+ * drafts -> create -> editor -> confirm -> ready -> recording -> summary.
  */
-type RecordStep = 'drafts' | 'create' | 'editor' | 'confirm' | 'ready';
+type RecordStep =
+  | 'drafts'
+  | 'create'
+  | 'editor'
+  | 'confirm'
+  | 'ready'
+  | 'recording'
+  | 'summary'
+  | 'detail';
 
 interface RecordViewProps {
   onClose?: () => void;
@@ -26,27 +40,68 @@ const STEP_TITLES: Record<RecordStep, string> = {
   editor: 'EDITAR PLANIFICACIÓN',
   confirm: 'CONFIRMAR PUNTO DE INICIO',
   ready: 'LISTA PARA GRABAR',
+  recording: 'GRABANDO RECORRIDO',
+  summary: 'RESUMEN DE RUTA',
+  detail: 'RECORRIDO',
 };
 
 export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   const { currentUser } = useAuth();
   const { plan, initializePlan, newDraftPlan } = usePlanStore();
   const [step, setStep] = useState<RecordStep>('drafts');
+  const [lastSaved, setLastSaved] = useState<TrekkinActivity | null>(null);
 
   useEffect(() => {
     if (currentUser) {
       initializePlan(currentUser.uid, currentUser.displayName);
+    }
+    const live = useActivityStore.getState().live;
+    if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
+      setStep('recording');
     }
   }, [currentUser?.uid]);
 
   if (!currentUser) return null;
 
   const goBack = () => {
-    if (step === 'create') setStep('drafts');
-    else if (step === 'editor') setStep('drafts');
-    else if (step === 'confirm') setStep('editor');
-    else if (step === 'ready') setStep('drafts');
-    else if (onClose) onClose();
+    if (step === 'create' || step === 'editor') {
+      setStep('drafts');
+      return;
+    }
+    if (step === 'confirm') {
+      setStep('editor');
+      return;
+    }
+    if (step === 'ready') {
+      setStep('drafts');
+      return;
+    }
+    if (step === 'detail') {
+      setStep('summary');
+      return;
+    }
+    if (step === 'summary') {
+      setStep('drafts');
+      return;
+    }
+    if (step === 'recording') {
+      Alert.alert(
+        'Grabación en curso',
+        'La actividad sigue registrándose en primer plano. ¿Pausar y volver al menú?',
+        [
+          { text: 'Seguir grabando', style: 'cancel' },
+          {
+            text: 'Salir al menú',
+            onPress: async () => {
+              await useActivityStore.getState().pauseActivity();
+              setStep('drafts');
+            },
+          },
+        ],
+      );
+      return;
+    }
+    if (onClose) onClose();
   };
 
   const handleCreate = () => {
@@ -60,6 +115,35 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   };
 
   const handleSaved = () => setStep('editor');
+
+  const handleStartRecording = async () => {
+    const live = useActivityStore.getState().live;
+    if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
+      setStep('recording');
+      return;
+    }
+    const currentPlan = usePlanStore.getState().plan;
+    if (!currentPlan) return;
+    await usePlanStore.getState().markReadyForGps();
+    const readyPlan = usePlanStore.getState().plan;
+    if (!readyPlan) return;
+    const ok = await useActivityStore
+      .getState()
+      .startFromPlan(readyPlan, currentUser.uid, currentUser.displayName);
+    if (ok) setStep('recording');
+  };
+
+  const handleFinished = (result: FinishActivityResult) => {
+    setLastSaved(result.saved);
+    setStep('summary');
+  };
+
+  const handleSummaryDone = async () => {
+    await usePlanStore.getState().clearPlan();
+    await useActivityStore.getState().clearLive();
+    setLastSaved(null);
+    setStep('drafts');
+  };
 
   return (
     <View style={styles.container}>
@@ -80,16 +164,41 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
       {step === 'drafts' && <DraftsView onCreate={handleCreate} onOpen={handleOpenDraft} />}
       {step === 'create' && <CreateRouteView onSaved={handleSaved} />}
       {step === 'editor' && <PlanEditorView onContinue={() => setStep('confirm')} />}
-      {step === 'confirm' && <StartPointConfirmView onConfirmed={() => setStep('ready')} />}
+      {step === 'confirm' && (
+        <StartPointConfirmView
+          onConfirmed={async () => {
+            await usePlanStore.getState().markReadyForGps();
+            setStep('ready');
+          }}
+        />
+      )}
       {step === 'ready' && (
         <ReadyForGpsView
+          onStartRecording={handleStartRecording}
           onDone={() => {
             usePlanStore.getState().clearPlan();
             setStep('drafts');
           }}
         />
       )}
-      {plan && step !== 'drafts' && (
+      {step === 'recording' && (
+        <TrackingView
+          onFinish={handleFinished}
+          watchOptions={RECORDING_WATCH_OPTIONS}
+        />
+      )}
+      {step === 'summary' && lastSaved && (
+        <ResultView
+          saved={lastSaved}
+          onViewTrack={() => setStep('detail')}
+          onClose={handleSummaryDone}
+        />
+      )}
+      {step === 'detail' && lastSaved && (
+        <ActivityDetailView activity={lastSaved} onBack={() => setStep('summary')} />
+      )}
+
+      {plan && (step === 'create' || step === 'editor' || step === 'confirm') && (
         <Text style={styles.footNote}>Autosave activo · No perderás tu planificación</Text>
       )}
     </View>

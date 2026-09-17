@@ -61,8 +61,13 @@ export async function FinishActivityUseCase(
     activity.route.distanceKm > 0 &&
     distanceCoveredKm >=
       activity.route.distanceKm * ACTIVITY_CONFIG.COMPLETE_COVERAGE_RATIO;
+  /** Grabación HU-08 (plan sin distancia oficial): el track es la ruta. */
+  const freeRecordingComplete =
+    activity.route.distanceKm <= 0 && activity.recordedPoints.length >= 2;
   const finalStatus: ActivityStatus =
-    reachedEnd || nearFullCoverage ? "completed" : "incomplete";
+    freeRecordingComplete || reachedEnd || nearFullCoverage
+      ? "completed"
+      : "incomplete";
 
   const finished: LiveActivity = {
     ...activity,

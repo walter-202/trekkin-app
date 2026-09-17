@@ -33,6 +33,12 @@ export interface LocationAccuracyOptions {
   timeInterval?: number;
 }
 
+export const RECORDING_WATCH_OPTIONS: LocationAccuracyOptions = {
+  accuracy: Location.Accuracy.High,
+  distanceInterval: 5,
+  timeInterval: 2500,
+};
+
 function toGpsPosition(pos: Location.LocationObject): GpsPosition {
   return {
     latitude: pos.coords.latitude,

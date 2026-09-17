@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
-import {
-  ChevronLeft,
-  History,
-  Trophy,
-  Map as MapIcon,
-} from "lucide-react-native";
+import { ChevronLeft, History, Trophy, Map as MapIcon, Share2 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
+import {
+  calculatePaceMinPerKm,
+  calculateSpeedKmh,
+  calculateElevationDeltaM,
+} from "../../../core/domain/calculations";
+import { ExportTrackFileUseCase } from "../../../core/application/activity/ExportTrackFile.usecase";
+import { shareService } from "../../../infrastructure/share/shareService";
 import type { TrekkinActivity } from "../../../core/domain/types";
 
 /**
@@ -17,7 +19,7 @@ import type { TrekkinActivity } from "../../../core/domain/types";
 interface ResultViewProps {
   saved: TrekkinActivity;
   onViewTrack: () => void;
-  onGoHistory: () => void;
+  onGoHistory?: () => void;
   onClose: () => void;
 }
 
@@ -30,6 +32,24 @@ export const ResultView: React.FC<ResultViewProps> = ({
   const completed = saved.status === "completed";
   const first = saved.recordedPoints[0];
   const last = saved.recordedPoints[saved.recordedPoints.length - 1];
+  const elevation = calculateElevationDeltaM(saved.recordedPoints);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExportGpx = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const file = ExportTrackFileUseCase(saved);
+      await shareService.shareGpxFile(file.fileName, file.content);
+    } catch (err: unknown) {
+      setExportError(
+        err instanceof Error ? err.message : "No se pudo exportar el GPX.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -108,6 +128,32 @@ export const ResultView: React.FC<ResultViewProps> = ({
           </Text>
         </View>
         <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Ritmo</Text>
+          <Text style={styles.metricValue}>
+            {calculatePaceMinPerKm(
+              saved.distanceCoveredKm,
+              saved.durationSeconds,
+            )}{" "}
+            min/km
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Velocidad promedio</Text>
+          <Text style={styles.metricValue}>
+            {calculateSpeedKmh(
+              saved.distanceCoveredKm,
+              saved.durationSeconds,
+            )}{" "}
+            km/h
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Desnivel</Text>
+          <Text style={styles.metricValue}>
+            +{elevation.gainM} / −{elevation.lossM} m
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Puntos registrados</Text>
           <Text style={styles.metricValue}>{saved.recordedPoints.length}</Text>
         </View>
@@ -117,28 +163,50 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </View>
       </View>
 
+      {exportError ? (
+        <Text style={styles.exportError}>{exportError}</Text>
+      ) : null}
+
       <Pressable
-        onPress={onViewTrack}
+        onPress={handleExportGpx}
+        disabled={exporting || saved.recordedPoints.length === 0}
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Ver recorrido en detalle"
+        accessibilityLabel="Exportar recorrido GPX"
       >
-        <MapIcon size={16} color="#064E3B" />
-        <Text style={styles.primaryText}>VER RECORRIDO</Text>
+        <Share2 size={16} color="#064E3B" />
+        <Text style={styles.primaryText}>
+          {exporting ? "EXPORTANDO…" : "EXPORTAR GPX"}
+        </Text>
       </Pressable>
 
       <Pressable
-        onPress={onGoHistory}
+        onPress={onViewTrack}
         style={({ pressed }) => [
           styles.secondaryBtn,
           pressed && styles.pressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel="Ir al historial"
+        accessibilityLabel="Ver recorrido en detalle"
       >
-        <History size={16} color="#10B981" />
-        <Text style={styles.secondaryText}>IR AL HISTORIAL</Text>
+        <MapIcon size={16} color="#10B981" />
+        <Text style={styles.secondaryText}>VER RECORRIDO</Text>
       </Pressable>
+
+      {onGoHistory ? (
+        <Pressable
+          onPress={onGoHistory}
+          style={({ pressed }) => [
+            styles.secondaryBtn,
+            pressed && styles.pressed,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Ir al historial"
+        >
+          <History size={16} color="#10B981" />
+          <Text style={styles.secondaryText}>IR AL HISTORIAL</Text>
+        </Pressable>
+      ) : null}
 
       <Pressable
         onPress={onClose}
@@ -210,6 +278,7 @@ const styles = StyleSheet.create({
   metricRow: { flexDirection: "row", alignItems: "center" },
   metricKey: { color: "#9CA3AF", fontSize: 12, flex: 1 },
   metricValue: { color: "#F9FAFB", fontSize: 12, fontWeight: "800" },
+  exportError: { color: "#FCA5A5", fontSize: 11, textAlign: "center" },
   primaryBtn: {
     flexDirection: "row",
     alignItems: "center",

@@ -5,8 +5,8 @@
 >
 > **Alcance real consolidado:**
 >
-> - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (80%), HU-10 (90%).
-> - **🟡 En progreso / pendientes de campo:** HU-06 (70%), HU-04 (55%).
+> - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (85%), HU-10 (90%).
+> - **🟡 En progreso / pendientes de campo:** HU-06 (70%), HU-04 (60%).
 > - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
 
 ---
@@ -30,11 +30,15 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ### 2. Formatos GPS y Cálculos Geográficos
 
-- **Parsers y Serializadores:** [`src/core/domain/trackFormats.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/trackFormats.ts).
+- **Parsers y Serializadores:** [`src/core/domain/trackFormats.ts`](../src/core/domain/trackFormats.ts).
   - `parseGPX(xml)`: extrae trackpoints, elevación, tiempos y waypoints.
-  - `buildGPX(track)`: genera XML GPX 1.1 canónico (interoperable con Garmin, Strava y Wikiloc).
+  - `buildGPX` / `buildGPX11`: XML GPX 1.1 canónico (Garmin, Strava, Wikiloc).
+  - `toGeoJSON(track)`: capa de usuario para MapLibre (FeatureCollection `[lng,lat]`).
   - `parseKML(kml)`, `parseCSV(csv)`: importación de formatos abiertos.
-  - `simplifyTrack(points, toleranceM)`: algoritmo de **Ramer-Douglas-Peucker** para aligerar tracks densos.
+  - `simplifyTrack(points, toleranceM)`: Ramer-Douglas-Peucker.
+- **Packs de fondo (HU-04):** [`src/core/domain/mapPackFormats.ts`](../src/core/domain/mapPackFormats.ts).
+  - Detecta `.pmtiles` (V1) vs `.mbtiles` (V2 / `pmtiles convert`).
+  - `ResolveOfflinePackUseCase` → `TrekMap.offlinePackPath` pinta `pmtiles://` en el mismo `TrekMap`.
 - **Bounding Box y Estimación:** [`src/core/domain/geoBounds.ts`](file:///d:/TRABAJO/uni/INGSOFT/trekkin-app/src/core/domain/geoBounds.ts).
   - `computeBoundingBox(points, padding)`: calcula límites de encuadre geográfico.
   - `boundsToRegion(bounds)`: genera deltas para la cámara del mapa.
@@ -118,22 +122,22 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-04: Descargar Ruta Offline — 🟡 55% en progreso
+## HU-04: Descargar Ruta Offline — 🟡 60% en progreso
 
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** senderista sin cobertura **quiero** descargar ruta + mapa base **para** consultarla en campo sin internet.
 - **Criterios de Aceptación (DoD):**
   1. ✅ Botón "Descargar ruta" en `RouteDetailView` activo y enlazado a `DownloadRouteModal`.
   2. ✅ Estimación matemática real: cálculo de teselas y MB por bounding box y niveles de zoom (12–15) vía `geoBounds.ts` (`estimateTileCount` y `estimateDownloadSizeMB`).
-  3. ⚠️ Guardado: persiste JSON del trazado y waypoints. Pendiente el **pack de fondo** (un `.pmtiles` / `.mbtiles` por ruta, no PNG `{z}/{x}/{y}`). Ver `docs/plan/offline_maps.md`.
-  4. ⚠️ Modo avión: `TrekMap` reserva `offlinePackPath` para el pack local. V1 online aún no lo lee; falta el downloader y la fuente `pmtiles://`.
-- **Estado real y brecha (45%):** estimación, modal y registro local del track listos. Falta el pack vectorial a disco.
+  3. ⚠️ Guardado: persiste JSON del trazado y waypoints. Dominio de pack listo (`mapPackFormats` + `ResolveOfflinePack`). Falta el downloader a disco.
+  4. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve `.pmtiles` a `pmtiles://` y cambia el estilo. Un `.mbtiles` no se pinta en V1 (mensaje de conversión). Falta copiar el archivo local al dispositivo.
+- **Estado real y brecha (40%):** estimación, modal, registro del track y detección PMTiles/MBTiles listos. Falta bajar el archivo del pack al dispositivo.
 - **Mapeo Técnico:**
-  - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`.
-  - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` usecases.
-  - _Infraestructura:_ `src/infrastructure/persistence/tileCacheDB.ts`. Destino: `expo-file-system`.
-  - _Presentación:_ `DownloadRouteModal.tsx`, `DownloadsView.tsx`.
-  - _Suite:_ `src/tests/offline_hu4.test.ts`.
+  - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`, `src/core/domain/mapPackFormats.ts`.
+  - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `ResolveOfflinePack` usecases.
+  - _Infraestructura:_ `src/infrastructure/persistence/tileCacheDB.ts`, `src/infrastructure/map/mapStyle.ts` (`buildOfflineVectorStyle`). Destino: `expo-file-system`.
+  - _Presentación:_ `DownloadRouteModal.tsx`, `DownloadsView.tsx`, `TrekMap` (`offlinePackPath`).
+  - _Suite:_ `src/tests/offline_hu4.test.ts`, `src/tests/map_pack_formats.test.ts`.
 
 ---
 
@@ -186,7 +190,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   1. ✅ Acceso desde Drawer / `HomeView`.
   2. ✅ Nombre provisional obligatorio.
   3. ✅ Trazado interactivo de waypoints sobre mapa nativo con callbacks de coordenadas.
-  4. ✅ Importación de archivos externos: `ImportTrackFileUseCase` listo para parsear `.gpx`, `.kml` y `.csv` con simplificación Ramer-Douglas-Peucker automática.
+  4. ✅ Importación de archivos externos: `ImportTrackFileUseCase` parsea `.gpx`, `.kml` y `.csv`; `toGeoJSON` deja el track listo para MapLibre.
   5. ✅ Dual: Firestore `routes/{id}` `status:'draft'` + autosave Zustand/AsyncStorage.
   6. ✅ `DraftsView` + `PlanEditorView` (listar y editar borradores).
   7. ⚠️ Edición geométrica fina: undo/clear/drag de puntos individuales en UI.
@@ -200,23 +204,24 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-08: Grabar Ruta con GPS — 🟢 80% funcional
+## HU-08: Grabar Ruta con GPS — 🟢 85% funcional
 
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** montañista **quiero** registrar el trayecto con GPS **para** medir distancia real, paradas y exportar una ruta auténtica.
 - **Criterios de Aceptación (DoD):**
-  1. ✅ Muestreo lat/lng/alt + `cleanTrack` (descarte de jitter y saltos erróneos).
-  2. ✅ Checkpoints con 7 categorías Zod (agua, camping, peligro, vista, descanso, flora_fauna, refugio) + notas.
-  3. ✅ Resumen de métricas: distancia, ritmo (`formatPace`), velocidad promedio y cálculo de desnivel acumulado (+/-).
-  4. ✅ Exportación a formato GPX 1.1: `ExportTrackFileUseCase` genera archivo canónico interoperable con Garmin, Strava y Wikiloc.
-  5. ✅ Protección Firestore Anti-Colapso: actividades con >500 puntos se guardan particionadas en subcolección `points/{chunkIndex}` evitando superar límites de 1 MB.
+  1. ✅ Muestreo lat/lng/alt + `cleanTrack` (jitter/saltos) + descarte `accuracy > 25 m`.
+  2. ✅ Checkpoints con 7 categorías Zod + alta manual (`AddCheckpointModal`) en la posición GPS.
+  3. ✅ Resumen: distancia, ritmo, velocidad, desnivel; persistencia local/Firestore.
+  4. ✅ Exportación GPX 1.1 desde el resumen (`ExportTrackFile` + share/descarga).
+  5. ✅ Protección Firestore Anti-Colapso: actividades con >500 puntos en `points/{chunkIndex}`.
   6. ⚠️ Grabación con pantalla apagada (background location task).
-- **Estado real y brecha (20%):** registro, métricas, particionamiento y exportación GPX listos. Falta habilitar el background task.
+  7. ✅ Handoff HU-07→HU-08: `ReadyForGpsView` inicia GPS (`StartRecordingFromPlan` + `TrackingView` High).
+- **Estado real y brecha (15%):** se puede planificar, iniciar GPS en primer plano, marcar paradas, finalizar y exportar GPX. Falta background con pantalla apagada.
 - **Mapeo Técnico:**
-  - _Dominio:_ `activity.schemas.ts`, `calculations.ts`, `src/core/domain/trackFormats.ts`.
-  - _Aplicación:_ `AddCheckpoint`, `RecordPoint`, `FinishActivity`, `ExportTrackFile`.
-  - _Infraestructura:_ `activityService.ts` (con `saveActivityPointsChunks`), `locationService.ts`.
-  - _Presentación:_ `TrackingView.tsx`, `ResultView.tsx`.
+  - _Dominio:_ `activity.schemas.ts`, `calculations.ts`, `src/core/domain/trackFormats.ts` (`toGeoJSON`, `buildGPX11`).
+  - _Aplicación:_ `StartRecordingFromPlan`, `AddCheckpoint`, `RecordPoint`, `FinishActivity`, `ExportTrackFile`.
+  - _Infraestructura:_ `activityService.ts`, `locationService.ts` (`RECORDING_WATCH_OPTIONS`).
+  - _Presentación:_ `RecordView` → `TrackingView` / `ResultView`, `AddCheckpointModal`.
   - _Suites:_ `src/tests/activity_hu8.test.ts`, `src/tests/track_formats_hu7_hu8.test.ts`.
 
 ---
@@ -255,11 +260,11 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | **HU-01** | Registro             |   🟢 95%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-02** | Sesión y perfil      |   🟢 90%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (geoBounds) + TrekMap MapLibre |
-| **HU-04** | Descarga offline     |   🟡 55%    | `offline_hu4.test.ts` (cálculo de teselas/MB real)       |
+| **HU-04** | Descarga offline     |   🟡 60%    | `offline_hu4.test.ts` + `map_pack_formats.test.ts`       |
 | **HU-05** | Compartir ruta       |   🟢 85%    | `share_hu5.test.ts`                                      |
 | **HU-06** | Realizar ruta (guía) |   🟡 70%    | `activity_hu6.test.ts`                                   |
 | **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |
-| **HU-08** | Grabar GPS y GPX     |   🟢 80%    | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
+| **HU-08** | Grabar GPS y GPX     |   🟢 85%    | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
 | **HU-09** | Moderación           |    🚫 —     | Eliminada del alcance                                    |
 | **HU-10** | Admin y roles        |   🟢 90%    | `user_management_hu10.test.ts`                           |
 

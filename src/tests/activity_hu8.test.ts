@@ -16,6 +16,13 @@ import {
   TrekkinActivitySchema,
 } from "../core/domain/activity.schemas";
 import { AddCheckpointUseCase } from "../core/application/activity/AddCheckpoint.usecase";
+import { RecordPointUseCase } from "../core/application/activity/RecordPoint.usecase";
+import { StartRecordingFromPlanUseCase } from "../core/application/activity/StartRecordingFromPlan.usecase";
+import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
+import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
+import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
+import { ACTIVITY_CONFIG } from "../core/domain/activity";
+import type { RoutePlan } from "../core/domain/plan";
 import {
   calculatePaceMinPerKm,
   calculateSpeedKmh,
@@ -233,6 +240,105 @@ async function runTests() {
     );
   } catch (e: any) {
     recordTest("TrekkinActivitySchema valida documento completo", false, e.message);
+  }
+
+  // 12. Filtro de precisión GPS (rescate cruz HU-08 / BK-033)
+  try {
+    const lastCount = baseLiveActivity.recordedPoints.length;
+    const noisy = await RecordPointUseCase(baseLiveActivity, {
+      lat: -16.5052,
+      lng: -68.105,
+      timestamp: 1720000100000,
+      accuracy: ACTIVITY_CONFIG.MAX_ACCURACY_M + 10,
+    });
+    const discarded = noisy.recordedPoints.length === lastCount;
+    const precise = await RecordPointUseCase(baseLiveActivity, {
+      lat: -16.5052,
+      lng: -68.105,
+      timestamp: 1720000100000,
+      accuracy: 8,
+    });
+    const accepted = precise.recordedPoints.length === lastCount + 1;
+    recordTest(
+      "RecordPointUseCase descarta lecturas con accuracy > 25 m (cruz HU-08)",
+      discarded && accepted,
+      `descartado=${discarded} aceptado=${accepted} umbral=${ACTIVITY_CONFIG.MAX_ACCURACY_M}m`,
+    );
+  } catch (e: any) {
+    recordTest(
+      "RecordPointUseCase descarta lecturas con accuracy > 25 m (cruz HU-08)",
+      false,
+      e.message,
+    );
+  }
+
+  const planFixture: RoutePlan = {
+    id: "draft-hu08-1",
+    creatorId: "user-cruz-123",
+    creatorName: "Ramos Cruz",
+    title: "Circuito Valle de la Luna",
+    status: "ready_for_gps",
+    startPoint: { name: "Ingreso", lat: -16.56, lng: -68.09 },
+    endPoint: { name: "Mirador", lat: -16.57, lng: -68.08 },
+    waypoints: [],
+    difficulty: "moderado",
+    startPointConfirmed: true,
+    createdAt: 1720000000000,
+    updatedAt: 1720000000000,
+  };
+
+  try {
+    const prepared = StartRecordingFromPlanUseCase({
+      plan: planFixture,
+      userId: "user-cruz-123",
+      userName: "Ramos Cruz",
+    });
+    const started = await BeginTrackingUseCase(prepared);
+    const withPoint = await RecordPointUseCase(started, {
+      lat: -16.561,
+      lng: -68.089,
+      timestamp: Date.now(),
+      accuracy: 6,
+    });
+    const finished = await FinishActivityUseCase(withPoint, {
+      saveActivity: async () => {},
+      saveLocalActivity: async () => {},
+    });
+    const gpx = ExportTrackFileUseCase(finished.saved);
+    recordTest(
+      "StartRecordingFromPlan + Finish + Export GPX cierran una ruta grabada",
+      prepared.phase === "ready" &&
+        started.phase === "in_progress" &&
+        finished.saved.status === "completed" &&
+        gpx.fileName.endsWith(".gpx") &&
+        gpx.content.includes("<trkpt"),
+      `status=${finished.saved.status} file=${gpx.fileName}`,
+    );
+  } catch (e: any) {
+    recordTest(
+      "StartRecordingFromPlan + Finish + Export GPX cierran una ruta grabada",
+      false,
+      e.message,
+    );
+  }
+
+  try {
+    StartRecordingFromPlanUseCase({
+      plan: { ...planFixture, startPointConfirmed: false },
+      userId: "user-cruz-123",
+      userName: "Ramos Cruz",
+    });
+    recordTest(
+      "StartRecordingFromPlan rechaza un plan sin punto de inicio confirmado",
+      false,
+      "Debería fallar",
+    );
+  } catch {
+    recordTest(
+      "StartRecordingFromPlan rechaza un plan sin punto de inicio confirmado",
+      true,
+      "Rechazado correctamente",
+    );
   }
 
   // Imprimir reporte
