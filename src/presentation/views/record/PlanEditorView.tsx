@@ -24,9 +24,9 @@ interface PlanEditorViewProps {
 
 const DIFFICULTIES: { value: RouteDifficulty; label: string; color: string }[] = [
   { value: 'facil', label: 'Fácil', color: '#34D399' },
-  { value: 'moderado', label: 'Moderado', color: '#F59E0B' },
-  { value: 'dificil', label: 'Difícil', color: '#F97316' },
-  { value: 'experto', label: 'Experto', color: '#EF4444' },
+  { value: 'moderado', label: 'Media', color: '#F59E0B' },
+  { value: 'dificil', label: 'Exigente', color: '#F97316' },
+  { value: 'experto', label: 'Extrema', color: '#EF4444' },
 ];
 
 export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) => {
@@ -37,6 +37,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
   const [difficulty, setDifficulty] = useState<RouteDifficulty>(plan?.difficulty ?? 'moderado');
   const [start, setStart] = useState<PlannedPoint | null>(plan?.startPoint ?? null);
   const [end, setEnd] = useState<PlannedPoint | null>(plan?.endPoint ?? null);
+  const [modality, setModality] = useState<'trekking' | 'alta' | 'mtb'>('trekking');
   const [savedOk, setSavedOk] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -61,6 +62,26 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.stepper}>
+        <View style={styles.stepperRow}>
+          <View style={[styles.stepItem, styles.stepActive]}>
+            <Text style={styles.stepNumActive}>1</Text>
+            <Text style={styles.stepLabelActive}>Datos & Ruta</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepItem}>
+            <Text style={styles.stepNum}>2</Text>
+            <Text style={styles.stepLabel}>Equipamiento</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepItem}>
+            <Text style={styles.stepNum}>3</Text>
+            <Text style={styles.stepLabel}>Trazado GPS</Text>
+          </View>
+        </View>
+        <Text style={styles.stepHint}>Paso 1 de 3: Ficha & Descripción · Solo indicador visual</Text>
+      </View>
+
       <View style={styles.fieldGroup}>
         <Text style={styles.microLabel}>NOMBRE PROVISIONAL DE LA RUTA</Text>
         <TextInput
@@ -73,7 +94,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
       </View>
 
       <View style={styles.fieldGroup}>
-        <Text style={styles.microLabel}>DIFICULTAD ESTIMADA</Text>
+        <Text style={styles.microLabel}>DIFICULTAD ESTIMADA (Media/Exigente/Extrema = visual)</Text>
         <View style={styles.chips}>
           {DIFFICULTIES.map((d) => (
             <Pressable
@@ -87,6 +108,25 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
               <Text style={[styles.chipText, difficulty === d.value && { color: d.color }]}>
                 {d.label}
               </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.microLabel}>MODALIDAD (SOLO VISUAL)</Text>
+        <View style={styles.chips}>
+          {[
+            { id: 'trekking', label: 'Trekking' },
+            { id: 'alta', label: 'Alta Montaña' },
+            { id: 'mtb', label: 'MTB Enduro' },
+          ].map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => setModality(m.id as any)}
+              style={[styles.chip, modality === m.id && { borderColor: '#10B981', backgroundColor: '#0A241C' }]}
+            >
+              <Text style={[styles.chipText, modality === m.id && { color: '#10B981' }]}>{m.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -222,4 +262,43 @@ const styles = StyleSheet.create({
   continueBtnDisabled: { opacity: 0.4 },
   continueBtnText: { fontSize: 12, fontWeight: '800', color: '#F9FAFB' },
   pressed: { opacity: 0.8 },
+  stepper: {
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepItem: { flexDirection: 'row', alignItems: 'center', gap: 6, opacity: 0.5 },
+  stepActive: { opacity: 1 },
+  stepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1A4537',
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 11,
+    fontWeight: '900',
+    overflow: 'hidden',
+  },
+  stepNumActive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    color: '#064E3B',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 11,
+    fontWeight: '900',
+    overflow: 'hidden',
+  },
+  stepLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '700' },
+  stepLabelActive: { color: '#F9FAFB', fontSize: 10, fontWeight: '800' },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#1A4537', marginHorizontal: 6 },
+  stepHint: { color: '#6EE7B7', fontSize: 10, fontWeight: '700', textAlign: 'center' },
 });

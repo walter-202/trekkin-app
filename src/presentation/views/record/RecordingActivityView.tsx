@@ -22,7 +22,14 @@ import {
   Radio,
   AlertTriangle,
   X,
+  Search,
+  SlidersHorizontal,
+  ArrowUp,
+  Layers,
+  Crosshair,
+  Plus,
 } from 'lucide-react-native';
+import * as Location from 'expo-location';
 import { PlanMap } from '../../components/map/PlanMap';
 import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
@@ -31,6 +38,7 @@ import {
   calculateAverageSpeedKmh,
   accumulatedDistanceKm,
   remainingDistanceToEndKm,
+  calculateElevationDeltaM,
 } from '../../../core/domain/calculations';
 import { activeElapsedMs, ACTIVITY_CONFIG } from '../../../core/domain/activity';
 import { formatDuration, formatPace } from '../../utils/format';
@@ -74,6 +82,7 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
   const [cpNotes, setCpNotes] = useState('');
   const [addingCheckpoint, setAddingCheckpoint] = useState(false);
   const [savingCheckpointSuccess, setSavingCheckpointSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<'datos' | 'equipo' | 'grabando'>('grabando');
 
   // Intervalo de 1s para refrescar métricas de tiempo transcurrido
   useEffect(() => {
@@ -81,11 +90,15 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Asegurar seguimiento GPS si la actividad está en curso
+  // Asegurar seguimiento GPS si la actividad está en curso — HU-08 usa High 5m/2.5s
   useEffect(() => {
     const current = useActivityStore.getState().live;
     if (current && current.phase === 'in_progress') {
-      useActivityStore.getState().startWatch();
+      useActivityStore.getState().startWatch({
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 5,
+        timeInterval: 2500,
+      });
     }
     return () => {
       useActivityStore.getState().stopWatch();
@@ -119,12 +132,18 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
 
   const pace = calculatePaceMinPerKm(distanceCoveredKm, durationSeconds);
   const speed = calculateAverageSpeedKmh(distanceCoveredKm, durationSeconds);
+  const altitude = lastPoint?.altitude;
+  const gainM = calculateElevationDeltaM(recordedPoints).gainM;
 
   const handleTogglePause = async () => {
     if (isPaused) {
       const ok = await resumeActivity();
       if (ok) {
-        await startWatch();
+        await startWatch({
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 5,
+          timeInterval: 2500,
+        });
       }
     } else {
       await pauseActivity();
@@ -186,6 +205,27 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
 
   return (
     <View style={styles.container}>
+      <View style={styles.proHeader}>
+        <View style={styles.proBadge}>
+          <Text style={styles.proBadgeText}>TREK-BOLIVIA PRO</Text>
+          <View style={styles.gpsPill}>
+            <Text style={styles.gpsPillText}>GPS</Text>
+          </View>
+        </View>
+        <View style={styles.onlineBadge}>
+          <View style={styles.onlineDot} />
+          <Text style={styles.onlineText}>En Línea</Text>
+        </View>
+      </View>
+
+      <View style={styles.searchBar}>
+        <Search size={14} color="#9CA3AF" />
+        <Text style={styles.searchPlaceholder}>Buscar punto, sendero o coordenada</Text>
+        <View style={styles.searchFilter}>
+          <SlidersHorizontal size={14} color="#F9FAFB" />
+        </View>
+      </View>
+
       {/* MAPA PRINCIPAL */}
       <View style={styles.mapContainer}>
         <PlanMap
@@ -201,31 +241,83 @@ export const RecordingActivityView: React.FC<RecordingActivityViewProps> = ({
           height={300}
         />
 
-        {/* BADGE DE ESTADO GPS FLOTANTE SOBRE EL MAPA */}
+        {/* BADGES FLOTANTES SOBRE EL MAPA — mockup: altitud/desnivel + estado */}
         <View style={styles.floatingGpsBar}>
-          <View style={styles.gpsStatusRow}>
-            {isPaused ? (
-              <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
-            ) : gpsError ? (
-              <AlertTriangle size={12} color="#EF4444" />
-            ) : (
-              <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
-            )}
-            <Text style={styles.gpsStatusText}>
-              {isPaused
-                ? 'PAUSADO'
-                : gpsError
-                ? 'ERROR GPS'
-                : `GPS ACTIVO · ${recordedPoints.length} PTS`}
-            </Text>
-          </View>
-          {checkpoints.length > 0 && (
-            <View style={styles.checkpointBadge}>
-              <MapPin size={11} color="#34D399" />
-              <Text style={styles.checkpointBadgeText}>{checkpoints.length} paradas</Text>
+          <View style={{ gap: 6 }}>
+            <View style={styles.gpsStatusRow}>
+              {isPaused ? (
+                <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+              ) : gpsError ? (
+                <AlertTriangle size={12} color="#EF4444" />
+              ) : (
+                <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+              )}
+              <Text style={styles.gpsStatusText}>
+                {isPaused
+                  ? 'PAUSADO'
+                  : gpsError
+                  ? 'ERROR GPS'
+                  : altitude != null
+                  ? `${Math.round(altitude)}m · GPS Óptimo`
+                  : `GPS ACTIVO · ${recordedPoints.length} PTS`}
+              </Text>
             </View>
-          )}
+            {gainM > 0 && (
+              <View style={styles.desnivelBadge}>
+                <Text style={styles.desnivelText}>DESNIVEL +{gainM} m</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ gap: 6, alignItems: 'flex-end' }}>
+            {checkpoints.length > 0 && (
+              <View style={styles.checkpointBadge}>
+                <MapPin size={11} color="#34D399" />
+                <Text style={styles.checkpointBadgeText}>{checkpoints.length} paradas</Text>
+              </View>
+            )}
+            <View style={styles.mapSideControls}>
+              <View style={styles.sideBtn}>
+                <ArrowUp size={12} color="#F9FAFB" />
+              </View>
+              <View style={styles.sideBtn}>
+                <Layers size={12} color="#F9FAFB" />
+              </View>
+            </View>
+          </View>
         </View>
+
+        {/* Controles flotantes inferiores — Añadir Parada + centrar */}
+        <View style={styles.floatingBottomRow}>
+          <View style={styles.desnivelGhost}>
+            <Text style={styles.desnivelGhostText}>Sendero · {distanceCoveredKm.toFixed(1)} km</Text>
+          </View>
+          <Pressable
+            onPress={handleOpenCheckpointModal}
+            disabled={isPaused}
+            style={[styles.floatingAddBtn, isPaused && { opacity: 0.5 }]}
+          >
+            <Plus size={14} color="#FFFFFF" />
+          </Pressable>
+          <Pressable style={styles.floatingCenterBtn} onPress={() => {}}>
+            <Crosshair size={14} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.tabsRow}>
+        {[
+          { id: 'datos', label: 'Datos' },
+          { id: 'equipo', label: 'Equipo' },
+          { id: 'grabando', label: 'Grabando' },
+        ].map((t) => (
+          <Pressable
+            key={t.id}
+            onPress={() => setActiveTab(t.id as any)}
+            style={[styles.tabItem, activeTab === t.id && styles.tabItemActive]}
+          >
+            <Text style={[styles.tabText, activeTab === t.id && styles.tabTextActive]}>{t.label}</Text>
+          </Pressable>
+        ))}
       </View>
 
       <ScrollView style={styles.hudScroll} contentContainerStyle={styles.hudContent}>
@@ -742,4 +834,138 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
+  proHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#0A241C',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1A4537',
+  },
+  proBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  proBadgeText: { color: '#34D399', fontSize: 9, fontWeight: '900', letterSpacing: 0.6 },
+  gpsPill: {
+    backgroundColor: '#10B981',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  gpsPillText: { color: '#064E3B', fontSize: 9, fontWeight: '900' },
+  onlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#10B981',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
+  onlineText: { color: '#6EE7B7', fontSize: 10, fontWeight: '800' },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginHorizontal: 12,
+    marginTop: 8,
+  },
+  searchPlaceholder: { flex: 1, color: '#6B7280', fontSize: 12 },
+  searchFilter: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#1A4537',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  desnivelBadge: {
+    backgroundColor: '#0A241C',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+  },
+  desnivelText: { color: '#FBBF24', fontSize: 10, fontWeight: '800' },
+  mapSideControls: { gap: 6 },
+  sideBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(6,35,27,0.92)',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingBottomRow: {
+    position: 'absolute',
+    bottom: 10,
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  desnivelGhost: {
+    backgroundColor: 'rgba(6,35,27,0.85)',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  desnivelGhostText: { color: '#D1D5DB', fontSize: 10, fontWeight: '700' },
+  floatingAddBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 6,
+  },
+  floatingCenterBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 6,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#051712',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+  },
+  tabItemActive: { backgroundColor: '#0A241C', borderColor: '#10B981' },
+  tabText: { color: '#9CA3AF', fontSize: 10, fontWeight: '700' },
+  tabTextActive: { color: '#34D399', fontWeight: '800' },
 });

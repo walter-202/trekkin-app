@@ -8,7 +8,7 @@
     "docs/MODULE_GUIDE.md",
     "docs/USER_STORIES.md"
   ],
-  "lsp": true,
+  "lsp": {},
   "formatter": {
     "prettier": {
       "command": ["npx", "prettier", "--write", "$FILE"],

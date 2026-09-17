@@ -21,6 +21,7 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
   const [start, setStart] = useState<PlannedPoint | null>(plan?.startPoint ?? null);
   const [end, setEnd] = useState<PlannedPoint | null>(plan?.endPoint ?? null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [modality, setModality] = useState<'trekking' | 'alta' | 'mtb'>('trekking');
 
   const handleSave = async () => {
     setLocalError(null);
@@ -42,6 +43,26 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.stepper}>
+        <View style={styles.stepperRow}>
+          <View style={[styles.stepItem, styles.stepActive]}>
+            <Text style={styles.stepNumActive}>1</Text>
+            <Text style={styles.stepLabelActive}>Datos & Ruta</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepItem}>
+            <Text style={styles.stepNum}>2</Text>
+            <Text style={styles.stepLabel}>Equipamiento</Text>
+          </View>
+          <View style={styles.stepLine} />
+          <View style={styles.stepItem}>
+            <Text style={styles.stepNum}>3</Text>
+            <Text style={styles.stepLabel}>Trazado GPS</Text>
+          </View>
+        </View>
+        <Text style={styles.stepHint}>Paso 1 de 3: Ficha & Descripción</Text>
+      </View>
+
       <View style={styles.fieldGroup}>
         <Text style={styles.microLabel}>NOMBRE PROVISIONAL DE LA RUTA *</Text>
         <TextInput
@@ -51,6 +72,25 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
           placeholder="Ej. Ruta del Diablo / Camino de la Muerte"
           placeholderTextColor="#6B7280"
         />
+      </View>
+
+      <View style={styles.fieldGroup}>
+        <Text style={styles.microLabel}>MODALIDAD (VISUAL)</Text>
+        <View style={styles.modalityRow}>
+          {[
+            { id: 'trekking', label: 'Trekking' },
+            { id: 'alta', label: 'Alta Montaña' },
+            { id: 'mtb', label: 'MTB Enduro' },
+          ].map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => setModality(m.id as any)}
+              style={[styles.modalityChip, modality === m.id && styles.modalityChipActive]}
+            >
+              <Text style={[styles.modalityText, modality === m.id && styles.modalityTextActive]}>{m.label}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       <Text style={styles.help}>
@@ -131,4 +171,56 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#FFFFFF' },
   note: { color: '#6B7280', fontSize: 11, textAlign: 'center' },
+  stepper: {
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 12,
+    padding: 10,
+    gap: 6,
+  },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  stepItem: { flexDirection: 'row', alignItems: 'center', gap: 6, opacity: 0.5 },
+  stepActive: { opacity: 1 },
+  stepNum: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1A4537',
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 11,
+    fontWeight: '900',
+    overflow: 'hidden',
+  },
+  stepNumActive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    color: '#064E3B',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: 11,
+    fontWeight: '900',
+    overflow: 'hidden',
+  },
+  stepLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '700' },
+  stepLabelActive: { color: '#F9FAFB', fontSize: 10, fontWeight: '800' },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#1A4537', marginHorizontal: 6 },
+  stepHint: { color: '#6EE7B7', fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  modalityRow: { flexDirection: 'row', gap: 8 },
+  modalityChip: {
+    flex: 1,
+    backgroundColor: '#0E2E24',
+    borderWidth: 1,
+    borderColor: '#1A4537',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalityChipActive: { borderColor: '#10B981', backgroundColor: '#0A241C' },
+  modalityText: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' },
+  modalityTextActive: { color: '#34D399', fontWeight: '800' },
 });

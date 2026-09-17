@@ -154,6 +154,12 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
                   Del catálogo de rutas publicadas (HU-03). Aparecen también las
                   rutas nuevas que se publiquen.
                 </Text>
+                <Pressable
+  onPress={() => setStep("prepare")}
+  style={styles.recordBtn}
+>
+  <Text style={styles.recordBtnText}>＋ GRABAR NUEVA RUTA</Text>
+</Pressable>
                 {error ? (
                   <View style={styles.demoBanner}>
                     <Text style={styles.demoText}>{error}</Text>
@@ -298,4 +304,17 @@ const styles = StyleSheet.create({
   },
   linkBtn: { paddingVertical: 10 },
   linkText: { color: "#9CA3AF", fontSize: 12 },
+  recordBtn: {
+    marginTop: 4,
+    backgroundColor: "#10B981",
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  recordBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
 });

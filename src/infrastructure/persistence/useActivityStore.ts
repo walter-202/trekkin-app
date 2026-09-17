@@ -10,6 +10,7 @@ import {
   locationService,
   type GpsPosition,
   type LocationWatch,
+  type WatchOptions,
 } from "../location/locationService";
 import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
@@ -91,7 +92,7 @@ interface ActivityState {
   resumeActivity: () => Promise<boolean>;
   finishActivity: () => Promise<FinishActivityResult | null>;
   addCheckpoint: (input: AddCheckpointInput) => Promise<boolean>;
-  startWatch: () => Promise<boolean>;
+  startWatch: (options?: WatchOptions) => Promise<boolean>;
   stopWatch: () => void;
   listActivities: (uid: string) => Promise<void>;
   loadActivity: (id: string, uid: string) => Promise<TrekkinActivity | null>;
@@ -321,11 +322,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  startWatch: async () => {
+  startWatch: async (options) => {
     get().stopWatch();
     const sub = await locationService.startWatching((p) => {
       get().recordPoint(p);
-    });
+    }, options);
     set({ watch: sub });
     return sub != null;
   },

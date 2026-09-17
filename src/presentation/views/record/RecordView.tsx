@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import * as Location from 'expo-location';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
@@ -159,7 +160,11 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 
     await appStorage.setItem('trekking_activity_autosave', JSON.stringify(liveActivity));
     useActivityStore.setState({ live: liveActivity });
-    await useActivityStore.getState().startWatch();
+    await useActivityStore.getState().startWatch({
+      accuracy: Location.Accuracy.High,
+      distanceInterval: 5,
+      timeInterval: 2500,
+    });
     setStep('recording');
   };
 
