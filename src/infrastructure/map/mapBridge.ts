@@ -16,6 +16,12 @@ export interface SceneMarker {
   notes?: string;
 }
 
+export interface TrekMapOfflinePack {
+  kind: "pmtiles" | "mbtiles";
+  protocolUrl: string | null;
+  message: string | null;
+}
+
 export interface TrekMapScene {
   trail: LngLat[];
   track: LngLat[];
@@ -23,6 +29,8 @@ export interface TrekMapScene {
   bounds: [LngLat, LngLat] | null;
   interactive: boolean;
   styleUrl: string;
+  /** Pack de fondo HU-04. Null = estilo online OpenFreeMap. */
+  offlinePack: TrekMapOfflinePack | null;
 }
 
 export type MapToHostEvent =

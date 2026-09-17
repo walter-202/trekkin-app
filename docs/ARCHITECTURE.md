@@ -65,7 +65,7 @@ Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 | HU | Vista | Servicio | Dominio |
 |---|---|---|---|
 | HU-03 Explorar rutas | `views/explore/` + `components/map/TrekMap` | `database/routeService.ts` + `map/mapStyle.ts` | `domain/route.schemas.ts`, `geoBounds.ts` |
-| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` (track JSON; pack PMTiles pendiente) | `domain/offline.ts` |
+| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` + `mapPackFormats.ts` (PMTiles V1; downloader pendiente) | `domain/offline.ts`, `mapPackFormats.ts` |
 | HU-05 Compartir | modal en explore | `share/shareService.ts` | `share.schemas.ts` |
 | HU-06 Actividad GPS | `views/activity/` + `TrekMap` | `activityService.ts`, `locationService.ts` | `activity.schemas.ts` |
 | HU-07/08 Planificar + Grabar | `views/record/` + `TrekMap` | `expo-location` + routeService | `plan.ts`, `calculations.ts`, `trackFormats.ts` |

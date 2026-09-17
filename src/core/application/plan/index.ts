@@ -6,3 +6,4 @@ export * from './GetDraft.usecase';
 export * from './UpdatePlan.usecase';
 export * from './ConfirmStartPoint.usecase';
 export * from './MarkReadyForGps.usecase';
+export * from './ImportTrackFile.usecase';

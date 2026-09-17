@@ -29,6 +29,13 @@ export async function RecordPointUseCase(
   }
   const point = parsed.data;
 
+  if (
+    point.accuracy != null &&
+    point.accuracy > ACTIVITY_CONFIG.MAX_ACCURACY_M
+  ) {
+    return { ...activity, updatedAt: Date.now() };
+  }
+
   const completedCheckpoints = [...activity.completedCheckpoints];
   for (const cp of activity.route.checkpoints) {
     if (completedCheckpoints.includes(cp.id)) continue;

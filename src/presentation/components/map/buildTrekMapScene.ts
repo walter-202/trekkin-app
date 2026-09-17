@@ -1,5 +1,6 @@
 import type { Coordinates } from "../../../core/domain/types";
 import { computeBoundingBox } from "../../../core/domain/geoBounds";
+import { ResolveOfflinePackUseCase } from "../../../core/application/offline/ResolveOfflinePack.usecase";
 import type { TrekMapScene, SceneMarker } from "../../../infrastructure/map/mapBridge";
 import { ONLINE_STYLE_URL } from "../../../infrastructure/map/mapStyle";
 import type { TrekMapProps, MapMarker } from "./TrekMap.types";
@@ -84,6 +85,20 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
           ...markers,
         ];
 
+  let offlinePack: TrekMapScene["offlinePack"] = null;
+  if (props.offlinePackPath) {
+    try {
+      const resolved = ResolveOfflinePackUseCase({ path: props.offlinePackPath });
+      offlinePack = {
+        kind: resolved.kind,
+        protocolUrl: resolved.protocolUrl,
+        message: resolved.message,
+      };
+    } catch {
+      offlinePack = null;
+    }
+  }
+
   return {
     trail,
     track,
@@ -91,6 +106,7 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     bounds: boundsFromPoints(fitPoints),
     interactive: props.interactive !== false,
     styleUrl: ONLINE_STYLE_URL,
+    offlinePack,
   };
 }
 

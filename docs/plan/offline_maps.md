@@ -61,7 +61,11 @@ V2 (dev-build) puede sustituir el WebView por MapLibre Native y usar `OfflineMan
 offlinePackPath?: string; // V1/V2: uri del .pmtiles (o .mbtiles en V2)
 ```
 
-Hoy (V1) el campo se ignora: el detalle es online. HU-04 lo cablea cuando exista `tileDownloader` / `offlinePacks.ts`.
+Hoy (V1) `TrekMap.offlinePackPath` resuelve el formato:
+- `.pmtiles` (http/https o ya prefijado `pmtiles://`) → fuente `pmtiles://` + estilo vectorial andino.
+- `.mbtiles` → no se pinta el fondo en Expo Go/web; el GPX/trail sí. Hay que convertir: `pmtiles convert ruta.mbtiles ruta.pmtiles`.
+
+Falta el downloader a disco (`tileDownloader` / `expo-file-system`).
 
 ## Riesgos HU-04
 

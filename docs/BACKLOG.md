@@ -32,10 +32,10 @@
 
 | ID | HU | Tarea | Qué cambia | Estado | Pri / Esf |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| **BK-010** | HU-04 | Casos `CreatePack/DeletePack` | Un archivo PMTiles (o MBTiles en V2) por ruta; no árbol PNG. | 🟡 **EN CURSO** | P0 · 2d |
+| **BK-010** | HU-04 | Casos `CreatePack/DeletePack` | Detectar PMTiles/MBTiles (`mapPackFormats`) y pintar `.pmtiles` en `TrekMap`. Falta persistir el archivo a disco. | 🟡 **EN CURSO** | P0 · 2d |
 | **BK-011** | HU-04 | Estimación matemática real | `geoBounds.ts`: `estimateTileCount` + `estimateDownloadSizeMB` por bounding box y zooms 12–15. | ✅ **HECHO** | P0 · 0.5d |
 | **BK-012** | HU-04 | `packSpec` en Firestore | Metadata de versión, bounds, zooms y tamaño en bytes; badge "desactualizada". | 🟡 **EN CURSO** | P0 · 1d |
-| **BK-013** | HU-04 | Modo avión en mapa | `TrekMap.offlinePackPath` apunta al `.pmtiles` local. V1 aún no lo lee. | 🟡 **EN CURSO** | P1 · 1d |
+| **BK-013** | HU-04 | Modo avión en mapa | `TrekMap.offlinePackPath` lee `.pmtiles` (`pmtiles://`). `.mbtiles` se rechaza en V1. Falta el archivo local. | 🟡 **EN CURSO** | P1 · 1d |
 | **BK-014** | HU-04 | Progreso/cuota/cancel | Listeners de descarga, porcentaje de avance en modal y control de almacenamiento. | ⏳ **PENDIENTE** | P1 · 1d |
 
 ---
@@ -44,7 +44,7 @@
 
 | ID | HU | Tarea | Qué cambia | Estado | Pri / Esf |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| **BK-020** | HU-07/08 | `trackFormats.ts` dominio puro | Parsers y serializadores GPX 1.1 (canónico), KML, CSV, altimetría y simplificación Ramer-Douglas-Peucker. | ✅ **HECHO** | P0 · 3d |
+| **BK-020** | HU-07/08 | `trackFormats.ts` dominio puro | Parsers y serializadores GPX 1.1 (`buildGPX11`), `toGeoJSON`, KML, CSV, altimetría y Ramer-Douglas-Peucker. | ✅ **HECHO** | P0 · 3d |
 | **BK-021** | HU-07 | `ImportTrackFile` usecase | Importación de archivos GPX/KML/CSV para precargar en el planificador o unirse a una salida. | ✅ **HECHO** | P1 · 1.5d |
 | **BK-022** | HU-08 | `ExportTrackFile` usecase | Generación de archivo GPX estándar compatible con Garmin, Wikiloc y Strava. | ✅ **HECHO** | P1 · 1d |
 | **BK-023** | HU-06 | Tracking sobre `TrekMap` | `TrackingView` / prepare / resultado usan `TrekMap`. Pendiente alerta off-route >50m. | 🟡 **EN CURSO** | P1 · 2d |
@@ -58,7 +58,7 @@
 | **BK-030** | HU-03/06 | Partir docs gigantes | Catálogo con cursor pagination `limit(20)`; subcolección chunked `activities/{id}/points/{chunkIndex}` para tracks largos. | ✅ **HECHO** | P0 · 2d |
 | **BK-031** | Todas | Alinear tipos↔reglas↔DATABASE.md | `coverImageUrl` y subcolección `points` sincronizados en `types.ts`, `firestore.rules` y `DATABASE.md`. | ✅ **HECHO** | P0 · 1d |
 | **BK-032** | HU-06 | Reintento `unsynced` real | Cola con backoff exponencial para sincronización automática de actividades al recuperar red. | ⏳ **PENDIENTE** | P1 · 1d |
-| **BK-033** | HU-08 | GPS fondo + precisión | Grabación con pantalla apagada vía `expo-task-manager` y descarte de lecturas con `accuracy > 25m`. | ⏳ **PENDIENTE** | P1 · 2d |
+| **BK-033** | HU-08 | GPS fondo + precisión | Descarte `accuracy > 25 m` en `RecordPoint` (cruz). Falta background con `expo-task-manager`. | 🟡 **EN CURSO** | P1 · 2d |
 
 ---
 

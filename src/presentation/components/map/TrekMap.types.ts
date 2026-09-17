@@ -42,8 +42,8 @@ export interface TrekMapProps {
   accessibilityLabel?: string;
   showUserLocation?: boolean;
   /**
-   * Reservado HU-04: ruta a pack local (PMTiles/MBTiles).
-   * V1 online ignora este campo; no usar carpetas PNG.
+   * Pack de fondo HU-04: URI/URL `.pmtiles` (V1) o `.mbtiles` (detectado, no pintado en Expo Go).
+   * El GPX/trail se dibuja igual si el pack no carga.
    */
   offlinePackPath?: string;
   /** @deprecated V1 ya no usa UrlTile; se conserva por compatibilidad. */

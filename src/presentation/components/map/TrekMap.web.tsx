@@ -8,6 +8,9 @@ import {
   DEFAULT_ZOOM,
   MAPLIBRE_GL_CSS_URL,
   MAPLIBRE_GL_JS_URL,
+  ONLINE_STYLE_URL,
+  PMTILES_JS_URL,
+  buildOfflineVectorStyle,
 } from "../../../infrastructure/map/mapStyle";
 import type { TrekMapScene } from "../../../infrastructure/map/mapBridge";
 import { buildCalloutHtml, CALLOUT_CSS } from "./markerCallout";
@@ -43,6 +46,31 @@ function loadMapLibre(): Promise<any> {
     doc.head.appendChild(script);
   });
   return g.__trekkinMapLibrePromise;
+}
+
+function loadPmtiles(): Promise<any> {
+  const g = globalThis as any;
+  if (g.pmtiles) return Promise.resolve(g.pmtiles);
+  if (g.__trekkinPmtilesPromise) return g.__trekkinPmtilesPromise;
+  g.__trekkinPmtilesPromise = new Promise((resolve, reject) => {
+    const doc = g.document;
+    if (!doc?.head) {
+      reject(new Error("PMTiles requiere un navegador"));
+      return;
+    }
+    const script = doc.createElement("script");
+    script.src = PMTILES_JS_URL;
+    script.async = true;
+    script.onload = () => resolve(g.pmtiles);
+    script.onerror = () => reject(new Error("No se pudo cargar PMTiles"));
+    doc.head.appendChild(script);
+  });
+  return g.__trekkinPmtilesPromise;
+}
+
+function packUrlOf(scene: TrekMapScene): string | null {
+  if (scene.offlinePack?.kind !== "pmtiles") return null;
+  return scene.offlinePack.protocolUrl;
 }
 
 const emptyLine = {
@@ -123,7 +151,7 @@ function ensureLayers(map: any): void {
   }
 }
 
-function applyScene(map: any, scene: TrekMapScene): void {
+function paintScene(map: any, scene: TrekMapScene): void {
   ensureLayers(map);
   map.getSource("trekkin-trail")?.setData(lineData(scene.trail));
   map.getSource("trekkin-track")?.setData(lineData(scene.track));
@@ -163,6 +191,24 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
   sceneRef.current = scene;
   const pressRef = useRef({ onPress, onPressCoordinate, interactive });
   pressRef.current = { onPress, onPressCoordinate, interactive };
+  const packUrlRef = useRef<string | null>(packUrlOf(scene));
+  const switchingRef = useRef(false);
+
+  const applySceneWithPack = (map: any, next: TrekMapScene): void => {
+    const nextUrl = packUrlOf(next);
+    if (nextUrl === packUrlRef.current) {
+      paintScene(map, next);
+      return;
+    }
+    if (switchingRef.current) return;
+    switchingRef.current = true;
+    map.once("style.load", () => {
+      packUrlRef.current = nextUrl;
+      switchingRef.current = false;
+      paintScene(map, sceneRef.current);
+    });
+    map.setStyle(nextUrl ? buildOfflineVectorStyle(nextUrl) : ONLINE_STYLE_URL);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -172,10 +218,25 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     void (async () => {
       try {
         const maplibregl = await loadMapLibre();
+        try {
+          const pmtilesLib = await loadPmtiles();
+          const g = globalThis as any;
+          if (pmtilesLib && !g.__trekkinPmtilesProtocol) {
+            const protocol = new pmtilesLib.Protocol();
+            maplibregl.addProtocol("pmtiles", protocol.tile);
+            g.__trekkinPmtilesProtocol = true;
+          }
+        } catch {
+          // Pack opcional: el mapa online y el GPX siguen pintando.
+        }
         if (cancelled || !hostRef.current) return;
+        const initialPack = packUrlOf(sceneRef.current);
+        packUrlRef.current = initialPack;
         const map = new maplibregl.Map({
           container: hostRef.current,
-          style: scene.styleUrl,
+          style: initialPack
+            ? buildOfflineVectorStyle(initialPack)
+            : ONLINE_STYLE_URL,
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           attributionControl: true,
@@ -183,7 +244,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         mapRef.current = map;
         map.on("load", () => {
           if (cancelled) return;
-          applyScene(map, sceneRef.current);
+          paintScene(map, sceneRef.current);
         });
         let popup: any = null;
         map.on("click", (e: {
@@ -249,7 +310,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded?.()) return;
-    applyScene(map, scene);
+    applySceneWithPack(map, scene);
   }, [scene]);
 
   const containerStyle: StyleProp<ViewStyle> = [

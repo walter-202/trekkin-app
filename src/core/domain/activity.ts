@@ -70,6 +70,8 @@ export const ACTIVITY_CONFIG = {
   MIN_GPS_DELTA_M: 8,
   /** Desplazamiento máximo razonable entre puntos (salto mayor = error GPS). */
   MAX_GPS_JUMP_M: 400,
+  /** Precisión GPS máxima aceptable (m) — cruz HU-08: descartar accuracy > 25 m. */
+  MAX_ACCURACY_M: 25,
   /** Cobertura mínima sobre la distancia oficial para considerar COMPLETA. */
   COMPLETE_COVERAGE_RATIO: 0.95,
 } as const;

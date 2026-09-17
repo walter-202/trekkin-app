@@ -29,6 +29,8 @@ export interface Coordinates {
   lng: number;
   altitude?: number;
   timestamp?: number;
+  /** Precisión GPS en metros (HU-08: se descarta si supera MAX_ACCURACY_M). */
+  accuracy?: number;
 }
 
 export interface Checkpoint {

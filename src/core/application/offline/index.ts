@@ -13,3 +13,4 @@ export { ListOfflineRoutesUseCase } from "./ListOfflineRoutes.usecase";
 export type { ListOfflineRoutesPorts } from "./ListOfflineRoutes.usecase";
 export { GetOfflineRouteUseCase } from "./GetOfflineRoute.usecase";
 export type { GetOfflineRoutePorts } from "./GetOfflineRoute.usecase";
+export { ResolveOfflinePackUseCase } from "./ResolveOfflinePack.usecase";

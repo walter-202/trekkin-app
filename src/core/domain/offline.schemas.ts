@@ -99,6 +99,15 @@ export const OfflineRouteIdSchema = z
 
 export const OfflineDownloadStageSchema = z.enum(["map", "trail", "info"]);
 
+/** Path / URL de un pack HU-04 (PMTiles o MBTiles). */
+export const OfflinePackPathSchema = z
+  .string()
+  .trim()
+  .min(1, "Indica el archivo del pack (PMTiles o MBTiles)")
+  .max(2048, "La ruta del pack es demasiado larga");
+
+export const MapPackKindSchema = z.enum(["pmtiles", "mbtiles"]);
+
 export type OfflineDownloadStageValidated = z.infer<
   typeof OfflineDownloadStageSchema
 >;

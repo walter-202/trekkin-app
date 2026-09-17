@@ -1,17 +1,18 @@
 import {
   MAPLIBRE_GL_CSS_URL,
   MAPLIBRE_GL_JS_URL,
+  PMTILES_JS_URL,
   ONLINE_STYLE_URL,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
+  buildOfflineVectorStyle,
 } from "../../../infrastructure/map/mapStyle";
 import { AndeanTheme } from "../../theme";
 import { CALLOUT_CSS, MARKER_ROLE_LABEL } from "./markerCallout";
 
 /**
  * HTML autocontenido para MapLibre GL JS dentro de react-native-webview (Expo Go).
- * El motor se carga por CDN (HU-03 es online). El pack offline (HU-04) llegará
- * como PMTiles/MBTiles sobre el mismo documento, sin cambiar TrekMapProps.
+ * El pack HU-04 (PMTiles) se enchufa al mismo documento vía scene.offlinePack.
  */
 export function buildTrekMapHtml(): string {
   const bg = AndeanTheme.colors.backgroundSecondary;
@@ -37,9 +38,11 @@ export function buildTrekMapHtml(): string {
 <body>
   <div id="map"></div>
   <script src="${MAPLIBRE_GL_JS_URL}"></script>
+  <script src="${PMTILES_JS_URL}"></script>
   <script>
     (function () {
       var STYLE = ${JSON.stringify(ONLINE_STYLE_URL)};
+      var OFFLINE_STYLE_TEMPLATE = ${JSON.stringify(buildOfflineVectorStyle("pmtiles://__PACK__"))};
       var COLORS = {
         trail: ${JSON.stringify(trail)},
         track: ${JSON.stringify(track)},
@@ -62,6 +65,30 @@ export function buildTrekMapHtml(): string {
       });
       var ready = false;
       var pending = null;
+      var currentPackUrl = null;
+      var switchingStyle = false;
+      var warnedMbtiles = false;
+
+      try {
+        if (window.pmtiles && maplibregl.addProtocol) {
+          var protocol = new pmtiles.Protocol();
+          maplibregl.addProtocol("pmtiles", protocol.tile);
+        }
+      } catch (e) {}
+
+      function offlineStyle(url) {
+        var style = JSON.parse(JSON.stringify(OFFLINE_STYLE_TEMPLATE));
+        if (style.sources && style.sources.openmaptiles) {
+          style.sources.openmaptiles.url = url;
+        }
+        return style;
+      }
+
+      function packUrlOf(scene) {
+        if (!scene || !scene.offlinePack) return null;
+        if (scene.offlinePack.kind !== "pmtiles") return null;
+        return scene.offlinePack.protocolUrl || null;
+      }
 
       function post(msg) {
         try {
@@ -192,7 +219,7 @@ export function buildTrekMapHtml(): string {
         }
       }
 
-      function applyScene(scene) {
+      function paintScene(scene) {
         if (!scene) return;
         addLayers();
         map.getSource("trekkin-trail").setData(lineData(scene.trail));
@@ -213,10 +240,37 @@ export function buildTrekMapHtml(): string {
         }
       }
 
+      function applyScene(scene) {
+        if (!scene) return;
+        pending = scene;
+        if (scene.offlinePack && scene.offlinePack.kind === "mbtiles" && scene.offlinePack.message && !warnedMbtiles) {
+          warnedMbtiles = true;
+          post({ type: "error", payload: { message: scene.offlinePack.message } });
+        }
+        if (!ready || switchingStyle) return;
+        var nextUrl = packUrlOf(scene);
+        if (nextUrl === currentPackUrl) {
+          paintScene(scene);
+          return;
+        }
+        switchingStyle = true;
+        map.once("style.load", function () {
+          currentPackUrl = nextUrl;
+          switchingStyle = false;
+          paintScene(pending);
+        });
+        try {
+          map.setStyle(nextUrl ? offlineStyle(nextUrl) : STYLE);
+        } catch (e) {
+          switchingStyle = false;
+          paintScene(pending);
+        }
+      }
+
       map.on("load", function () {
-        addLayers();
         ready = true;
         if (pending) applyScene(pending);
+        else addLayers();
         post({ type: "mapReady" });
       });
       map.on("error", function (e) {

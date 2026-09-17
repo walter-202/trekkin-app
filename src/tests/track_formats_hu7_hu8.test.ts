@@ -6,6 +6,8 @@
 import {
   parseGPX,
   buildGPX,
+  buildGPX11,
+  toGeoJSON,
   parseKML,
   parseCSV,
   simplifyTrack,
@@ -183,6 +185,37 @@ recordTest(
   "T6: parseGPX lanza excepción clara ante XML inválido o sin puntos",
   t6Passed,
   "Capturó excepción ante archivo sin puntos legibles"
+);
+
+const geo = toGeoJSON(parsedGpx);
+const line = geo.features.find((f) => f.geometry.type === "LineString");
+const wpt = geo.features.find((f) => f.geometry.type === "Point");
+const t7Passed =
+  geo.type === "FeatureCollection" &&
+  line?.geometry.type === "LineString" &&
+  line.geometry.coordinates[0][0] === -67.8 &&
+  line.geometry.coordinates[0][1] === -16.68 &&
+  wpt?.geometry.type === "Point" &&
+  wpt.geometry.coordinates[0] === -67.78 &&
+  wpt.properties.name === "Campamento Base";
+
+recordTest(
+  "T7: toGeoJSON (cruz BK-020) convierte GPX a FeatureCollection [lng,lat]",
+  Boolean(t7Passed),
+  `features=${geo.features.length} lineCoords=${line?.geometry.type === "LineString" ? line.geometry.coordinates.length : 0}`,
+);
+
+const aliased = buildGPX11({
+  name: "Alias GPX 1.1",
+  points: parsedGpx.points,
+});
+const t8Passed = aliased === buildGPX({ name: "Alias GPX 1.1", points: parsedGpx.points }) &&
+  aliased.includes('version="1.1"');
+
+recordTest(
+  "T8: buildGPX11 es alias canónico de buildGPX (GPX 1.1)",
+  t8Passed,
+  "Mismo XML que buildGPX",
 );
 
 // Reporte en consola
