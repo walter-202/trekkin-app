@@ -257,7 +257,7 @@ export const Drawer: React.FC<DrawerProps> = ({
               >
                 MI PERFIL
               </Text>
-              <Text style={styles.itemSub}>Mis datos, métricas y sesión</Text>
+              <Text style={styles.itemSub}>Mis datos y sesión</Text>
             </View>
           </Pressable>
         ) : (
@@ -441,5 +441,9 @@ const styles = StyleSheet.create({
   },
   itemTitleActive: { color: AndeanTheme.colors.primaryLight },
   itemTitleHighlight: { color: AndeanTheme.colors.primaryLight },
-  itemSub: { color: AndeanTheme.colors.textSecondary, fontSize: 10, marginTop: 1 },
+  itemSub: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    marginTop: 1,
+  },
 });

@@ -78,7 +78,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 ## HU-02: Sesión, Perfil e Identidad — 🟢 90% (refinamiento)
 
 - **Rol:** Usuario registrado / Administrador.
-- **Narrativa:** **Como** usuario registrado **quiero** gestionar mi sesión, consultar mi perfil y actualizar mis datos **para** mantener mi identidad al día y visualizar mis métricas.
+- **Narrativa:** **Como** usuario registrado **quiero** gestionar mi sesión, consultar mi perfil y actualizar mis datos **para** mantener mi identidad al día.
 - **Criterios de Aceptación (DoD):**
   1. ✅ Acceso desde "Iniciar Sesión" o ante acción protegida.
   2. ✅ Campos: correo + contraseña.
@@ -89,9 +89,9 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   7. ✅ Sesión persistente en AsyncStorage `trekkin_auth_user`.
   8. ✅ Avatar con inicial + nombre + badge (`ADMINISTRADOR`/`SENDERISTA`) en Drawer y `HomeView`.
   9. ✅ Cierre seguro: `signOut` + purga local + retorno a visitante.
-  10. ⚠️ `ProfileView`: muestra avatar, alias, rol, métricas (`summitsCount`, Km, rutas) y correo solo lectura. Pendiente: cambio de contraseña y preferencia de tema cableados a backend.
-  11. ✅ `EditProfileView`: edita `displayName`/`username` con `UpdateProfileSchema` (3–150 / regex `/^[a-zA-Z0-9_.]+$/`), email solo lectura, sin teléfono (alcance/privacidad), Guardar/Descartar.
-- **Estado real y brecha (10%):** auth sólida. Falta cerrar acciones de `ProfileView` (password/theme) y matriz dev-build.
+  10. ⚠️ `ProfileView`: muestra avatar con inicial, alias, rol y correo solo lectura (sin métricas, montaña, tema ni contraseña visible: fuera de alcance). Pendiente: cambio de contraseña (backend + UI).
+  11. ✅ `EditProfileView`: edita `displayName`/`username` con `UpdateProfileSchema` (3–150 / regex `/^[a-zA-Z0-9_.]+$/`), email solo lectura, sin teléfono (alcance/privacidad), sin tema ni datos de montaña (fuera de alcance), Guardar/Descartar.
+- **Estado real y brecha (10%):** auth sólida. Falta cambio de contraseña y matriz dev-build.
 - **Mapeo Técnico:**
   - _Dominio:_ `LoginSchema`, `UpdateProfileSchema` en `src/core/domain/auth.schemas.ts`; `UserProfile` en `types.ts`.
   - _Aplicación:_ `LoginUser` / `LogoutUser` / `UpdateUserProfile` usecases.
