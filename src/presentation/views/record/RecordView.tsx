@@ -58,6 +58,13 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     const live = useActivityStore.getState().live;
     if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
       setStep('recording');
+    } else {
+      useActivityStore
+        .getState()
+        .restoreLiveSession()
+        .then((hasActive) => {
+          if (hasActive) setStep('recording');
+        });
     }
   }, [currentUser?.uid]);
 

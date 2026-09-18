@@ -113,4 +113,42 @@ export const activityService = {
       handleFirestoreError(error, OperationType.LIST, pointsCollectionPath);
     }
   },
+
+  /**
+   * Actualiza campos específicos de una actividad existente.
+   */
+  async updateActivity(
+    id: string,
+    updates: Partial<TrekkinActivity>,
+  ): Promise<void> {
+    const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
+    try {
+      const clean = Object.entries(updates).reduce<Record<string, unknown>>(
+        (acc, [key, value]) => {
+          if (value !== undefined) acc[key] = value;
+          return acc;
+        },
+        {},
+      );
+      if (Object.keys(clean).length === 0) return;
+      const docRef = doc(db, ACTIVITIES_COLLECTION, id);
+      await setDoc(docRef, clean, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, docPath);
+    }
+  },
+
+  /**
+   * Elimina una actividad por ID.
+   */
+  async deleteActivity(id: string): Promise<void> {
+    const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
+    try {
+      const docRef = doc(db, ACTIVITIES_COLLECTION, id);
+      const { deleteDoc } = await import("firebase/firestore");
+      await deleteDoc(docRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, docPath);
+    }
+  },
 };

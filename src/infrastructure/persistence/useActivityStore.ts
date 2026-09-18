@@ -103,6 +103,7 @@ interface ActivityState {
   stopWatch: () => void;
   listActivities: (uid: string) => Promise<void>;
   loadActivity: (id: string, uid: string) => Promise<TrekkinActivity | null>;
+  restoreLiveSession: () => Promise<boolean>;
   clearLive: () => Promise<void>;
   clearError: () => void;
 }
@@ -117,6 +118,19 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   finishing: false,
   error: null,
   watch: null,
+
+  restoreLiveSession: async () => {
+    const restored = await loadLive();
+    if (restored) {
+      const resumable =
+        restored.phase === "in_progress" || restored.phase === "paused";
+      if (resumable) {
+        set({ live: restored });
+        return true;
+      }
+    }
+    return false;
+  },
 
   loadCatalog: async () => {
     set({ isLoading: true, error: null });

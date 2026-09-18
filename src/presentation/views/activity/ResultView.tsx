@@ -1,15 +1,26 @@
 import React, { useState } from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
-import { ChevronLeft, History, Trophy, Map as MapIcon, Share2 } from "lucide-react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  ChevronLeft,
+  History,
+  Trophy,
+  Map as MapIcon,
+  Share2,
+  Save,
+  CheckCircle2,
+} from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
 import {
   calculatePaceMinPerKm,
   calculateSpeedKmh,
   calculateElevationDeltaM,
+  suggestRouteDifficulty,
 } from "../../../core/domain/calculations";
 import { ExportTrackFileUseCase } from "../../../core/application/activity/ExportTrackFile.usecase";
 import { shareService } from "../../../infrastructure/share/shareService";
+import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
+import { routeService } from "../../../infrastructure/database/routeService";
 import type { TrekkinActivity } from "../../../core/domain/types";
 
 /**
@@ -35,6 +46,45 @@ export const ResultView: React.FC<ResultViewProps> = ({
   const elevation = calculateElevationDeltaM(saved.recordedPoints);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+
+  const plan = usePlanStore((s) => s.plan);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [savedPlanSuccess, setSavedPlanSuccess] = useState(false);
+
+  const canUpdatePlan =
+    Boolean(plan?.id) &&
+    (plan?.id === saved.route.routeId || saved.route.routeId?.startsWith("plan-")) &&
+    saved.recordedPoints.length > 0;
+
+  const handleUpdatePlannedRoute = async () => {
+    if (!plan?.id) return;
+    setSavingPlan(true);
+    try {
+      const difficulty = suggestRouteDifficulty(
+        saved.distanceCoveredKm,
+        elevation.gainM,
+      );
+      await routeService.updateRoute(plan.id, {
+        waypoints: saved.recordedPoints,
+        checkpoints: saved.completedCheckpoints,
+        distanceKm: saved.distanceCoveredKm,
+        durationMinutes: Math.max(1, Math.round(saved.durationSeconds / 60)),
+        difficulty,
+        status: "in_review",
+        updatedAt: Date.now(),
+      });
+      setSavedPlanSuccess(true);
+      Alert.alert(
+        "Ruta actualizada",
+        "Tu ruta planificada se actualizó con los puntos GPS reales y quedó enviada para revisión.",
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error al actualizar la ruta.";
+      Alert.alert("Error", msg);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   const handleExportGpx = async () => {
     setExporting(true);
@@ -167,6 +217,33 @@ export const ResultView: React.FC<ResultViewProps> = ({
         <Text style={styles.exportError}>{exportError}</Text>
       ) : null}
 
+      {canUpdatePlan ? (
+        <Pressable
+          onPress={handleUpdatePlannedRoute}
+          disabled={savingPlan || savedPlanSuccess}
+          style={({ pressed }) => [
+            styles.planBtn,
+            pressed && styles.pressed,
+            savedPlanSuccess && styles.planBtnSuccess,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Guardar trazado en mi ruta planificada"
+        >
+          {savedPlanSuccess ? (
+            <CheckCircle2 size={16} color="#064E3B" />
+          ) : (
+            <Save size={16} color="#064E3B" />
+          )}
+          <Text style={styles.primaryText}>
+            {savingPlan
+              ? "GUARDANDO EN RUTA…"
+              : savedPlanSuccess
+                ? "RUTA ACTUALIZADA (EN REVISIÓN)"
+                : "ACTUALIZAR RUTA PLANIFICADA"}
+          </Text>
+        </Pressable>
+      ) : null}
+
       <Pressable
         onPress={handleExportGpx}
         disabled={exporting || saved.recordedPoints.length === 0}
@@ -279,6 +356,18 @@ const styles = StyleSheet.create({
   metricKey: { color: "#9CA3AF", fontSize: 12, flex: 1 },
   metricValue: { color: "#F9FAFB", fontSize: 12, fontWeight: "800" },
   exportError: { color: "#FCA5A5", fontSize: 11, textAlign: "center" },
+  planBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#34D399",
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  planBtnSuccess: {
+    backgroundColor: "#10B981",
+  },
   primaryBtn: {
     flexDirection: "row",
     alignItems: "center",
