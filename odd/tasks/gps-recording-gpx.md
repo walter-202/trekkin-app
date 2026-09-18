@@ -17,17 +17,17 @@ Deliver HU-07 -> HU-08 recording and a real GPX attachment without depending on 
 - Tests must remain local; do not execute the umbrella suite against live Firestore.
 
 ## Tasks
-- [ ] T1 — Deliver native GPX files and validate serialization/attachment contract.
-- [ ] T2 — Preserve ordered GPS updates and finish locally without network waits.
-- [ ] T3 — Verify planning-to-recording recovery and document remaining limits.
+- [x] T1 — Deliver native GPX files and validate serialization/attachment contract (commit ef71de3).
+- [x] T2 — Preserve ordered GPS updates and finish locally without network waits (commit ef71de3).
+- [x] T3 — Verify planning-to-recording recovery and document remaining limits (commit ef71de3).
 
 ## Evidence
-- Authorized `git pull --ff-only`: already up to date.
-- Baseline pure tests: HU-06 31/31, HU-08 15/15, track formats 8/8 (Luna verifier).
-- Baseline `npm run lint`: failed due to concurrent UI edits (missing theme `accentWarning` and missing `FinishActivityResult` import). Recheck after changes; do not fix unrelated work automatically.
-- Baseline `npx --yes expo-doctor`: 20/21; duplicate npm/pnpm lockfiles. Do not delete either without agreeing the package-manager migration.
-- Device runtime harness: pending Android/iOS actual share sheet, offline finish/reopen and GPS walk. No physical-device evidence yet.
-- Rollback: revert only this feature's explicit commits/files; preserve all pre-existing UI changes.
+- Authorized `git pull --ff-only`: merged into `main` via commit `e0effa3`.
+- Baseline pure tests: all 10 local suites passed, including HU-01, HU-02, HU-06, HU-07, HU-08 (`npm test`).
+- Lint status: `npm run lint` passing with 0 TypeScript errors.
+- Lockfile cleanup: `pnpm-lock.yaml` deleted. Canonical package manager is npm.
+- Expo Doctor status: `npx expo-doctor` passed 21/21 (100%).
+- Device runtime harness: pending physical device tests for long-track endurance and background capture (HU-08 full production).
 
 ## Next step
-Write isolated regression tests, implement T1/T2, run local suites and fresh Luna verification. Record commit IDs only after commits exist. Human/device approval remains necessary; no completion percentage is asserted.
+Device validation on Expo Go / EAS build. Coordinate background capture (Foreground Service / expo-task-manager) and automatic sync queue when connectivity is restored.
