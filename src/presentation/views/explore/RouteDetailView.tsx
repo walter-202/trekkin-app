@@ -12,7 +12,6 @@ import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
 import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
-import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
@@ -73,13 +72,8 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         });
         if (alive) setRoute(detail);
       } catch (err: any) {
-        // Fallback demo: si Firestore falla o está vacío, resuelve desde seed
-        // para validar el flujo en Expo Go (no oculta errores reales).
-        const seed =
-          SEED_PUBLISHED_ROUTES.find((r) => r.id === routeId) ?? null;
         if (alive) {
-          if (seed) setRoute(seed);
-          else setError(err?.message ?? "No se pudo cargar la ruta.");
+          setError(err?.message ?? "No se pudo cargar la ruta.");
         }
       } finally {
         if (alive) setLoading(false);

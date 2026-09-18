@@ -13,14 +13,14 @@
     "seed:routes": "node scripts/seed-routes-propuesta.mjs"
   },
   "dependencies": {
-    "@expo/metro-runtime": "~57.0.15",
+    "@expo/metro-runtime": "~57.0.16",
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "^57.0.22",
+    "expo": "~57.0.24",
     "expo-asset": "~57.0.17",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.18",
     "expo-linking": "~57.0.10",
-    "expo-location": "~57.0.17",
+    "expo-location": "~57.0.19",
     "expo-status-bar": "~57.0.1",
     "firebase": "^12.18.0",
     "lucide-react-native": "^1.46.0",
@@ -31,7 +31,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.2",
-    "react-native-webview": "13.15.0",
+    "react-native-webview": "13.16.1",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },

@@ -14,7 +14,6 @@ import type { RouteModel, RouteDifficulty } from "../../../core/domain/types";
 import { ListPublishedRoutesUseCase } from "../../../core/application/explore/ListPublishedRoutes.usecase";
 import { SearchRoutesUseCase } from "../../../core/application/explore/SearchRoutes.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
-import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { RouteCard } from "./RouteCard";
@@ -43,11 +42,10 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onBack,
   onStartActivity,
 }) => {
-  const { currentUser, isGuest, isAuthenticated, exitGuest } = useAuth();
+  const { currentUser, isAuthenticated, isGuest, exitGuest } = useAuth();
   const [routes, setRoutes] = useState<RouteModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [usingDemo, setUsingDemo] = useState(false);
   const [texto, setTexto] = useState("");
   const [dificultad, setDificultad] = useState<"todas" | RouteDifficulty>(
     "todas",
@@ -61,16 +59,14 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       const data = await ListPublishedRoutesUseCase({
         listPublished: () => routeService.listPublishedRoutes(),
       });
-      if (data.length === 0) {
-        setRoutes(SEED_PUBLISHED_ROUTES);
-        setUsingDemo(true);
-      } else {
-        setRoutes(data);
-        setUsingDemo(false);
-      }
-    } catch {
-      setRoutes(SEED_PUBLISHED_ROUTES);
-      setUsingDemo(true);
+      setRoutes(data);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar las rutas públicas.",
+      );
+      setRoutes([]);
     } finally {
       setLoading(false);
     }
@@ -138,12 +134,6 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       </View>
       <Text style={styles.title}>Catálogo de rutas públicas</Text>
       <Text style={styles.session}>Sesión: {sessionLabel}</Text>
-      {usingDemo ? (
-        <Banner
-          tone="success"
-          message="Datos demo (Firestore vacío o sin red)."
-        />
-      ) : null}
       {error ? <Banner tone="error" message={error} /> : null}
 
       <View style={styles.searchRow}>

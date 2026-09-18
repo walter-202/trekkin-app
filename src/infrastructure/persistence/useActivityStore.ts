@@ -5,7 +5,6 @@ import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
 import type { RoutePlan } from "../../core/domain/plan";
 import { appStorage } from "./storage";
 import { routeService } from "../database/routeService";
-import { SEED_PUBLISHED_ROUTES } from "../database/routeSeed";
 import { activityService } from "../database/activityService";
 import {
   locationService,
@@ -157,17 +156,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           await appStorage.removeItem(AUTOSAVE_KEY);
         }
       }
-      let routes = await routeService.listPublishedRoutes();
-      if (routes.length === 0) {
-        // Fallback demo (mismo catálogo que HU-03): Firestore sin rutas
-        // `published` en dev → usa el seed local para no bloquear el flujo.
-        routes = SEED_PUBLISHED_ROUTES;
-      }
+      const routes = await routeService.listPublishedRoutes();
       set({ catalogRoutes: routes, isLoading: false });
-    } catch {
+    } catch (err: unknown) {
       set({
-        catalogRoutes: SEED_PUBLISHED_ROUTES,
-        error: "Sin conexión a Firestore. Mostrando datos demo.",
+        catalogRoutes: [],
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las rutas de Firestore.",
         isLoading: false,
       });
     }
@@ -179,11 +176,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       const live = await StartActivityUseCase(
         { routeId, userId: uid, userName },
         {
-          getRoute: async (id) => {
-            const fromDb = await routeService.getRoute(id);
-            if (fromDb) return fromDb;
-            return SEED_PUBLISHED_ROUTES.find((r) => r.id === id) ?? null;
-          },
+          getRoute: (id) => routeService.getRoute(id),
         },
       );
       await saveLive(live);

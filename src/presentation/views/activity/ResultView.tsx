@@ -53,7 +53,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
 
   const canUpdatePlan =
     Boolean(plan?.id) &&
-    (plan?.id === saved.route.routeId || saved.route.routeId?.startsWith("plan-")) &&
+    (plan?.id === saved.routeId || saved.routeId?.startsWith("plan-")) &&
     saved.recordedPoints.length > 0;
 
   const handleUpdatePlannedRoute = async () => {
@@ -66,7 +66,6 @@ export const ResultView: React.FC<ResultViewProps> = ({
       );
       await routeService.updateRoute(plan.id, {
         waypoints: saved.recordedPoints,
-        checkpoints: saved.completedCheckpoints,
         distanceKm: saved.distanceCoveredKm,
         durationMinutes: Math.max(1, Math.round(saved.durationSeconds / 60)),
         difficulty,
