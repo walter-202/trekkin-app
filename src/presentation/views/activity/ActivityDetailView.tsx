@@ -12,6 +12,7 @@ import { TrekMap } from "../../components/map/TrekMap";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
+import { isFreeSavedActivity } from "../../../core/domain/activity";
 import type { TrekkinActivity } from "../../../core/domain/types";
 
 /**
@@ -140,12 +141,14 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             {formatKm(activity.distanceCoveredKm)}
           </Text>
         </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Distancia restante</Text>
-          <Text style={styles.metricValue}>
-            {formatKm(activity.remainingDistanceKm)}
-          </Text>
-        </View>
+        {!isFreeSavedActivity(activity) && (
+          <View style={styles.metricRow}>
+            <Text style={styles.metricKey}>Distancia restante</Text>
+            <Text style={styles.metricValue}>
+              {formatKm(activity.remainingDistanceKm)}
+            </Text>
+          </View>
+        )}
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Duración</Text>
           <Text style={styles.metricValue}>

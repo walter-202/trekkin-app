@@ -13,6 +13,10 @@ import {
   type LocationAccuracyOptions,
 } from "../location/locationService";
 import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
+import {
+  StartFreeRecordingUseCase,
+  type FreeRecordingPosition,
+} from "../../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
 import { RecordPointUseCase } from "../../core/application/activity/RecordPoint.usecase";
 import { PauseActivityUseCase } from "../../core/application/activity/PauseActivity.usecase";
@@ -85,6 +89,11 @@ interface ActivityState {
     uid: string,
     userName: string,
     routeId: string,
+  ) => Promise<boolean>;
+  startFreeRecording: (
+    position: FreeRecordingPosition,
+    uid: string,
+    userName: string,
   ) => Promise<boolean>;
   beginTracking: () => Promise<boolean>;
   recordPoint: (p: GpsPosition) => Promise<void>;
@@ -165,6 +174,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           err instanceof Error
             ? err.message
             : "No se pudo cargar la ruta seleccionada.",
+        isLoading: false,
+      });
+      return false;
+    }
+  },
+
+  startFreeRecording: async (position, uid, userName) => {
+    set({ isLoading: true, error: null });
+    try {
+      const prepared = StartFreeRecordingUseCase({
+        position,
+        userId: uid,
+        userName,
+      });
+      const live = await BeginTrackingUseCase(prepared);
+      await saveLive(live);
+      set({ live, isLoading: false });
+      return true;
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la grabación GPS.",
         isLoading: false,
       });
       return false;

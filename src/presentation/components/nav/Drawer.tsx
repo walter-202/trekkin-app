@@ -9,6 +9,7 @@ import {
   X,
   HardDrive,
   Activity,
+  LocateFixed,
 } from "lucide-react-native";
 import type { UserProfile } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -16,6 +17,7 @@ import { AndeanTheme } from "../../theme";
 export type DrawerRoute =
   | "inicio"
   | "record"
+  | "free-record"
   | "actividad"
   | "descargas"
   | "perfil"
@@ -173,6 +175,34 @@ export const Drawer: React.FC<DrawerProps> = ({
               PLANIFICAR RUTA
             </Text>
             <Text style={styles.itemSub}>Trazado y puntos provisionales</Text>
+          </View>
+        </Pressable>
+
+        {/* 2b. Grabar ruta libre (HU-08): desde la ubicación GPS actual */}
+        <Pressable
+          onPress={() => go("free-record")}
+          style={[styles.item, active === "free-record" && styles.itemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Grabar ruta desde mi ubicación"
+        >
+          <LocateFixed
+            size={18}
+            color={
+              active === "free-record"
+                ? AndeanTheme.colors.primaryLight
+                : AndeanTheme.colors.textSecondary
+            }
+          />
+          <View style={styles.itemTextWrap}>
+            <Text
+              style={[
+                styles.itemTitle,
+                active === "free-record" && styles.itemTitleActive,
+              ]}
+            >
+              GRABAR RUTA
+            </Text>
+            <Text style={styles.itemSub}>Desde tu ubicación actual</Text>
           </View>
         </Pressable>
 
@@ -441,5 +471,9 @@ const styles = StyleSheet.create({
   },
   itemTitleActive: { color: AndeanTheme.colors.primaryLight },
   itemTitleHighlight: { color: AndeanTheme.colors.primaryLight },
-  itemSub: { color: AndeanTheme.colors.textSecondary, fontSize: 10, marginTop: 1 },
+  itemSub: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    marginTop: 1,
+  },
 });

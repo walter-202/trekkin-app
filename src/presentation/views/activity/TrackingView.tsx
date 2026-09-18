@@ -15,8 +15,10 @@ import {
   CheckCircle2,
   Circle,
   ListChecks,
+  MapPinPlus,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
+import { AddCheckpointModal } from "./AddCheckpointModal";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import {
   activeElapsedMs,
@@ -29,6 +31,8 @@ import {
 import { formatDuration } from "../../utils/format";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import type { PlannedPoint } from "../../../core/domain/plan";
+import type { CheckpointCategory } from "../../../core/domain/types";
+import type { LocationAccuracyOptions } from "../../../infrastructure/location/locationService";
 
 /**
  * HU-06 — Vista principal del recorrido.
@@ -36,17 +40,33 @@ import type { PlannedPoint } from "../../../core/domain/plan";
  * HUD de DISTANCIA / TIEMPO / RESTANTE en tiempo real; checkpoints con estado;
  * botones PAUSAR / REANUDAR / FINALIZAR (con confirmación).
  */
+/**
+ * Modo de la vista de seguimiento.
+ * - `guide` (default): ruta con destino/checkpoints (HU-06/plan HU-07).
+ * - `free`: grabación libre GRABAR RUTA (sin destino ni checkpoints oficiales).
+ */
+export type TrackingMode = "guide" | "free";
+
 interface TrackingViewProps {
   onFinish: (result: FinishActivityResult) => void;
+  /** HU-08: High + 5 m / 2.5 s. HU-06 omite y usa Balanced. */
+  watchOptions?: LocationAccuracyOptions;
+  /** Modo visual. Default `guide` para no alterar HU-06/HU-07. */
+  mode?: TrackingMode;
 }
 
-export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
+export const TrackingView: React.FC<TrackingViewProps> = ({
+  onFinish,
+  watchOptions,
+  mode = "guide",
+}) => {
   const live = useActivityStore((s) => s.live);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
 
   const [, tick] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showCheckpoint, setShowCheckpoint] = useState(false);
   const [gpsWarning, setGpsWarning] = useState(false);
 
   useEffect(() => {
@@ -59,13 +79,13 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
     if (current && current.phase === "in_progress") {
       useActivityStore
         .getState()
-        .startWatch()
+        .startWatch(watchOptions)
         .then((ok) => setGpsWarning(!ok));
     }
     return () => {
       useActivityStore.getState().stopWatch();
     };
-  }, []);
+  }, [watchOptions]);
 
   if (!live) return null;
 
@@ -97,9 +117,29 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
   const handleResume = async () => {
     const ok = await useActivityStore.getState().resumeActivity();
     if (ok) {
-      const watchOk = await useActivityStore.getState().startWatch();
+      const watchOk = await useActivityStore
+        .getState()
+        .startWatch(watchOptions);
       setGpsWarning(!watchOk);
     }
+  };
+
+  const handleAddCheckpoint = async (input: {
+    name: string;
+    category: CheckpointCategory;
+    notes?: string;
+  }) => {
+    const point =
+      live.recordedPoints[live.recordedPoints.length - 1] ??
+      live.route.startPoint;
+    if (!point) return false;
+    return useActivityStore.getState().addCheckpoint({
+      name: input.name,
+      category: input.category,
+      lat: point.lat,
+      lng: point.lng,
+      notes: input.notes,
+    });
   };
 
   const handleFinalize = async () => {
@@ -109,7 +149,11 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
   };
 
   const visitedCount = live.completedCheckpoints.length;
-  const totalCheckpoints = live.route.checkpoints.length;
+  const listedCheckpoints = [
+    ...live.route.checkpoints,
+    ...(live.newCheckpoints ?? []),
+  ];
+  const totalCheckpoints = listedCheckpoints.length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -124,7 +168,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
       <TrekMap
         trail={live.route.waypoints}
         track={live.recordedPoints}
-        pointsOfInterest={live.route.checkpoints}
+        pointsOfInterest={listedCheckpoints}
         start={
           live.route
             ? {
@@ -157,54 +201,72 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
           <Text style={styles.hudLabel}>TIEMPO</Text>
           <Text style={styles.hudValue}>{formatDuration(elapsedSeconds)}</Text>
         </View>
-        <View style={styles.hudCol}>
-          <Text style={styles.hudLabel}>RESTANTE</Text>
-          <Text style={styles.hudValue}>{remainingKm.toFixed(2)} km</Text>
-        </View>
-      </View>
-
-      <View style={styles.checkpointsCard}>
-        <View style={styles.checkpointsHeader}>
-          <ListChecks size={14} color="#D97706" />
-          <Text style={styles.checkpointsTitle}>
-            CHECKPOINTS ({visitedCount}/{totalCheckpoints})
-          </Text>
-        </View>
-        {totalCheckpoints === 0 ? (
-          <Text style={styles.muted}>
-            Esta ruta no tiene checkpoints publicados.
-          </Text>
-        ) : (
-          live.route.checkpoints.map((cp) => {
-            const visited = live.completedCheckpoints.includes(cp.id);
-            return (
-              <View key={cp.id} style={styles.checkpointRow}>
-                {visited ? (
-                  <CheckCircle2 size={16} color="#10B981" />
-                ) : (
-                  <Circle size={16} color="#4B5563" />
-                )}
-                <Text
-                  style={[
-                    styles.checkpointName,
-                    visited && styles.checkpointNameVisited,
-                  ]}
-                >
-                  {cp.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.checkpointState,
-                    visited && styles.checkpointStateVisited,
-                  ]}
-                >
-                  {visited ? "Visitado" : "Pendiente"}
-                </Text>
-              </View>
-            );
-          })
+        {mode === "guide" && (
+          <View style={styles.hudCol}>
+            <Text style={styles.hudLabel}>RESTANTE</Text>
+            <Text style={styles.hudValue}>{remainingKm.toFixed(2)} km</Text>
+          </View>
         )}
       </View>
+
+      {mode === "guide" && (
+        <View style={styles.checkpointsCard}>
+          <View style={styles.checkpointsHeader}>
+            <ListChecks size={14} color="#D97706" />
+            <Text style={styles.checkpointsTitle}>
+              CHECKPOINTS ({visitedCount}/{totalCheckpoints})
+            </Text>
+          </View>
+          {totalCheckpoints === 0 ? (
+            <Text style={styles.muted}>
+              Esta ruta no tiene checkpoints publicados.
+            </Text>
+          ) : (
+            listedCheckpoints.map((cp) => {
+              const visited = live.completedCheckpoints.includes(cp.id);
+              return (
+                <View key={cp.id} style={styles.checkpointRow}>
+                  {visited ? (
+                    <CheckCircle2 size={16} color="#10B981" />
+                  ) : (
+                    <Circle size={16} color="#4B5563" />
+                  )}
+                  <Text
+                    style={[
+                      styles.checkpointName,
+                      visited && styles.checkpointNameVisited,
+                    ]}
+                  >
+                    {cp.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.checkpointState,
+                      visited && styles.checkpointStateVisited,
+                    ]}
+                  >
+                    {visited ? "Visitado" : "Pendiente"}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
+
+      <Pressable
+        onPress={() => setShowCheckpoint(true)}
+        disabled={live.phase === "finished"}
+        style={({ pressed }) => [
+          styles.checkpointBtn,
+          pressed && styles.pressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Agregar parada en la posición actual"
+      >
+        <MapPinPlus size={16} color="#10B981" />
+        <Text style={styles.checkpointBtnText}>AGREGAR PARADA</Text>
+      </Pressable>
 
       {live.phase === "paused" && (
         <View style={styles.pausedBanner}>
@@ -313,6 +375,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({ onFinish }) => {
           </View>
         </View>
       </Modal>
+
+      <AddCheckpointModal
+        visible={showCheckpoint}
+        onClose={() => setShowCheckpoint(false)}
+        onSubmit={handleAddCheckpoint}
+      />
     </ScrollView>
   );
 };
@@ -481,4 +549,21 @@ const styles = StyleSheet.create({
   modalConfirmText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
   pressed: { opacity: 0.8 },
   muted: { color: "#9CA3AF", fontSize: 11 },
+  checkpointBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#0A241C",
+    borderWidth: 1,
+    borderColor: "#1A4537",
+    borderRadius: 14,
+    paddingVertical: 12,
+  },
+  checkpointBtnText: {
+    color: "#10B981",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
 });

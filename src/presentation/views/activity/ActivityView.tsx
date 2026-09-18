@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, Route as RouteIcon, Mountain } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
+import { isFreeRecording } from "../../../core/domain/activity";
 import type { TrekkinActivity, RouteModel } from "../../../core/domain/types";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import { RouteCard } from "../explore/RouteCard";
@@ -59,6 +60,9 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
 
   useEffect(() => {
     if (step !== "boot" || !live) return;
+    // ACTIVIDAD GPS solo recupera actividades de ruta (HU-06/plan).
+    // Las grabaciones libres (GRABAR RUTA) viven en FreeRecordView.
+    if (isFreeRecording(live)) return;
     if (live.phase === "ready") setStep("prepare");
     else if (live.phase === "in_progress" || live.phase === "paused")
       setStep("tracking");
@@ -155,11 +159,11 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
                   rutas nuevas que se publiquen.
                 </Text>
                 <Pressable
-  onPress={() => setStep("prepare")}
-  style={styles.recordBtn}
->
-  <Text style={styles.recordBtnText}>＋ GRABAR NUEVA RUTA</Text>
-</Pressable>
+                  onPress={() => setStep("prepare")}
+                  style={styles.recordBtn}
+                >
+                  <Text style={styles.recordBtnText}>＋ GRABAR NUEVA RUTA</Text>
+                </Pressable>
                 {error ? (
                   <View style={styles.demoBanner}>
                     <Text style={styles.demoText}>{error}</Text>

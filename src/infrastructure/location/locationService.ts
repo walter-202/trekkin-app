@@ -33,6 +33,13 @@ export interface LocationAccuracyOptions {
   timeInterval?: number;
 }
 
+/** HU-08 — Configuración de grabación: High + 5 m / 2.5 s. */
+export const RECORDING_WATCH_OPTIONS: LocationAccuracyOptions = {
+  accuracy: Location.Accuracy.High,
+  distanceInterval: 5,
+  timeInterval: 2500,
+};
+
 function toGpsPosition(pos: Location.LocationObject): GpsPosition {
   return {
     latitude: pos.coords.latitude,

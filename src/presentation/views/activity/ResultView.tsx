@@ -1,13 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import {
   ChevronLeft,
   History,
   Trophy,
   Map as MapIcon,
+  Share2,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
+import { ExportTrackFileUseCase } from "../../../core/application/activity/ExportTrackFile.usecase";
+import { isFreeSavedActivity } from "../../../core/domain/activity";
+import { shareService } from "../../../infrastructure/share/shareService";
 import type { TrekkinActivity } from "../../../core/domain/types";
 
 /**
@@ -30,6 +34,25 @@ export const ResultView: React.FC<ResultViewProps> = ({
   const completed = saved.status === "completed";
   const first = saved.recordedPoints[0];
   const last = saved.recordedPoints[saved.recordedPoints.length - 1];
+  // Grabación libre (GRABAR RUTA): sin destino, no se muestra RESTANTE.
+  const showRemaining = !isFreeSavedActivity(saved);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const handleExportGpx = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const file = ExportTrackFileUseCase(saved);
+      await shareService.shareGpxFile(file.fileName, file.content);
+    } catch (err: unknown) {
+      setExportError(
+        err instanceof Error ? err.message : "No se pudo exportar el GPX.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -101,12 +124,14 @@ export const ResultView: React.FC<ResultViewProps> = ({
             {formatDuration(saved.durationSeconds)}
           </Text>
         </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Distancia restante</Text>
-          <Text style={styles.metricValue}>
-            {formatKm(saved.remainingDistanceKm)}
-          </Text>
-        </View>
+        {showRemaining && (
+          <View style={styles.metricRow}>
+            <Text style={styles.metricKey}>Distancia restante</Text>
+            <Text style={styles.metricValue}>
+              {formatKm(saved.remainingDistanceKm)}
+            </Text>
+          </View>
+        )}
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Puntos registrados</Text>
           <Text style={styles.metricValue}>{saved.recordedPoints.length}</Text>
@@ -116,6 +141,23 @@ export const ResultView: React.FC<ResultViewProps> = ({
           <Text style={styles.metricValue}>{formatDate(saved.createdAt)}</Text>
         </View>
       </View>
+
+      {exportError ? (
+        <Text style={styles.exportError}>{exportError}</Text>
+      ) : null}
+
+      <Pressable
+        onPress={handleExportGpx}
+        disabled={exporting || saved.recordedPoints.length === 0}
+        style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel="Exportar recorrido GPX"
+      >
+        <Share2 size={16} color="#064E3B" />
+        <Text style={styles.primaryText}>
+          {exporting ? "EXPORTANDO…" : "EXPORTAR GPX"}
+        </Text>
+      </Pressable>
 
       <Pressable
         onPress={onViewTrack}
@@ -250,5 +292,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   linkText: { color: "#9CA3AF", fontSize: 12 },
+  exportError: { color: "#FCA5A5", fontSize: 11, textAlign: "center" },
   pressed: { opacity: 0.8 },
 });

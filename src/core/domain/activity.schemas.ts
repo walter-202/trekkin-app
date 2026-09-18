@@ -11,7 +11,10 @@ import type { CheckpointCategory, ActivityStatus } from "./types";
 // CHECKPOINTS & PARADAS (HU-08 - Cruz)
 // ============================================================================
 
-export const CHECKPOINT_CATEGORY_VALUES: [CheckpointCategory, ...CheckpointCategory[]] = [
+export const CHECKPOINT_CATEGORY_VALUES: [
+  CheckpointCategory,
+  ...CheckpointCategory[],
+] = [
   "agua",
   "camping",
   "peligro",
@@ -52,7 +55,11 @@ export const CreateCheckpointSchema = z.object({
   category: CheckpointCategorySchema,
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
-  notes: z.string().trim().max(1000, "La nota no puede superar los 1000 caracteres").optional(),
+  notes: z
+    .string()
+    .trim()
+    .max(1000, "La nota no puede superar los 1000 caracteres")
+    .optional(),
   photoUrl: z.string().max(500).optional(),
   createdAt: z.number().optional(),
 });
@@ -125,10 +132,13 @@ export const TrekkinActivitySchema = z.object({
   distanceCoveredKm: z.number().min(0, "La distancia no puede ser negativa"),
   remainingDistanceKm: z.number().min(0).default(0),
   durationSeconds: z.number().min(0, "La duración no puede ser negativa"),
-  recordedPoints: z.array(RecordedPointSchema.or(CoordinatesSchema)).default([]),
+  recordedPoints: z
+    .array(RecordedPointSchema.or(CoordinatesSchema))
+    .default([]),
   completedCheckpoints: z.array(z.string().trim().max(128)).default([]),
   isSynced: z.boolean().default(false),
   createdAt: z.number().min(0),
+  origin: z.enum(["free", "route", "plan"]).optional(),
 });
 
 /**

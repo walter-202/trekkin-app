@@ -1,19 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
-import * as Location from 'expo-location';
-import { ArrowLeft, X } from 'lucide-react-native';
-import { useAuth } from '../../../infrastructure/auth/AuthContext';
-import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
-import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
-import { appStorage } from '../../../infrastructure/persistence/storage';
-import type { LiveActivity } from '../../../core/domain/activity';
-import { DraftsView } from './DraftsView';
-import { CreateRouteView } from './CreateRouteView';
-import { PlanEditorView } from './PlanEditorView';
-import { StartPointConfirmView } from './StartPointConfirmView';
-import { ReadyForGpsView } from './ReadyForGpsView';
-import { RecordingActivityView } from './RecordingActivityView';
-import { ActivitySummaryView } from './ActivitySummaryView';
+import React, { useEffect, useState } from "react";
+import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
+import * as Location from "expo-location";
+import { ArrowLeft, X } from "lucide-react-native";
+import { useAuth } from "../../../infrastructure/auth/AuthContext";
+import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
+import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
+import { appStorage } from "../../../infrastructure/persistence/storage";
+import type { LiveActivity } from "../../../core/domain/activity";
+import {
+  isFreeRecording,
+  isResumableLive,
+} from "../../../core/domain/activity";
+import { DraftsView } from "./DraftsView";
+import { CreateRouteView } from "./CreateRouteView";
+import { PlanEditorView } from "./PlanEditorView";
+import { StartPointConfirmView } from "./StartPointConfirmView";
+import { ReadyForGpsView } from "./ReadyForGpsView";
+import { RecordingActivityView } from "./RecordingActivityView";
+import { ActivitySummaryView } from "./ActivitySummaryView";
 
 /**
  * HU-07 + HU-08 — Hub de planificación y grabación GPS de rutas.
@@ -21,32 +25,32 @@ import { ActivitySummaryView } from './ActivitySummaryView';
  * drafts -> create -> editor -> confirm -> ready -> recording -> summary.
  */
 type RecordStep =
-  | 'drafts'
-  | 'create'
-  | 'editor'
-  | 'confirm'
-  | 'ready'
-  | 'recording'
-  | 'summary';
+  | "drafts"
+  | "create"
+  | "editor"
+  | "confirm"
+  | "ready"
+  | "recording"
+  | "summary";
 
 interface RecordViewProps {
   onClose?: () => void;
 }
 
 const STEP_TITLES: Record<RecordStep, string> = {
-  drafts: 'MI PLANIFICACIÓN',
-  create: 'CREAR NUEVA RUTA',
-  editor: 'EDITAR PLANIFICACIÓN',
-  confirm: 'CONFIRMAR PUNTO DE INICIO',
-  ready: 'LISTA PARA GRABAR',
-  recording: 'GRABANDO RECORRIDO',
-  summary: 'RESUMEN DE RUTA',
+  drafts: "MI PLANIFICACIÓN",
+  create: "CREAR NUEVA RUTA",
+  editor: "EDITAR PLANIFICACIÓN",
+  confirm: "CONFIRMAR PUNTO DE INICIO",
+  ready: "LISTA PARA GRABAR",
+  recording: "GRABANDO RECORRIDO",
+  summary: "RESUMEN DE RUTA",
 };
 
 export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   const { currentUser } = useAuth();
   const { plan, initializePlan, newDraftPlan } = usePlanStore();
-  const [step, setStep] = useState<RecordStep>('drafts');
+  const [step, setStep] = useState<RecordStep>("drafts");
 
   useEffect(() => {
     if (currentUser) {
@@ -54,17 +58,18 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     }
 
     // Si ya existe una sesión de grabación activa o recuperable en almacenamiento local
+    // (solo de plan HU-07; las libres viven en FreeRecordView).
     const live = useActivityStore.getState().live;
-    if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
-      setStep('recording');
+    if (isResumableLive(live) && !isFreeRecording(live)) {
+      setStep("recording");
     } else {
-      appStorage.getItem('trekking_activity_autosave').then((raw) => {
+      appStorage.getItem("trekking_activity_autosave").then((raw) => {
         if (!raw) return;
         try {
           const parsed = JSON.parse(raw) as LiveActivity;
-          if (parsed && (parsed.phase === 'in_progress' || parsed.phase === 'paused')) {
+          if (isResumableLive(parsed) && !isFreeRecording(parsed)) {
             useActivityStore.setState({ live: parsed });
-            setStep('recording');
+            setStep("recording");
           }
         } catch {
           // ignore corrupted data
@@ -77,36 +82,36 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 
   const goBack = () => {
     switch (step) {
-      case 'create':
-      case 'editor':
-        setStep('drafts');
+      case "create":
+      case "editor":
+        setStep("drafts");
         break;
-      case 'confirm':
-        setStep('editor');
+      case "confirm":
+        setStep("editor");
         break;
-      case 'ready':
-        setStep('drafts');
+      case "ready":
+        setStep("drafts");
         break;
-      case 'recording':
+      case "recording":
         Alert.alert(
-          'Grabación en curso',
-          'La actividad sigue registrándose en primer plano. ¿Deseas pausar y volver al menú?',
+          "Grabación en curso",
+          "La actividad sigue registrándose en primer plano. ¿Deseas pausar y volver al menú?",
           [
-            { text: 'Continuar grabando', style: 'cancel' },
+            { text: "Continuar grabando", style: "cancel" },
             {
-              text: 'Salir al menú',
+              text: "Salir al menú",
               onPress: async () => {
                 await useActivityStore.getState().pauseActivity();
-                setStep('drafts');
+                setStep("drafts");
               },
             },
-          ]
+          ],
         );
         break;
-      case 'summary':
-        setStep('drafts');
+      case "summary":
+        setStep("drafts");
         break;
-      case 'drafts':
+      case "drafts":
       default:
         if (onClose) onClose();
         break;
@@ -115,15 +120,15 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 
   const handleCreate = () => {
     newDraftPlan(currentUser.uid, currentUser.displayName);
-    setStep('create');
+    setStep("create");
   };
 
   const handleOpenDraft = async (id: string) => {
     const ok = await usePlanStore.getState().loadDraft(id, currentUser.uid);
-    if (ok) setStep('editor');
+    if (ok) setStep("editor");
   };
 
-  const handleSaved = () => setStep('editor');
+  const handleSaved = () => setStep("editor");
 
   const handleStartRecording = async () => {
     if (!currentUser) return;
@@ -131,52 +136,73 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     const liveActivity: LiveActivity = {
       id: `activity-${now}-${Math.random().toString(36).slice(2, 8)}`,
       userId: currentUser.uid,
-      userName: currentUser.displayName ?? 'Senderista',
+      userName: currentUser.displayName ?? "Senderista",
       route: {
         routeId: plan?.id ?? `plan-${now}`,
-        routeTitle: plan?.title || 'Ruta planificada',
+        routeTitle: plan?.title || "Ruta planificada",
         startPoint: plan?.startPoint
-          ? { name: plan.startPoint.name ?? 'Punto de inicio', lat: plan.startPoint.lat, lng: plan.startPoint.lng }
-          : { name: 'Punto de inicio', lat: 0, lng: 0 },
+          ? {
+              name: plan.startPoint.name ?? "Punto de inicio",
+              lat: plan.startPoint.lat,
+              lng: plan.startPoint.lng,
+            }
+          : { name: "Punto de inicio", lat: 0, lng: 0 },
         endPoint: plan?.endPoint
-          ? { name: plan.endPoint.name ?? 'Destino', lat: plan.endPoint.lat, lng: plan.endPoint.lng }
-          : { name: 'Destino', lat: 0, lng: 0 },
+          ? {
+              name: plan.endPoint.name ?? "Destino",
+              lat: plan.endPoint.lat,
+              lng: plan.endPoint.lng,
+            }
+          : { name: "Destino", lat: 0, lng: 0 },
         waypoints: plan?.waypoints ?? [],
         checkpoints: [],
         distanceKm: 0,
         durationMinutes: 0,
-        difficulty: plan?.difficulty ?? 'facil',
+        difficulty: plan?.difficulty ?? "facil",
       },
-      phase: 'in_progress',
+      phase: "in_progress",
       startedAt: now,
       lastResumedAt: now,
       accumulatedActiveMs: 0,
-      recordedPoints: plan?.startPoint ? [{ lat: plan.startPoint.lat, lng: plan.startPoint.lng }] : [],
+      recordedPoints: plan?.startPoint
+        ? [{ lat: plan.startPoint.lat, lng: plan.startPoint.lng }]
+        : [],
       completedCheckpoints: [],
       newCheckpoints: [],
       createdAt: now,
       updatedAt: now,
     };
 
-    await appStorage.setItem('trekking_activity_autosave', JSON.stringify(liveActivity));
+    await appStorage.setItem(
+      "trekking_activity_autosave",
+      JSON.stringify(liveActivity),
+    );
     useActivityStore.setState({ live: liveActivity });
     await useActivityStore.getState().startWatch({
       accuracy: Location.Accuracy.High,
       distanceInterval: 5,
       timeInterval: 2500,
     });
-    setStep('recording');
+    setStep("recording");
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.headerBtn} accessibilityLabel="Volver">
+        <Pressable
+          onPress={goBack}
+          style={styles.headerBtn}
+          accessibilityLabel="Volver"
+        >
           <ArrowLeft size={18} color="#F9FAFB" />
         </Pressable>
         <Text style={styles.headerTitle}>{STEP_TITLES[step]}</Text>
-        {step === 'drafts' && onClose ? (
-          <Pressable onPress={onClose} style={styles.headerBtn} accessibilityLabel="Cerrar">
+        {step === "drafts" && onClose ? (
+          <Pressable
+            onPress={onClose}
+            style={styles.headerBtn}
+            accessibilityLabel="Cerrar"
+          >
             <X size={18} color="#9CA3AF" />
           </Pressable>
         ) : (
@@ -184,47 +210,56 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
         )}
       </View>
 
-      {step === 'drafts' && <DraftsView onCreate={handleCreate} onOpen={handleOpenDraft} />}
-      {step === 'create' && <CreateRouteView onSaved={handleSaved} />}
-      {step === 'editor' && <PlanEditorView onContinue={() => setStep('confirm')} />}
-      {step === 'confirm' && <StartPointConfirmView onConfirmed={() => setStep('ready')} />}
-      {step === 'ready' && (
+      {step === "drafts" && (
+        <DraftsView onCreate={handleCreate} onOpen={handleOpenDraft} />
+      )}
+      {step === "create" && <CreateRouteView onSaved={handleSaved} />}
+      {step === "editor" && (
+        <PlanEditorView onContinue={() => setStep("confirm")} />
+      )}
+      {step === "confirm" && (
+        <StartPointConfirmView onConfirmed={() => setStep("ready")} />
+      )}
+      {step === "ready" && (
         <ReadyForGpsView
           onStartRecording={handleStartRecording}
           onDone={() => {
             usePlanStore.getState().clearPlan();
-            setStep('drafts');
+            setStep("drafts");
           }}
         />
       )}
-      {step === 'recording' && (
+      {step === "recording" && (
         <RecordingActivityView
-          onFinished={() => setStep('summary')}
-          onCancel={() => setStep('drafts')}
+          onFinished={() => setStep("summary")}
+          onCancel={() => setStep("drafts")}
         />
       )}
-      {step === 'summary' && (
+      {step === "summary" && (
         <ActivitySummaryView
           onDone={async () => {
             await usePlanStore.getState().clearPlan();
             await useActivityStore.getState().clearLive();
-            setStep('drafts');
+            setStep("drafts");
           }}
         />
       )}
 
-      {plan && (step === 'create' || step === 'editor' || step === 'confirm') && (
-        <Text style={styles.footNote}>Autosave activo · No perderás tu planificación</Text>
-      )}
+      {plan &&
+        (step === "create" || step === "editor" || step === "confirm") && (
+          <Text style={styles.footNote}>
+            Autosave activo · No perderás tu planificación
+          </Text>
+        )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#051712' },
+  container: { flex: 1, backgroundColor: "#051712" },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
@@ -233,16 +268,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#0E2E24',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0E2E24",
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: "#1A4537",
   },
-  headerTitle: { flex: 1, color: '#F9FAFB', fontSize: 15, fontWeight: '900' },
+  headerTitle: { flex: 1, color: "#F9FAFB", fontSize: 15, fontWeight: "900" },
   footNote: {
-    textAlign: 'center',
-    color: '#6B7280',
+    textAlign: "center",
+    color: "#6B7280",
     fontSize: 10,
     paddingBottom: 8,
   },

@@ -24,6 +24,9 @@ export type CheckpointCategory =
 export type ActivityStatus =
   "in_progress" | "paused" | "completed" | "incomplete";
 
+/** Origen de una actividad: libre (GRABAR RUTA), ruta (ACTIVIDAD GPS) o plan (HU-07). */
+export type LiveActivityOrigin = "free" | "route" | "plan";
+
 export interface Coordinates {
   lat: number;
   lng: number;
@@ -95,6 +98,8 @@ export interface TrekkinActivity {
   completedCheckpoints: string[];
   isSynced: boolean;
   createdAt: number;
+  /** Flujo que originó la actividad (oculta RESTANTE en UI si es `free`). */
+  origin?: LiveActivityOrigin;
 }
 
 export type TrekkingActivity = TrekkinActivity;
