@@ -1,11 +1,11 @@
 export const AndeanTheme = {
   colors: {
-    background: "#051712",
-    backgroundSecondary: "#06231B",
-    card: "#0E2E24",
-    cardElevated: "#153E32",
-    border: "#1A4537",
-    borderLight: "#265D4B",
+    background: "#0F1412",
+    backgroundSecondary: "#151B18",
+    card: "#1C2420",
+    cardElevated: "#242E29",
+    border: "#2A3630",
+    borderLight: "#384740",
     primary: "#10B981",
     primaryLight: "#34D399",
     primaryDark: "#059669",
@@ -17,7 +17,7 @@ export const AndeanTheme = {
     textSecondary: "#9CA3AF",
     textMuted: "#6B7280",
     white: "#FFFFFF",
-    overlay: "rgba(5, 23, 18, 0.85)",
+    overlay: "rgba(15, 20, 18, 0.85)",
     // Hoja clara Figma (auth/perfil): única fuente para light sheets.
     sheet: "#FFFFFF",
     field: "#FAFAF9",

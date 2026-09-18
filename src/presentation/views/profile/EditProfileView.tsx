@@ -106,9 +106,9 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Descartar y volver"
           >
-            <ChevronLeft size={20} color={AndeanTheme.colors.primary} />
+            <ChevronLeft size={20} color={AndeanTheme.colors.text} />
           </Pressable>
-          <Text style={styles.topTitle}>✦ Editar Perfil</Text>
+          <Text style={styles.topTitle}>EDITAR PERFIL</Text>
           <View style={styles.iconSpacer} />
         </View>
 
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
   },
   identity: {
     alignItems: "center",
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: 48,
     fontWeight: "900",
-    color: AndeanTheme.colors.primary,
+    color: AndeanTheme.colors.white,
   },
   previewName: {
     fontSize: 18,

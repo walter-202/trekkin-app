@@ -159,7 +159,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess }) => {
           </View>
           <View style={styles.termsCopy}>
             <View style={styles.termsHeader}>
-              <ShieldCheck size={13} color={AndeanTheme.colors.primaryDark} />
+              <ShieldCheck size={13} color={AndeanTheme.colors.fieldLabel} />
               <Text style={styles.termsTitle}>
                 Normas de Seguridad en Montaña
               </Text>
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.primaryDark,
+    color: AndeanTheme.colors.inkSecondary,
   },
   termsText: {
     fontSize: 13,

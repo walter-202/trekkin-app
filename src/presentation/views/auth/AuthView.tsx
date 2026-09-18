@@ -59,26 +59,30 @@ export const AuthView: React.FC<AuthViewProps> = ({
               accessibilityRole="button"
               accessibilityLabel="Volver"
             >
-              <ChevronLeft size={20} color={AndeanTheme.colors.primary} />
+              <ChevronLeft size={20} color={AndeanTheme.colors.text} />
             </Pressable>
           ) : (
             <View style={styles.iconBtn} accessibilityLabel="Trekkin Bolivia">
-              <Mountain size={20} color={AndeanTheme.colors.primary} />
+              <Mountain size={20} color={AndeanTheme.colors.text} />
             </View>
           )}
 
           <View style={styles.pill}>
+            <View style={styles.pillDot} />
             <Text style={styles.pillText}>TREK-BOLIVIA PRO v1.0</Text>
           </View>
 
           <View style={styles.iconBtn} accessibilityLabel="Brújula">
-            <Compass size={20} color={AndeanTheme.colors.primary} />
+            <Compass size={20} color={AndeanTheme.colors.text} />
           </View>
         </View>
 
         <View style={styles.titleBlock}>
           <Text style={styles.eyebrow}>
-            {isRegister ? "◆ NUEVA EXPEDICIÓN" : "● ACCESO SEGURO"}
+            <Text style={styles.accentGlyph}>
+              {isRegister ? "◆" : "●"}
+            </Text>{" "}
+            {isRegister ? "NUEVA EXPEDICIÓN" : "ACCESO SEGURO"}
           </Text>
           <Text style={styles.title}>
             {isRegister ? "Crear Cuenta" : "Iniciar Sesión"}
@@ -142,7 +146,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
               </View>
               <Button
                 title="Crear una cuenta nueva"
-                variant="outline-green"
+                variant="outline-muted"
                 onPress={() => switchFormMode("register")}
                 accessibilityLabel="Crear una cuenta nueva"
               />
@@ -198,19 +202,28 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   pill: {
-    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 9999,
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
+    borderColor: AndeanTheme.colors.borderLight,
+  },
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
   },
   pillText: {
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
   },
   titleBlock: {
     gap: 8,
@@ -220,7 +233,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
+  },
+  accentGlyph: {
+    color: AndeanTheme.colors.primary,
   },
   title: {
     fontSize: 34,
