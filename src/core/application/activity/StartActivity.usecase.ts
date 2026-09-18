@@ -47,6 +47,7 @@ export async function StartActivityUseCase(
     id: makeActivityId(),
     userId: args.userId,
     userName: args.userName,
+    origin: "route",
     route: toLiveRouteInfo(route),
     phase: "ready",
     startedAt: null,

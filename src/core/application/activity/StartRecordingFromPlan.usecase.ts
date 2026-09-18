@@ -62,6 +62,7 @@ export function StartRecordingFromPlanUseCase(
     id: makeActivityId(),
     userId,
     userName,
+    origin: "plan",
     route,
     phase: "ready",
     startedAt: null,

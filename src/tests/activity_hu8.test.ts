@@ -22,7 +22,7 @@ import { StartFreeRecordingUseCase } from "../core/application/activity/StartFre
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
-import { ACTIVITY_CONFIG, isFreeRecording } from "../core/domain/activity";
+import { ACTIVITY_CONFIG, isFreeRecording, isResumableLive } from "../core/domain/activity";
 import type { RoutePlan } from "../core/domain/plan";
 import {
   calculatePaceMinPerKm,
@@ -408,6 +408,57 @@ async function runTests() {
   } catch (e: any) {
     recordTest(
       "isFreeRecording detecta grabación libre por origin o prefijo de ruta",
+      false,
+      e.message,
+    );
+  }
+
+  // 16. Recuperación separada por flujo (libre/ruta/plan)
+  try {
+    const mk = (
+      origin: "free" | "route" | "plan",
+      phase: LiveActivity["phase"],
+    ): LiveActivity => ({ ...baseLiveActivity, origin, phase });
+    const activityResumes = (live: LiveActivity | null) =>
+      isResumableLive(live) && !isFreeRecording(live);
+    const freeResumes = (live: LiveActivity | null) =>
+      isResumableLive(live) && isFreeRecording(live);
+    const failedGates = [
+      [
+        "ACTIVIDAD GPS ignora libre pausada",
+        activityResumes(mk("free", "paused")) === false,
+      ],
+      [
+        "ACTIVIDAD GPS recupera ruta pausada",
+        activityResumes(mk("route", "paused")) === true,
+      ],
+      [
+        "GRABAR RUTA recupera libre pausada",
+        freeResumes(mk("free", "paused")) === true,
+      ],
+      [
+        "GRABAR RUTA ignora ruta pausada",
+        freeResumes(mk("route", "paused")) === false,
+      ],
+      [
+        "PLANIFICAR recupera plan pausado",
+        activityResumes(mk("plan", "paused")) === true,
+      ],
+      [
+        "nadie recupera finalizada",
+        activityResumes(mk("route", "finished")) === false,
+      ],
+    ].filter(([, ok]) => !ok);
+    recordTest(
+      "Recuperación separada por flujo (libre/ruta/plan)",
+      failedGates.length === 0,
+      failedGates.length === 0
+        ? "6/6 condiciones"
+        : `fallan: ${failedGates.map(([n]) => n).join("; ")}`,
+    );
+  } catch (e: any) {
+    recordTest(
+      "Recuperación separada por flujo (libre/ruta/plan)",
       false,
       e.message,
     );

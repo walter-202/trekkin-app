@@ -15,6 +15,7 @@ import { TrackingView } from '../activity/TrackingView';
 import { ResultView } from '../activity/ResultView';
 import { ActivityDetailView } from '../activity/ActivityDetailView';
 import type { TrekkinActivity } from '../../../core/domain/types';
+import { isFreeRecording, isResumableLive } from '../../../core/domain/activity';
 import { AndeanTheme } from '../../theme';
 
 /**
@@ -57,14 +58,17 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
       initializePlan(currentUser.uid, currentUser.displayName);
     }
     const live = useActivityStore.getState().live;
-    if (live && (live.phase === 'in_progress' || live.phase === 'paused')) {
+    if (isResumableLive(live) && !isFreeRecording(live)) {
       setStep('recording');
     } else {
       useActivityStore
         .getState()
         .restoreLiveSession()
         .then((hasActive) => {
-          if (hasActive) setStep('recording');
+          const restored = useActivityStore.getState().live;
+          if (hasActive && isResumableLive(restored) && !isFreeRecording(restored)) {
+            setStep('recording');
+          }
         });
     }
   }, [currentUser?.uid]);
