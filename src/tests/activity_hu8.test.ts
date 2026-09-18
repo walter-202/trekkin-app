@@ -18,10 +18,11 @@ import {
 import { AddCheckpointUseCase } from "../core/application/activity/AddCheckpoint.usecase";
 import { RecordPointUseCase } from "../core/application/activity/RecordPoint.usecase";
 import { StartRecordingFromPlanUseCase } from "../core/application/activity/StartRecordingFromPlan.usecase";
+import { StartFreeRecordingUseCase } from "../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
-import { ACTIVITY_CONFIG } from "../core/domain/activity";
+import { ACTIVITY_CONFIG, isFreeRecording } from "../core/domain/activity";
 import type { RoutePlan } from "../core/domain/plan";
 import {
   calculatePaceMinPerKm,
@@ -338,6 +339,77 @@ async function runTests() {
       "StartRecordingFromPlan rechaza un plan sin punto de inicio confirmado",
       true,
       "Rechazado correctamente",
+    );
+  }
+
+  // 14. StartFreeRecordingUseCase inicia grabación libre con origen "free" y genera GPX multipunto
+  try {
+    const freeReady = StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.12, altitude: 3600 },
+      userId: "user-free-1",
+      userName: "Caminante Libre",
+    });
+    let freeLive = await BeginTrackingUseCase(freeReady);
+    for (let i = 1; i <= 3; i++) {
+      freeLive = await RecordPointUseCase(freeLive, {
+        lat: -16.5 + i * 0.001,
+        lng: -68.12 + i * 0.001,
+        altitude: 3600 + i * 10,
+        timestamp: Date.now() + i * 5000,
+        accuracy: 5,
+      });
+    }
+    const freeFinished = await FinishActivityUseCase(freeLive, {
+      saveActivity: async () => {},
+      saveLocalActivity: async () => {},
+    });
+    const freeGpx = ExportTrackFileUseCase(freeFinished.saved);
+    const trkpts = (freeGpx.content.match(/<trkpt/g) ?? []).length;
+    recordTest(
+      "StartFreeRecordingUseCase + Finish + GPX genera ruta libre multipunto",
+      freeReady.origin === "free" &&
+        freeFinished.saved.status === "completed" &&
+        freeFinished.saved.recordedPoints.length === 4 &&
+        trkpts === 4,
+      `status=${freeFinished.saved.status} pts=${freeFinished.saved.recordedPoints.length} trkpts=${trkpts}`,
+    );
+  } catch (e: any) {
+    recordTest(
+      "StartFreeRecordingUseCase + Finish + GPX genera ruta libre multipunto",
+      false,
+      e.message,
+    );
+  }
+
+  // 15. isFreeRecording detecta grabación libre por origin o prefijo de ruta
+  try {
+    const freeReady = StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.12 },
+      userId: "user-free-1",
+      userName: "Caminante",
+    });
+    const legacyFree: LiveActivity = {
+      ...freeReady,
+      origin: undefined,
+      route: { ...freeReady.route, routeId: "free-123" },
+    };
+    const routeLive: LiveActivity = {
+      ...freeReady,
+      origin: "route",
+    };
+    recordTest(
+      "isFreeRecording detecta grabación libre por origin o prefijo de ruta",
+      isFreeRecording(freeReady) === true &&
+        isFreeRecording(legacyFree) === true &&
+        isFreeRecording(routeLive) === false &&
+        isFreeRecording(null) === false,
+      "Detectado correctamente",
+    );
+  } catch (e: any) {
+    recordTest(
+      "isFreeRecording detecta grabación libre por origin o prefijo de ruta",
+      false,
+      e.message,
     );
   }
 

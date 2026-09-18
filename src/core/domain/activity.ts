@@ -2,6 +2,7 @@ import type {
   ActivityStatus,
   Checkpoint,
   Coordinates,
+  LiveActivityOrigin,
   RouteDifficulty,
   RouteModel,
   TrekkinActivity,
@@ -44,6 +45,8 @@ export interface LiveActivity {
   id: string;
   userId: string;
   userName: string;
+  /** Flujo que creó la actividad (`free` = GRABAR RUTA). Opcional por autosaves previos. */
+  origin?: LiveActivityOrigin;
   route: LiveRouteInfo;
   phase: ActivityPhase;
   startedAt: number | null;
@@ -91,6 +94,48 @@ const TRANSITIONS: Record<ActivityPhase, ActivityPhase[]> = {
 
 export function canTransition(from: ActivityPhase, to: ActivityPhase): boolean {
   return TRANSITIONS[from].includes(to);
+}
+
+/** ¿La actividad está en curso o pausada (recuperable al volver a la vista)? */
+export function isResumableLive(
+  live: LiveActivity | null | undefined,
+): boolean {
+  return (
+    live != null && (live.phase === "in_progress" || live.phase === "paused")
+  );
+}
+
+/**
+ * ¿La actividad (viva o guardada) proviene de GRABAR RUTA?
+ * Origen explícito manda; el prefijo `free-` en `routeId` solo rescata
+ * documentos/autosaves previos a la introducción del campo `origin`.
+ */
+export function isFreeSavedActivity(
+  saved:
+    | {
+        origin?: LiveActivityOrigin;
+        routeId: string;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (saved == null) return false;
+  if (saved.origin !== undefined) return saved.origin === "free";
+  return saved.routeId.startsWith("free-");
+}
+
+/**
+ * ¿La actividad en vivo proviene de GRABAR RUTA (grabación libre)?
+ * Delega en `isFreeSavedActivity` con la forma aplanada.
+ */
+export function isFreeRecording(
+  live: LiveActivity | null | undefined,
+): boolean {
+  if (live == null) return false;
+  return isFreeSavedActivity({
+    origin: live.origin,
+    routeId: live.route.routeId,
+  });
 }
 
 /** Tiempo activo actual (milisegundos), excluyendo pausas. */
@@ -160,5 +205,6 @@ export function toTrekkinActivity(
     completedCheckpoints: activity.completedCheckpoints,
     isSynced: options.isSynced ?? true,
     createdAt: activity.startedAt ?? activity.createdAt,
+    origin: activity.origin,
   };
 }

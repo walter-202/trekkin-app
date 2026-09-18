@@ -40,15 +40,25 @@ import type { LocationAccuracyOptions } from "../../../infrastructure/location/l
  * HUD de DISTANCIA / TIEMPO / RESTANTE en tiempo real; checkpoints con estado;
  * botones PAUSAR / REANUDAR / FINALIZAR (con confirmación).
  */
+/**
+ * Modo de la vista de seguimiento.
+ * - `guide` (default): ruta con destino/checkpoints (HU-06/plan HU-07).
+ * - `free`: grabación libre GRABAR RUTA (sin destino ni checkpoints oficiales).
+ */
+export type TrackingMode = "guide" | "free";
+
 interface TrackingViewProps {
   onFinish: (result: FinishActivityResult) => void;
   /** HU-08: High + 5 m / 2.5 s. HU-06 omite y usa Balanced. */
   watchOptions?: LocationAccuracyOptions;
+  /** Modo visual. Default `guide` para no alterar HU-06/HU-07. */
+  mode?: TrackingMode;
 }
 
 export const TrackingView: React.FC<TrackingViewProps> = ({
   onFinish,
   watchOptions,
+  mode = "guide",
 }) => {
   const live = useActivityStore((s) => s.live);
   const error = useActivityStore((s) => s.error);
@@ -188,54 +198,58 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
           <Text style={styles.hudLabel}>TIEMPO</Text>
           <Text style={styles.hudValue}>{formatDuration(elapsedSeconds)}</Text>
         </View>
-        <View style={styles.hudCol}>
-          <Text style={styles.hudLabel}>RESTANTE</Text>
-          <Text style={styles.hudValue}>{remainingKm.toFixed(2)} km</Text>
-        </View>
-      </View>
-
-      <View style={styles.checkpointsCard}>
-        <View style={styles.checkpointsHeader}>
-          <ListChecks size={14} color="#D97706" />
-          <Text style={styles.checkpointsTitle}>
-            CHECKPOINTS ({visitedCount}/{totalCheckpoints})
-          </Text>
-        </View>
-        {totalCheckpoints === 0 ? (
-          <Text style={styles.muted}>
-            Aún no hay paradas. Agrega una en tu posición actual.
-          </Text>
-        ) : (
-          listedCheckpoints.map((cp) => {
-            const visited = live.completedCheckpoints.includes(cp.id);
-            return (
-              <View key={cp.id} style={styles.checkpointRow}>
-                {visited ? (
-                  <CheckCircle2 size={16} color="#10B981" />
-                ) : (
-                  <Circle size={16} color="#4B5563" />
-                )}
-                <Text
-                  style={[
-                    styles.checkpointName,
-                    visited && styles.checkpointNameVisited,
-                  ]}
-                >
-                  {cp.name}
-                </Text>
-                <Text
-                  style={[
-                    styles.checkpointState,
-                    visited && styles.checkpointStateVisited,
-                  ]}
-                >
-                  {visited ? "Visitado" : "Pendiente"}
-                </Text>
-              </View>
-            );
-          })
+        {mode === "guide" && (
+          <View style={styles.hudCol}>
+            <Text style={styles.hudLabel}>RESTANTE</Text>
+            <Text style={styles.hudValue}>{remainingKm.toFixed(2)} km</Text>
+          </View>
         )}
       </View>
+
+      {mode === "guide" && (
+        <View style={styles.checkpointsCard}>
+          <View style={styles.checkpointsHeader}>
+            <ListChecks size={14} color="#D97706" />
+            <Text style={styles.checkpointsTitle}>
+              CHECKPOINTS ({visitedCount}/{totalCheckpoints})
+            </Text>
+          </View>
+          {totalCheckpoints === 0 ? (
+            <Text style={styles.muted}>
+              Aún no hay paradas. Agrega una en tu posición actual.
+            </Text>
+          ) : (
+            listedCheckpoints.map((cp) => {
+              const visited = live.completedCheckpoints.includes(cp.id);
+              return (
+                <View key={cp.id} style={styles.checkpointRow}>
+                  {visited ? (
+                    <CheckCircle2 size={16} color="#10B981" />
+                  ) : (
+                    <Circle size={16} color="#4B5563" />
+                  )}
+                  <Text
+                    style={[
+                      styles.checkpointName,
+                      visited && styles.checkpointNameVisited,
+                    ]}
+                  >
+                    {cp.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.checkpointState,
+                      visited && styles.checkpointStateVisited,
+                    ]}
+                  >
+                    {visited ? "Visitado" : "Pendiente"}
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
 
       <Pressable
         onPress={() => setShowCheckpoint(true)}

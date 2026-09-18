@@ -11,6 +11,7 @@ import { ProfileView, EditProfileView } from "./presentation/views/profile";
 import { ExploreView } from "./presentation/views/explore/ExploreView";
 import { RouteDetailView } from "./presentation/views/explore/RouteDetailView";
 import { RecordView } from "./presentation/views/record/RecordView";
+import { FreeRecordView } from "./presentation/views/record/FreeRecordView";
 import { UserManagementView } from "./presentation/views/profile/UserManagementView";
 import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
 import { ActivityView } from "./presentation/views/activity/ActivityView";
@@ -25,6 +26,7 @@ type Screen =
   | "profile"
   | "edit-profile"
   | "record"
+  | "free-record"
   | "users"
   | "downloads"
   | "activity";
@@ -64,6 +66,13 @@ function Gate() {
         setScreen("record");
       } else {
         setAuthRedirectScreen("record");
+        setAuthOpen(true);
+      }
+    } else if (route === "free-record") {
+      if (currentUser) {
+        setScreen("free-record");
+      } else {
+        setAuthRedirectScreen("free-record");
         setAuthOpen(true);
       }
     } else if (route === "actividad") {
@@ -123,13 +132,15 @@ function Gate() {
       ? "usuarios"
       : screen === "record"
         ? "record"
-        : screen === "activity"
-          ? "actividad"
-          : screen === "downloads"
-            ? "descargas"
-            : screen === "profile"
-              ? "perfil"
-              : "inicio";
+        : screen === "free-record"
+          ? "free-record"
+          : screen === "activity"
+            ? "actividad"
+            : screen === "downloads"
+              ? "descargas"
+              : screen === "profile"
+                ? "perfil"
+                : "inicio";
 
   if (loading) {
     return (
@@ -164,6 +175,8 @@ function Gate() {
     );
   } else if (screen === "record") {
     mainContent = <RecordView onClose={() => setScreen("explore")} />;
+  } else if (screen === "free-record") {
+    mainContent = <FreeRecordView onClose={() => setScreen("explore")} />;
   } else if (screen === "activity") {
     mainContent = <ActivityView onClose={() => setScreen("explore")} />;
   } else if (screen === "downloads") {

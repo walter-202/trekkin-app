@@ -9,3 +9,4 @@ export * from "./GetActivity.usecase";
 export * from "./AddCheckpoint.usecase";
 export * from "./ExportTrackFile.usecase";
 export * from "./StartRecordingFromPlan.usecase";
+export * from "./StartFreeRecording.usecase";

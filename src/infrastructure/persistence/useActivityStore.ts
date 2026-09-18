@@ -15,6 +15,10 @@ import {
 } from "../location/locationService";
 import { StartActivityUseCase } from "../../core/application/activity/StartActivity.usecase";
 import { StartRecordingFromPlanUseCase } from "../../core/application/activity/StartRecordingFromPlan.usecase";
+import {
+  StartFreeRecordingUseCase,
+  type FreeRecordingPosition,
+} from "../../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
 import { RecordPointUseCase } from "../../core/application/activity/RecordPoint.usecase";
 import { PauseActivityUseCase } from "../../core/application/activity/PauseActivity.usecase";
@@ -90,6 +94,11 @@ interface ActivityState {
   ) => Promise<boolean>;
   startFromPlan: (
     plan: RoutePlan,
+    uid: string,
+    userName: string,
+  ) => Promise<boolean>;
+  startFreeRecording: (
+    position: FreeRecordingPosition,
     uid: string,
     userName: string,
   ) => Promise<boolean>;
@@ -197,6 +206,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     try {
       const prepared = StartRecordingFromPlanUseCase({
         plan,
+        userId: uid,
+        userName,
+      });
+      const live = await BeginTrackingUseCase(prepared);
+      await saveLive(live);
+      set({ live, isLoading: false });
+      return true;
+    } catch (err: unknown) {
+      set({
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo iniciar la grabación GPS.",
+        isLoading: false,
+      });
+      return false;
+    }
+  },
+
+  startFreeRecording: async (position, uid, userName) => {
+    set({ isLoading: true, error: null });
+    try {
+      const prepared = StartFreeRecordingUseCase({
+        position,
         userId: uid,
         userName,
       });
