@@ -120,7 +120,7 @@ export const EditProfileView: React.FC<EditProfileViewProps> = ({
             {displayName.trim() || currentUser.displayName}
           </Text>
           <Text style={styles.previewAlias}>
-            @{username.replace(/^@/, "") || "caminante_andino"}
+            @{username.replace(/^@/, "") || currentUser.username || "usuario"}
           </Text>
         </View>
       </View>

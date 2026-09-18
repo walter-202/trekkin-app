@@ -35,7 +35,6 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: UpdateProfileInput) => Promise<void>;
-  switchDemoRole: (role: UserRole) => void;
   hasRole: (allowedRoles: UserRole[]) => boolean;
   isAdmin: boolean;
   /**
@@ -53,108 +52,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AUTH_STORAGE_KEY = "trekkin_auth_user";
 
-export interface SeedAdminAccount {
-  profile: UserProfile;
-  passwords: string[];
-}
-
-export const SEED_ADMIN_ACCOUNTS: SeedAdminAccount[] = [
-  {
-    profile: {
-      uid: "admin-wfernando",
-      email: "wfernando.aguilarm@gmail.com",
-      displayName: "Fernando Aguilar",
-      username: "wfernando",
-      summitsCount: 48,
-      gpsAccuracy: "±1.2m RTK",
-      role: "admin",
-      isBlocked: false,
-      createdAt: 1717000000000,
-    },
-    passwords: ["Fernando123", "wfernando123", "admin123"],
-  },
-  {
-    profile: {
-      uid: "admin-pomajurado",
-      email: "pomajuradoc@gmail.com",
-      displayName: "Christian Poma Jurado",
-      username: "pomajurado",
-      summitsCount: 35,
-      gpsAccuracy: "±1.5m Preciso",
-      role: "admin",
-      isBlocked: false,
-      createdAt: 1717100000000,
-    },
-    passwords: ["Christian123", "pomajurado123", "admin123"],
-  },
-  {
-    profile: {
-      uid: "admin-monjequino",
-      email: "monjequinofabianacareliz@gmail.com",
-      displayName: "Fabiana Careliz Monje",
-      username: "monjequino",
-      summitsCount: 29,
-      gpsAccuracy: "±1.8m Preciso",
-      role: "admin",
-      isBlocked: false,
-      createdAt: 1717200000000,
-    },
-    passwords: ["Fabiana123", "monjequino123", "admin123"],
-  },
-  {
-    profile: {
-      uid: "admin-cortestrading",
-      email: "Cortestrading@gmail.com",
-      displayName: "Alejandro Cortés",
-      username: "cortestrading",
-      summitsCount: 42,
-      gpsAccuracy: "±1.4m Preciso",
-      role: "admin",
-      isBlocked: false,
-      createdAt: 1717300000000,
-    },
-    passwords: ["Alejandro123", "cortestrading123", "admin123"],
-  },
-];
-
-const DEMO_PROFILES: Record<UserRole, UserProfile> = {
-  user: {
-    uid: "alex-cortes",
-    email: "andino@trekbolivia.bo",
-    displayName: "Alejandro Condori",
-    username: "caminante_andino",
-    summitsCount: 18,
-    gpsAccuracy: "±2.4m Preciso",
-    role: "user",
-    isBlocked: false,
-    createdAt: 1717000000000,
-  },
-  admin: SEED_ADMIN_ACCOUNTS[0].profile,
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // Sin sesión al compilar: el Gate muestra AuthView hasta login/registro real (HU-01/02).
-  // Los perfiles demo/seed solo se activan vía switchDemoRole o fallback offline (aislados).
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isGuest, setIsGuest] = useState<boolean>(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const extractRoleFromDoc = (roleValue: unknown, email?: string): UserRole => {
-    if (roleValue === 'admin') return 'admin';
-    if (roleValue === 'user') return 'user';
-    const cleanEmail = email?.toLowerCase().trim();
-    if (
-      cleanEmail &&
-      SEED_ADMIN_ACCOUNTS.some(
-        (a) => a.profile.email.toLowerCase() === cleanEmail,
-      )
-    ) {
-      return "admin";
-    }
+  const extractRoleFromDoc = (roleValue: unknown): UserRole => {
+    if (roleValue === "admin") return "admin";
     return "user";
   };
 
@@ -199,10 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 return;
               }
               // Synchronize role automatically from Firestore document
-              const role = extractRoleFromDoc(
-                profileDoc.role,
-                user.email || profileDoc.email,
-              );
+              const role = extractRoleFromDoc(profileDoc.role);
               const syncedProfile: UserProfile = {
                 ...profileDoc,
                 role,
@@ -214,13 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               );
             } else {
               // Initial user profile setup if document does not exist yet
-              const initialRole = extractRoleFromDoc(
-                undefined,
-                user.email || undefined,
-              );
+              const initialRole = extractRoleFromDoc(undefined);
               const newProfile: UserProfile = {
                 uid: user.uid,
-                email: user.email || "usuario@trekkinapp.bo",
+                email: user.email || "",
                 displayName:
                   user.displayName || user.email?.split("@")[0] || "Senderista",
                 username: user.email ? user.email.split("@")[0] : "senderista",
@@ -286,10 +188,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           getProfile: async (uid) => {
             const docFound = await userProfileService.getUserProfile(uid);
             if (!docFound) return null;
-            // Sincroniza rol (incluye seed admin por email) preservando isBlocked.
             return {
               ...docFound,
-              role: extractRoleFromDoc(docFound.role, docFound.email),
+              role: extractRoleFromDoc(docFound.role),
             };
           },
           createProfile: (fresh) => userProfileService.createUserProfile(fresh),
@@ -300,10 +201,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setCurrentUser(profile);
       setIsGuest(false);
     } catch (err: any) {
-      // Fallback offline/dev SOLO si hay fallo de red. Credenciales inválidas
-      // (auth/invalid-credential, user-not-found, wrong-password) siempre son error (HU-02 C6).
-      // isBlocked y errores Zod se propagan con su mensaje original, nunca como fallback.
-      if (!isNetworkError(err)) {
+      if (isNetworkError(err)) {
+        setError(
+          "Sin conexión. No se pudo verificar tu sesión. Reintenta con red.",
+        );
+      } else {
         const blockerMsg = String(err?.message || "");
         const zodMsg = err?.issues?.[0]?.message as string | undefined;
         setError(
@@ -312,25 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               ? blockerMsg
               : "Credenciales inválidas. Verifica tu correo y contraseña."),
         );
-        throw err;
       }
-      // Allow simulation / seed login for test credentials (verifica password)
-      const normalizedEmail = email.toLowerCase().trim();
-      const adminSeed = SEED_ADMIN_ACCOUNTS.find(
-        (a) => a.profile.email.toLowerCase() === normalizedEmail,
-      );
-      if (
-        adminSeed &&
-        adminSeed.passwords.some((p) => p.toLowerCase() === pass.toLowerCase())
-      ) {
-        setCurrentUser(adminSeed.profile);
-        setIsGuest(false);
-        appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(adminSeed.profile));
-        return;
-      }
-      setError(
-        "Sin conexión. No se pudo verificar tu sesión. Reintenta con red.",
-      );
       throw err;
     }
   };
@@ -361,45 +245,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setCurrentUser(null);
       await appStorage.removeItem(AUTH_STORAGE_KEY);
     } catch (err: any) {
-      // Registro local SOLO en modo offline (demo aislado, matriz Expo Go modo avión).
-      // Errores de validación de Firebase (email-already-in-use, weak-password,
-      // invalid-email) y de Zod se propagan, nunca crean sesión (HU-01 C3).
-      if (!isNetworkError(err)) {
-        // HU-01 C3/C4: Zod y Firebase en español descriptivo, nunca sesión parcial.
-        const zodMsg = err?.issues?.[0]?.message as string | undefined;
-        const code = String(err?.code || "");
-        const friendly = code.includes("email-already-in-use")
-          ? "Este correo ya está registrado. Inicia sesión."
-          : code.includes("weak-password")
-            ? "La contraseña es muy débil. Usa al menos 8 caracteres."
-            : code.includes("invalid-email")
-              ? "Introduce un correo electrónico válido."
-              : undefined;
+      if (isNetworkError(err)) {
         const message =
-          zodMsg ??
-          friendly ??
-          err?.message ??
-          "No se pudo crear la cuenta. Verifica tus datos.";
+          "Sin conexión. No se pudo crear la cuenta. Reintenta con red.";
         setError(message);
         throw new Error(message);
       }
-      const cleanFallbackUsername =
-        (args.username || "").trim().replace(/^@/, "") ||
-        args.email.split("@")[0];
-      const localProfile: UserProfile = {
-        uid: `user-${Date.now()}`,
-        email: args.email.trim(),
-        displayName: args.displayName.trim(),
-        username: cleanFallbackUsername,
-        summitsCount: 0,
-        gpsAccuracy: "±3.0m Preciso",
-        role: "user",
-        isBlocked: false,
-        createdAt: Date.now(),
-      };
-      setCurrentUser(localProfile);
-      setIsGuest(false);
-      appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(localProfile));
+      const zodMsg = err?.issues?.[0]?.message as string | undefined;
+      const code = String(err?.code || "");
+      const friendly = code.includes("email-already-in-use")
+        ? "Este correo ya está registrado. Inicia sesión."
+        : code.includes("weak-password")
+          ? "La contraseña es muy débil. Usa al menos 8 caracteres."
+          : code.includes("invalid-email")
+            ? "Introduce un correo electrónico válido."
+            : undefined;
+      const message =
+        zodMsg ??
+        friendly ??
+        err?.message ??
+        "No se pudo crear la cuenta. Verifica tus datos.";
+      setError(message);
+      throw new Error(message);
     }
   };
 
@@ -413,10 +280,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       // Synchronize role and profile directly from Firestore document
       const existingDoc = await userProfileService.getUserProfile(user.uid);
       if (existingDoc) {
-        const role = extractRoleFromDoc(
-          existingDoc.role,
-          user.email || undefined,
-        );
+        const role = extractRoleFromDoc(existingDoc.role);
         const syncedProfile: UserProfile = {
           ...existingDoc,
           displayName: user.displayName || existingDoc.displayName,
@@ -434,17 +298,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setCurrentUser(syncedProfile);
         appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(syncedProfile));
       } else {
-        const initialRole = extractRoleFromDoc(
-          undefined,
-          user.email || undefined,
-        );
+        const initialRole = extractRoleFromDoc(undefined);
         const newProfile: UserProfile = {
           uid: user.uid,
-          email: user.email || "andino@trekbolivia.bo",
-          displayName: user.displayName || "Senderista Andino",
-          username: user.email ? user.email.split("@")[0] : "caminante_andino",
+          email: user.email || "",
+          displayName: user.displayName || "Senderista",
+          username: user.email ? user.email.split("@")[0] : "senderista",
           avatarUrl: user.photoURL || undefined,
-          summitsCount: 5,
+          summitsCount: 0,
           gpsAccuracy: "±2.4m Preciso",
           role: initialRole,
           isBlocked: false,
@@ -459,21 +320,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newProfile));
       }
     } catch (err: any) {
-      // Graceful fallback for popup-blocked or simulated environments
-      console.log("Google Auth fallback to demo session");
-      const googleProfile: UserProfile = {
-        uid: `google-${Date.now()}`,
-        email: "andino.google@trekbolivia.bo",
-        displayName: "Alejandro Condori",
-        username: "caminante_andino",
-        summitsCount: 18,
-        gpsAccuracy: "±2.4m Preciso",
-        role: "user",
-        isBlocked: false,
-        createdAt: Date.now(),
-      };
-      setCurrentUser(googleProfile);
-      appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(googleProfile));
+      const message =
+        err?.message || "No se pudo iniciar sesión con Google.";
+      setError(message);
+      throw new Error(message);
     }
   };
 
@@ -495,12 +345,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     });
     setCurrentUser(null);
     setIsGuest(false);
-  };
-
-  const switchDemoRole = (role: UserRole) => {
-    const profile = DEMO_PROFILES[role];
-    setCurrentUser(profile);
-    appStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
   };
 
   const hasRole = (allowedRoles: UserRole[]): boolean => {
@@ -566,7 +410,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         loginWithGoogle,
         logout,
         updateProfile,
-        switchDemoRole,
         hasRole,
         isAdmin,
         isGuest,
