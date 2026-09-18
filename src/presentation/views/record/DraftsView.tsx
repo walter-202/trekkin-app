@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from
 import { Plus, FilePlus2, Route, Clock } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 T6 (lista) — Pantalla de borradores del usuario.
@@ -41,12 +42,12 @@ export const DraftsView: React.FC<DraftsViewProps> = ({ onCreate, onOpen }) => {
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#10B981" />
+          <ActivityIndicator color={AndeanTheme.colors.primary} />
           <Text style={styles.muted}>Cargando borradores…</Text>
         </View>
       ) : drafts.length === 0 ? (
         <View style={styles.emptyCard}>
-          <FilePlus2 size={22} color="#34D399" />
+          <FilePlus2 size={22} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.emptyTitle}>Todavía no tienes borradores</Text>
           <Text style={styles.emptyText}>
             Crea una ruta nueva, selecciona el punto inicial y el destino sobre el mapa, y
@@ -62,7 +63,7 @@ export const DraftsView: React.FC<DraftsViewProps> = ({ onCreate, onOpen }) => {
           >
             <View style={styles.draftHeader}>
               <View style={styles.draftIcon}>
-                <Route size={16} color="#34D399" />
+                <Route size={16} color={AndeanTheme.colors.textSecondary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.draftTitle}>{draft.title || 'Borrador sin título'}</Text>
@@ -73,7 +74,7 @@ export const DraftsView: React.FC<DraftsViewProps> = ({ onCreate, onOpen }) => {
               </View>
             </View>
             <View style={styles.draftFooter}>
-              <Clock size={12} color="#6B7280" />
+              <Clock size={12} color={AndeanTheme.colors.textMuted} />
               <Text style={styles.draftDate}>
                 Actualizado {new Date(draft.updatedAt).toLocaleDateString()}
               </Text>
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },
@@ -103,26 +104,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-    color: '#6EE7B7',
+    color: AndeanTheme.colors.textMuted,
     marginTop: 4,
   },
   center: { alignItems: 'center', gap: 8, paddingVertical: 32 },
-  muted: { color: '#9CA3AF', fontSize: 12 },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   emptyCard: {
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     gap: 8,
   },
-  emptyTitle: { color: '#F9FAFB', fontSize: 14, fontWeight: '800' },
-  emptyText: { color: '#9CA3AF', fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  emptyTitle: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: '800' },
+  emptyText: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 17 },
   draftCard: {
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
   },
@@ -132,14 +133,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#0A241C',
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  draftTitle: { color: '#F9FAFB', fontSize: 14, fontWeight: '800' },
-  draftMeta: { color: '#9CA3AF', fontSize: 11, marginTop: 2 },
+  draftTitle: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: '800' },
+  draftMeta: { color: AndeanTheme.colors.textSecondary, fontSize: 11, marginTop: 2 },
   draftFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -147,8 +148,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#1A4537',
+    borderTopColor: AndeanTheme.colors.border,
   },
-  draftDate: { color: '#6B7280', fontSize: 10, flex: 1 },
-  openHint: { color: '#34D399', fontSize: 10, fontWeight: '800' },
+  draftDate: { color: AndeanTheme.colors.textMuted, fontSize: 10, flex: 1 },
+  openHint: { color: AndeanTheme.colors.primaryLight, fontSize: 10, fontWeight: '800' },
 });

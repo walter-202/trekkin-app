@@ -13,6 +13,7 @@ import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
 import type { TrekkinActivity } from "../../../core/domain/types";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Detalle de una actividad ya realizada (desde el historial o el resumen).
@@ -57,7 +58,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#10B981" />
+        <ActivityIndicator color={AndeanTheme.colors.primary} />
       </View>
     );
   }
@@ -65,7 +66,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   if (!activity) {
     return (
       <View style={styles.center}>
-        <CloudOff size={24} color="#9CA3AF" />
+        <CloudOff size={24} color={AndeanTheme.colors.textSecondary} />
         <Text style={styles.muted}>
           {error ?? "No se pudo cargar la actividad."}
         </Text>
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   head: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { flex: 1, color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
+  title: { flex: 1, color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
   badge: {
     borderWidth: 1,
     paddingHorizontal: 10,
@@ -185,12 +186,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   badgeIncomplete: {
-    backgroundColor: "rgba(16,185,129,0.15)",
-    borderColor: "rgba(16,185,129,0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: AndeanTheme.colors.borderLight,
   },
   badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
-  badgeTextCompleted: { color: "#F59E0B" },
-  badgeTextIncomplete: { color: "#10B981" },
+  badgeTextCompleted: { color: AndeanTheme.colors.accentWarning },
+  badgeTextIncomplete: { color: AndeanTheme.colors.textSecondary },
   syncBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
@@ -200,23 +201,23 @@ const styles = StyleSheet.create({
   },
   syncText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
   metricsCard: {
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
     gap: 8,
   },
   metricsLabel: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 2,
   },
   metricRow: { flexDirection: "row", alignItems: "center" },
-  metricKey: { color: "#9CA3AF", fontSize: 12, flex: 1 },
-  metricValue: { color: "#F9FAFB", fontSize: 12, fontWeight: "800" },
+  metricKey: { color: AndeanTheme.colors.textSecondary, fontSize: 12, flex: 1 },
+  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "800" },
   center: {
     flex: 1,
     alignItems: "center",
@@ -224,15 +225,15 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 24,
   },
-  muted: { color: "#9CA3AF", fontSize: 12, textAlign: "center" },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: "center" },
   retryBtn: {
     marginTop: 6,
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  retryText: { color: "#10B981", fontSize: 11, fontWeight: "800" },
+  retryText: { color: AndeanTheme.colors.text, fontSize: 11, fontWeight: "800" },
 });

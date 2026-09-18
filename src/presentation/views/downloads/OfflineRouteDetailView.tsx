@@ -77,7 +77,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     return (
       <View style={styles.container}>
         <Pressable onPress={onBack} style={styles.backBtn}>
-          <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+          <ChevronLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.backText}>Descargas</Text>
         </Pressable>
         <Banner tone="error" message={error ?? "Ruta offline no disponible."} />
@@ -93,7 +93,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable onPress={onBack} style={styles.backBtn}>
-        <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+        <ChevronLeft size={16} color={AndeanTheme.colors.text} />
         <Text style={styles.backText}>Descargas</Text>
       </Pressable>
 
@@ -116,7 +116,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
 
       <View style={styles.grid}>
         <View style={styles.metric}>
-          <MapPin size={14} color={AndeanTheme.colors.primaryLight} />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>INICIO</Text>
           <Text style={styles.metricValue}>{record.startPoint.name}</Text>
         </View>
@@ -126,23 +126,24 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
           <Text style={styles.metricValue}>{record.endPoint.name}</Text>
         </View>
         <View style={styles.metric}>
-          <Ruler size={14} color={AndeanTheme.colors.primaryLight} />
+          <Ruler size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DISTANCIA</Text>
           <Text style={styles.metricValue}>{record.distanceKm.toFixed(1)} km</Text>
         </View>
         <View style={styles.metric}>
-          <Clock size={14} color={AndeanTheme.colors.primaryLight} />
+          <Clock size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DURACIÓN</Text>
           <Text style={styles.metricValue}>
             {Math.round(record.durationMinutes / 60)} h
           </Text>
         </View>
         <View style={styles.metric}>
-          <TrendingUp size={14} color={AndeanTheme.colors.primaryLight} />
+          <TrendingUp size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DESNIVEL</Text>
           <Text style={styles.metricValue}>{record.elevationGainM ?? 0} m</Text>
         </View>
         <View style={styles.metric}>
+          <HardDrive size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>
             DIFICULTAD · {record.difficulty.toUpperCase()}
           </Text>
@@ -200,13 +201,13 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   backText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   region: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },

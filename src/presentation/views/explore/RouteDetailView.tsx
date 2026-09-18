@@ -104,7 +104,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           style={styles.backBtn}
           accessibilityLabel="Volver al catálogo"
         >
-          <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+          <ChevronLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.backText}>Catálogo</Text>
         </Pressable>
         <Banner tone="error" message={error ?? "Ruta no disponible."} />
@@ -119,7 +119,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         style={styles.backBtn}
         accessibilityLabel="Volver al catálogo"
       >
-        <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+        <ChevronLeft size={16} color={AndeanTheme.colors.text} />
         <Text style={styles.backText}>Catálogo</Text>
       </Pressable>
 
@@ -357,16 +357,16 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   backText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
   heroHeader: { alignItems: "center", gap: 2, marginTop: 2 },
   brand: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   heroTitle: {
     color: AndeanTheme.colors.text,
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 10,
     bottom: 10,
-    backgroundColor: "rgba(5, 23, 18, 0.88)",
+    backgroundColor: "rgba(15, 20, 18, 0.88)",
     borderWidth: 1,
     borderColor: AndeanTheme.colors.border,
     borderRadius: 10,
@@ -399,9 +399,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
-  maxPointUnit: { color: AndeanTheme.colors.primaryLight, fontSize: 11 },
+  maxPointUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
   region: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.8,
@@ -421,15 +421,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   diffBadge: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.primaryDark,
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   diffBadgeText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "900",
   },
-  metricUnit: { color: AndeanTheme.colors.primaryLight, fontSize: 12 },
+  metricUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   metricValueAccent: {
     color: AndeanTheme.colors.amberLight,
     fontSize: 14,
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   guestBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },

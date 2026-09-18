@@ -4,6 +4,7 @@ import { Save } from 'lucide-react-native';
 import { PlanPointPicker } from '../../components/plan/PlanPointPicker';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 T1/T2/T3/T4 — Crear una nueva ruta.
@@ -49,7 +50,7 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
           value={title}
           onChangeText={setTitle}
           placeholder="Ej. Ruta del Diablo / Camino de la Muerte"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor={AndeanTheme.colors.textMuted}
         />
       </View>
 
@@ -77,10 +78,10 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
         ]}
       >
         {saving ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color="#064E3B" size="small" />
         ) : (
           <>
-            <Save size={15} color="#FFFFFF" />
+            <Save size={15} color="#064E3B" />
             <Text style={styles.saveBtnText}>GUARDAR BORRADOR</Text>
           </>
         )}
@@ -101,34 +102,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: '#9CA3AF',
+    color: AndeanTheme.colors.textMuted,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#F9FAFB',
+    color: AndeanTheme.colors.text,
     fontSize: 13,
   },
-  help: { color: '#9CA3AF', fontSize: 12, lineHeight: 17 },
-  helpStart: { color: '#34D399', fontWeight: '800' },
-  helpEnd: { color: '#F59E0B', fontWeight: '800' },
-  error: { color: '#FCA5A5', fontSize: 11 },
+  help: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  helpStart: { color: AndeanTheme.colors.primary, fontWeight: '800' },
+  helpEnd: { color: AndeanTheme.colors.accentWarning, fontWeight: '800' },
+  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },
   saveBtnDisabled: { opacity: 0.5 },
   pressed: { opacity: 0.8 },
-  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#FFFFFF' },
-  note: { color: '#6B7280', fontSize: 11, textAlign: 'center' },
+  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
+  note: { color: AndeanTheme.colors.textMuted, fontSize: 11, textAlign: 'center' },
 });

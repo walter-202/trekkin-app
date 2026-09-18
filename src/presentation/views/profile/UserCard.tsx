@@ -28,7 +28,7 @@ export const UserCard: React.FC<{
       accessibilityLabel={`Ver detalle de ${user.displayName}`}
     >
       <View style={styles.avatar}>
-        <User size={16} color={AndeanTheme.colors.primaryLight} />
+        <User size={16} color={AndeanTheme.colors.textSecondary} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
@@ -71,9 +71,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: AndeanTheme.borderRadius.full,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -97,8 +97,8 @@ const styles = StyleSheet.create({
   },
   statePill: {
     borderWidth: 1,
-    borderColor: "rgba(16,185,129,0.4)",
-    backgroundColor: "rgba(16,185,129,0.15)",
+    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderRadius: AndeanTheme.borderRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(239,68,68,0.15)",
   },
   stateText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 10,
     fontWeight: "800",
   },

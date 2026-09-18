@@ -25,6 +25,7 @@ import {
 import { distanceM } from "../../../core/domain/calculations";
 import { formatDurationMinutes } from "../../utils/format";
 import type { PlannedPoint } from "../../../core/domain/plan";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Vista de preparación de la actividad.
@@ -124,7 +125,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       <View style={styles.titleCard}>
         <Text style={styles.title}>{route.routeTitle}</Text>
         <View style={styles.chip}>
-          <Gauge size={12} color="#F59E0B" />
+          <Gauge size={12} color={AndeanTheme.colors.accentWarning} />
           <Text style={styles.chipText}>
             {DIFFICULTY_LABEL[route.difficulty] ?? route.difficulty}
           </Text>
@@ -146,21 +147,21 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       <View style={styles.metricsCard}>
         <Text style={styles.metricRowLabel}>MÉTRICAS</Text>
         <View style={styles.metricRow}>
-          <MapPin size={14} color="#10B981" />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Distancia total</Text>
           <Text style={styles.metricValue}>
             {route.distanceKm.toFixed(1)} km
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Gauge size={14} color="#34D399" />
+          <Gauge size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Tiempo estimado</Text>
           <Text style={styles.metricValue}>
             {formatDurationMinutes(route.durationMinutes)}
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <MapPin size={14} color="#3B82F6" />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Punto de inicio</Text>
           <Text style={styles.metricValue}>
             {route.startPoint.name} · {route.startPoint.lat.toFixed(4)},{" "}
@@ -168,7 +169,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Flag size={14} color="#F59E0B" />
+          <Flag size={14} color={AndeanTheme.colors.accentWarning} />
           <Text style={styles.metricLabel}>Punto final</Text>
           <Text style={styles.metricValue}>
             {route.endPoint.name} · {route.endPoint.lat.toFixed(4)},{" "}
@@ -176,19 +177,19 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <ListChecks size={14} color="#D97706" />
+          <ListChecks size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Checkpoints</Text>
           <Text style={styles.metricValue}>{route.checkpoints.length}</Text>
         </View>
       </View>
 
       <View style={styles.locationCard}>
-        <Navigation size={14} color="#34D399" />
+        <Navigation size={14} color={AndeanTheme.colors.primary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.locationLabel}>TU UBICACIÓN</Text>
           {locating ? (
             <View style={styles.locationInner}>
-              <ActivityIndicator color="#10B981" size="small" />
+              <ActivityIndicator color={AndeanTheme.colors.primary} size="small" />
               <Text style={styles.muted}>Ubicándote…</Text>
             </View>
           ) : locationError ? (
@@ -240,20 +241,20 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   provisionalBadge: {
-    backgroundColor: "#0A241C",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 12,
     padding: 10,
   },
   provisionalText: {
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   titleCard: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { flex: 1, color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
+  title: { flex: 1, color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
   chip: {
     flexDirection: "row",
     alignItems: "center",
@@ -265,34 +266,34 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  chipText: { color: "#F59E0B", fontSize: 10, fontWeight: "800" },
-  description: { color: "#D1D5DB", fontSize: 12, lineHeight: 17 },
+  chipText: { color: AndeanTheme.colors.accentWarning, fontSize: 10, fontWeight: "800" },
+  description: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
   photo: {
     width: "100%",
     height: 150,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
   },
   metricsCard: {
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
     gap: 8,
   },
   metricRowLabel: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 2,
   },
   metricRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  metricLabel: { color: "#9CA3AF", fontSize: 11, flex: 1 },
+  metricLabel: { color: AndeanTheme.colors.textSecondary, fontSize: 11, flex: 1 },
   metricValue: {
-    color: "#D1D5DB",
+    color: AndeanTheme.colors.text,
     fontSize: 11,
     fontWeight: "700",
     textAlign: "right",
@@ -301,9 +302,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 12,
   },
@@ -317,38 +318,38 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textMuted,
   },
-  locationValue: { color: "#F9FAFB", fontSize: 12, marginTop: 2 },
+  locationValue: { color: AndeanTheme.colors.text, fontSize: 12, marginTop: 2 },
   locationError: {
-    color: "#FCA5A5",
+    color: AndeanTheme.colors.danger,
     fontSize: 11,
     marginTop: 2,
     lineHeight: 15,
   },
-  muted: { color: "#9CA3AF", fontSize: 12 },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   distanceCard: {
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#10B981",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     padding: 14,
     alignItems: "center",
     gap: 4,
   },
   distanceLabel: {
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-  distanceValue: { color: "#6EE7B7", fontSize: 20, fontWeight: "900" },
+  distanceValue: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   beginBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 15,
   },

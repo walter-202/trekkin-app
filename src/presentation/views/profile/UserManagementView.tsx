@@ -107,9 +107,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
       <View style={styles.header}>
         <View style={styles.badge}>
           <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
-          <Text style={styles.badgeText}>
-            HU-10 · ADMIN · GESTIÓN DE USUARIOS
-          </Text>
+          <Text style={styles.badgeText}>GESTIÓN DE USUARIOS</Text>
         </View>
         {onBack ? (
           <Pressable
@@ -117,7 +115,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Volver al inicio"
           >
-            <ArrowLeft size={14} color={AndeanTheme.colors.primaryLight} />
+            <ArrowLeft size={16} color={AndeanTheme.colors.text} />
           </Pressable>
         ) : null}
       </View>
@@ -189,7 +187,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>Cargando usuarios registrados…</Text>
         </View>
       ) : (
@@ -230,9 +228,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: "rgba(245, 158, 11, 0.3)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: AndeanTheme.borderRadius.full,
@@ -266,13 +264,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: AndeanTheme.colors.backgroundSecondary },
+  chipActive: {
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderColor: AndeanTheme.colors.borderLight,
+  },
   chipText: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "700",
   },
-  chipTextActive: { color: AndeanTheme.colors.primaryLight },
+  chipTextActive: { color: AndeanTheme.colors.text },
   center: {
     flex: 1,
     alignItems: "center",

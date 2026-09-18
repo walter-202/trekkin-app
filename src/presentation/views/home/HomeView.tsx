@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Mountain, LogOut, ShieldCheck, User as UserIcon, MapPinned, HardDrive } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-02 — Pantalla post-login.
@@ -29,22 +30,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord, onOpenDownload
       <View style={styles.card}>
         <View style={styles.avatarRow}>
           <View style={styles.avatar}>
-            <Mountain size={22} color="#34D399" />
+            <Mountain size={20} color={AndeanTheme.colors.white} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{currentUser.displayName} ✓</Text>
+            <Text style={styles.name}>{currentUser.displayName}</Text>
             <Text style={styles.handle}>
               @{currentUser.username ?? currentUser.email.split('@')[0]}
             </Text>
           </View>
           <View style={styles.roleBadge}>
-            <ShieldCheck size={12} color="#F59E0B" />
-            <Text style={styles.roleText}>{roleLabel}</Text>
+            <ShieldCheck size={12} color={isAdmin ? AndeanTheme.colors.amberLight : AndeanTheme.colors.textSecondary} />
+            <Text style={[styles.roleText, isAdmin && styles.roleTextAdmin]}>{roleLabel}</Text>
           </View>
         </View>
 
         <View style={styles.infoRow}>
-          <UserIcon size={14} color="#9CA3AF" />
+          <UserIcon size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.infoText}>{currentUser.email}</Text>
         </View>
         {isAdmin && (
@@ -54,27 +55,27 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord, onOpenDownload
         )}
 
         <Pressable onPress={logout} style={styles.logoutBtn}>
-          <LogOut size={15} color="#FFFFFF" />
+          <LogOut size={15} color={AndeanTheme.colors.white} />
           <Text style={styles.logoutText}>Cerrar sesión</Text>
         </Pressable>
       </View>
 
       {onOpenRecord && (
-        <Pressable onPress={onOpenRecord} style={styles.hu07Btn}>
-          <MapPinned size={16} color="#34D399" />
-          <Text style={styles.hu07Text}>Planificar nueva ruta</Text>
+        <Pressable onPress={onOpenRecord} style={styles.actionBtn}>
+          <MapPinned size={16} color={AndeanTheme.colors.textSecondary} />
+          <Text style={styles.actionBtnText}>Planificar nueva ruta</Text>
         </Pressable>
       )}
 
       {onOpenDownloads && (
-        <Pressable onPress={onOpenDownloads} style={styles.downloadsBtn}>
-          <HardDrive size={16} color="#F59E0B" />
-          <Text style={styles.downloadsText}>Descargas (rutas sin conexión)</Text>
+        <Pressable onPress={onOpenDownloads} style={styles.actionBtn}>
+          <HardDrive size={16} color={AndeanTheme.colors.textSecondary} />
+          <Text style={styles.actionBtnText}>Descargas (rutas sin conexión)</Text>
         </Pressable>
       )}
 
       <View style={styles.roadmap}>
-        <Text style={styles.roadmapTitle}>PRÓXIMOS MÓDULOS (scaffold)</Text>
+        <Text style={styles.roadmapTitle}>MÓDULOS DE EXPEDICIÓN</Text>
         <Text style={styles.roadmapItem}>HU-03 Explorar rutas → src/presentation/views/explore/ ✓ (activo)</Text>
         <Text style={styles.roadmapItem}>HU-04 Offline → src/presentation/views/downloads/ ✓ (activo)</Text>
         <Text style={styles.roadmapItem}>HU-06 Actividad GPS → src/presentation/views/activity/</Text>
@@ -86,85 +87,125 @@ export const HomeView: React.FC<HomeViewProps> = ({ onOpenRecord, onOpenDownload
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#051712', padding: 16, gap: 12 },
-  card: {
-    backgroundColor: '#0E2E24',
-    borderWidth: 1,
-    borderColor: '#1A4537',
-    borderRadius: 16,
-    padding: 16,
+  container: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.background,
+    padding: AndeanTheme.spacing.md,
+    gap: AndeanTheme.spacing.sm,
   },
-  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  card: {
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    borderRadius: AndeanTheme.borderRadius.lg,
+    padding: AndeanTheme.spacing.md,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#0A241C',
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  name: { color: '#F9FAFB', fontSize: 15, fontWeight: '800' },
-  handle: { color: '#9CA3AF', fontSize: 11 },
+  name: {
+    color: AndeanTheme.colors.text,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  handle: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 11,
+  },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(245,158,11,0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(245,158,11,0.4)',
+    borderColor: AndeanTheme.colors.borderLight,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: AndeanTheme.borderRadius.sm,
   },
-  roleText: { color: '#F59E0B', fontSize: 10, fontWeight: '800' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  infoText: { color: '#D1D5DB', fontSize: 12 },
-  rbacNote: { color: '#6EE7B7', fontSize: 11, marginBottom: 12 },
+  roleText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  roleTextAdmin: {
+    color: AndeanTheme.colors.amberLight,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  infoText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+  },
+  rbacNote: {
+    color: AndeanTheme.colors.textMuted,
+    fontSize: 11,
+    marginBottom: 12,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#DC2626',
-    borderRadius: 12,
+    backgroundColor: AndeanTheme.colors.dangerDark,
+    borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 12,
   },
-  logoutText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  logoutText: {
+    color: AndeanTheme.colors.white,
+    fontSize: 13,
+    fontWeight: '800',
+  },
   roadmap: {
-    backgroundColor: '#0A241C',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
-    borderRadius: 14,
+    borderColor: AndeanTheme.colors.border,
+    borderRadius: AndeanTheme.borderRadius.md,
     padding: 14,
   },
-  roadmapTitle: { color: '#6EE7B7', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
-  roadmapItem: { color: '#9CA3AF', fontSize: 11, marginBottom: 4 },
-  hu07Btn: {
+  roadmapTitle: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  roadmapItem: {
+    color: AndeanTheme.colors.textMuted,
+    fontSize: 11,
+    marginBottom: 4,
+  },
+  actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
-    borderRadius: 14,
+    borderColor: AndeanTheme.colors.borderLight,
+    borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 14,
-    marginBottom: 12,
   },
-  hu07Text: { color: '#6EE7B7', fontSize: 13, fontWeight: '800' },
-  downloadsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0E2E24',
-    borderWidth: 1,
-    borderColor: '#1A4537',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginBottom: 12,
+  actionBtnText: {
+    color: AndeanTheme.colors.text,
+    fontSize: 13,
+    fontWeight: '800',
   },
-  downloadsText: { color: '#F59E0B', fontSize: 13, fontWeight: '800' },
 });

@@ -35,7 +35,7 @@ export const RouteCard: React.FC<{
               accessibilityLabel={`Foto de ${route.title}`}
             />
           ) : (
-            <Mountain size={18} color={AndeanTheme.colors.primaryLight} />
+            <Mountain size={18} color={AndeanTheme.colors.textSecondary} />
           )}
         </View>
         <View style={styles.titleWrap}>
@@ -87,9 +87,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -99,15 +99,15 @@ const styles = StyleSheet.create({
   title: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: "800" },
   region: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
   badge: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   badgeText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 10,
     fontWeight: "800",
   },

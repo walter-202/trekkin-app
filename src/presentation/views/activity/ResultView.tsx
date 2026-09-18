@@ -22,6 +22,7 @@ import { shareService } from "../../../infrastructure/share/shareService";
 import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
 import { routeService } from "../../../infrastructure/database/routeService";
 import type { TrekkinActivity } from "../../../core/domain/types";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Resumen de la actividad finalizada (COMPLETA / INCOMPLETA),
@@ -104,9 +105,9 @@ export const ResultView: React.FC<ResultViewProps> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         {completed ? (
-          <Trophy size={28} color="#F59E0B" />
+          <Trophy size={28} color={AndeanTheme.colors.accentWarning} />
         ) : (
-          <MapIcon size={28} color="#10B981" />
+          <MapIcon size={28} color={AndeanTheme.colors.primary} />
         )}
         <Text style={styles.heroTitle}>
           {completed ? "¡Actividad completa!" : "Actividad guardada"}
@@ -141,7 +142,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
       )}
 
       <TrekMap
-        track={saved.recordedPoints}
+        trail={saved.recordedPoints}
         start={
           first
             ? { lat: first.lat, lng: first.lng, name: "Inicio del recorrido" }
@@ -157,7 +158,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
       />
 
       <View style={styles.metricsCard}>
-        <Text style={styles.metricsLabel}>RESUMEN</Text>
+        <Text style={styles.metricsLabel}>RESUMEN DEL RECORRIDO</Text>
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Distancia recorrida</Text>
           <Text style={styles.metricValue}>
@@ -165,25 +166,9 @@ export const ResultView: React.FC<ResultViewProps> = ({
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Duración</Text>
+          <Text style={styles.metricKey}>Duración activa</Text>
           <Text style={styles.metricValue}>
             {formatDuration(saved.durationSeconds)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Distancia restante</Text>
-          <Text style={styles.metricValue}>
-            {formatKm(saved.remainingDistanceKm)}
-          </Text>
-        </View>
-        <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Ritmo</Text>
-          <Text style={styles.metricValue}>
-            {calculatePaceMinPerKm(
-              saved.distanceCoveredKm,
-              saved.durationSeconds,
-            )}{" "}
-            min/km
           </Text>
         </View>
         <View style={styles.metricRow}>
@@ -197,9 +182,34 @@ export const ResultView: React.FC<ResultViewProps> = ({
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Text style={styles.metricKey}>Desnivel</Text>
+          <Text style={styles.metricKey}>Ritmo promedio</Text>
+          <Text style={styles.metricValue}>
+            {calculatePaceMinPerKm(
+              saved.distanceCoveredKm,
+              saved.durationSeconds,
+            )}{" "}
+            min/km
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Desnivel estimado</Text>
           <Text style={styles.metricValue}>
             +{elevation.gainM} / −{elevation.lossM} m
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Dificultad estimada</Text>
+          <Text style={styles.metricValue}>
+            {suggestRouteDifficulty(
+              saved.distanceCoveredKm,
+              elevation.gainM,
+            ).toUpperCase()}
+          </Text>
+        </View>
+        <View style={styles.metricRow}>
+          <Text style={styles.metricKey}>Paradas visitadas</Text>
+          <Text style={styles.metricValue}>
+            {saved.completedCheckpoints?.length ?? 0}
           </Text>
         </View>
         <View style={styles.metricRow}>
@@ -229,11 +239,11 @@ export const ResultView: React.FC<ResultViewProps> = ({
           accessibilityLabel="Guardar trazado en mi ruta planificada"
         >
           {savedPlanSuccess ? (
-            <CheckCircle2 size={16} color="#064E3B" />
+            <CheckCircle2 size={16} color={AndeanTheme.colors.primary} />
           ) : (
-            <Save size={16} color="#064E3B" />
+            <Save size={16} color={AndeanTheme.colors.text} />
           )}
-          <Text style={styles.primaryText}>
+          <Text style={styles.planBtnText}>
             {savingPlan
               ? "GUARDANDO EN RUTA…"
               : savedPlanSuccess
@@ -265,7 +275,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Ver recorrido en detalle"
       >
-        <MapIcon size={16} color="#10B981" />
+        <MapIcon size={16} color={AndeanTheme.colors.textSecondary} />
         <Text style={styles.secondaryText}>VER RECORRIDO</Text>
       </Pressable>
 
@@ -279,7 +289,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Ir al historial"
         >
-          <History size={16} color="#10B981" />
+          <History size={16} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.secondaryText}>IR AL HISTORIAL</Text>
         </Pressable>
       ) : null}
@@ -289,7 +299,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         style={styles.linkBtn}
         accessibilityRole="button"
       >
-        <ChevronLeft size={14} color="#9CA3AF" />
+        <ChevronLeft size={14} color={AndeanTheme.colors.textSecondary} />
         <Text style={styles.linkText}>Volver al inicio</Text>
       </Pressable>
     </ScrollView>
@@ -301,15 +311,15 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   hero: {
     alignItems: "center",
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     paddingVertical: 20,
     gap: 6,
   },
-  heroTitle: { color: "#F9FAFB", fontSize: 18, fontWeight: "900" },
-  heroSubtitle: { color: "#9CA3AF", fontSize: 12 },
+  heroTitle: { color: AndeanTheme.colors.text, fontSize: 18, fontWeight: "900" },
+  heroSubtitle: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   statusChip: {
     marginTop: 4,
     borderWidth: 1,
@@ -322,12 +332,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   statusIncomplete: {
-    backgroundColor: "rgba(16,185,129,0.15)",
-    borderColor: "rgba(16,185,129,0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: AndeanTheme.colors.borderLight,
   },
   statusText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8 },
-  statusTextCompleted: { color: "#F59E0B" },
-  statusTextIncomplete: { color: "#10B981" },
+  statusTextCompleted: { color: AndeanTheme.colors.accentWarning },
+  statusTextIncomplete: { color: AndeanTheme.colors.textSecondary },
   syncBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
@@ -337,42 +347,50 @@ const styles = StyleSheet.create({
   },
   syncText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
   metricsCard: {
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
     gap: 8,
   },
   metricsLabel: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 2,
   },
   metricRow: { flexDirection: "row", alignItems: "center" },
-  metricKey: { color: "#9CA3AF", fontSize: 12, flex: 1 },
-  metricValue: { color: "#F9FAFB", fontSize: 12, fontWeight: "800" },
-  exportError: { color: "#FCA5A5", fontSize: 11, textAlign: "center" },
+  metricKey: { color: AndeanTheme.colors.textSecondary, fontSize: 12, flex: 1 },
+  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "800" },
+  exportError: { color: AndeanTheme.colors.danger, fontSize: 11, textAlign: "center" },
   planBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#34D399",
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 14,
   },
   planBtnSuccess: {
-    backgroundColor: "#10B981",
+    borderColor: AndeanTheme.colors.primary,
+  },
+  planBtnText: {
+    color: AndeanTheme.colors.text,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
   },
   primaryBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },
@@ -387,14 +405,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 14,
   },
   secondaryText: {
-    color: "#10B981",
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -406,6 +424,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
   },
-  linkText: { color: "#9CA3AF", fontSize: 12 },
+  linkText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   pressed: { opacity: 0.8 },
 });

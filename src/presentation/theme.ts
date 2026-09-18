@@ -11,6 +11,8 @@ export const AndeanTheme = {
     primaryDark: "#059669",
     amber: "#D97706",
     amberLight: "#F59E0B",
+    accentWarning: "#F59E0B",
+    accentInfo: "#3B82F6",
     danger: "#EF4444",
     dangerDark: "#DC2626",
     text: "#F9FAFB",

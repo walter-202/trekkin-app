@@ -15,6 +15,7 @@ import { TrackingView } from '../activity/TrackingView';
 import { ResultView } from '../activity/ResultView';
 import { ActivityDetailView } from '../activity/ActivityDetailView';
 import type { TrekkinActivity } from '../../../core/domain/types';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 + HU-08 — Planificación y grabación GPS.
@@ -156,12 +157,12 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={goBack} style={styles.headerBtn} accessibilityLabel="Volver">
-          <ArrowLeft size={18} color="#F9FAFB" />
+          <ArrowLeft size={18} color={AndeanTheme.colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{STEP_TITLES[step]}</Text>
         {step === 'drafts' && onClose ? (
           <Pressable onPress={onClose} style={styles.headerBtn} accessibilityLabel="Cerrar">
-            <X size={18} color="#9CA3AF" />
+            <X size={18} color={AndeanTheme.colors.textSecondary} />
           </Pressable>
         ) : (
           <View style={styles.headerBtn} />
@@ -213,7 +214,7 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#051712' },
+  container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -227,14 +228,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
   },
-  headerTitle: { flex: 1, color: '#F9FAFB', fontSize: 15, fontWeight: '900' },
+  headerTitle: { flex: 1, color: AndeanTheme.colors.text, fontSize: 15, fontWeight: '900' },
   footNote: {
     textAlign: 'center',
-    color: '#6B7280',
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     paddingBottom: 8,
   },

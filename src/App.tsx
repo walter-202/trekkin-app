@@ -216,11 +216,11 @@ function Gate() {
           accessibilityLabel="Abrir menú de navegación"
           hitSlop={8}
         >
-          <Menu size={20} color={AndeanTheme.colors.primaryLight} />
+          <Menu size={20} color={AndeanTheme.colors.text} />
         </Pressable>
 
         <View style={styles.topBrand}>
-          <Mountain size={16} color={AndeanTheme.colors.primary} />
+          <Mountain size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.topTitle}>TREKKIN BOLIVIA</Text>
         </View>
 
@@ -231,7 +231,7 @@ function Gate() {
             accessibilityRole="button"
             accessibilityLabel="Ver mi perfil"
           >
-            <UserIcon size={14} color={AndeanTheme.colors.primaryLight} />
+            <UserIcon size={14} color={AndeanTheme.colors.textSecondary} />
             <Text style={styles.userBadgeText} numberOfLines={1}>
               {currentUser.displayName.split(" ")[0]}
             </Text>
@@ -246,7 +246,7 @@ function Gate() {
             accessibilityRole="button"
             accessibilityLabel="Iniciar sesión o registrarse"
           >
-            <LogIn size={13} color={AndeanTheme.colors.primaryLight} />
+            <LogIn size={13} color={AndeanTheme.colors.textSecondary} />
             <Text style={styles.loginBtnText}>Entrar</Text>
           </Pressable>
         )}
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderRadius: AndeanTheme.borderRadius.full,
   },
   loginBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 11,
     fontWeight: "800",
   },

@@ -143,7 +143,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+        <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
         <Text style={styles.muted}>Cargando información del usuario…</Text>
       </View>
     );
@@ -178,12 +178,12 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Volver a la lista de usuarios"
         >
-          <ArrowLeft size={14} color={AndeanTheme.colors.primaryLight} />
+          <ArrowLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.linkText}>Usuarios</Text>
         </Pressable>
         <View style={styles.badge}>
           <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
-          <Text style={styles.badgeText}>HU-10 · ADMIN</Text>
+          <Text style={styles.badgeText}>ADMINISTRACIÓN</Text>
         </View>
       </View>
 
@@ -307,9 +307,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  link: { flexDirection: "row", alignItems: "center", gap: 4 },
+  link: { flexDirection: "row", alignItems: "center", gap: 6 },
   linkText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -317,9 +317,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: "rgba(245, 158, 11, 0.3)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: AndeanTheme.borderRadius.full,
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chipActive: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderColor: AndeanTheme.colors.borderLight,
   },
   chipText: {
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
-  chipTextActive: { color: AndeanTheme.colors.primaryLight },
+  chipTextActive: { color: AndeanTheme.colors.text },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -417,14 +417,14 @@ const styles = StyleSheet.create({
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   backBtn: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     backgroundColor: AndeanTheme.colors.card,
     borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
   backBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },

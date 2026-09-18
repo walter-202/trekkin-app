@@ -13,6 +13,7 @@ import { PlanPointPicker } from '../../components/plan/PlanPointPicker';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import type { RouteDifficulty } from '../../../core/domain/types';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 T7 — Modificar la planificación antes de iniciar la ruta.
@@ -23,10 +24,10 @@ interface PlanEditorViewProps {
 }
 
 const DIFFICULTIES: { value: RouteDifficulty; label: string; color: string }[] = [
-  { value: 'facil', label: 'Fácil', color: '#34D399' },
-  { value: 'moderado', label: 'Moderado', color: '#F59E0B' },
+  { value: 'facil', label: 'Fácil', color: AndeanTheme.colors.primaryLight },
+  { value: 'moderado', label: 'Moderado', color: AndeanTheme.colors.accentWarning },
   { value: 'dificil', label: 'Difícil', color: '#F97316' },
-  { value: 'experto', label: 'Experto', color: '#EF4444' },
+  { value: 'experto', label: 'Experto', color: AndeanTheme.colors.danger },
 ];
 
 export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) => {
@@ -68,7 +69,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
           value={title}
           onChangeText={setTitle}
           placeholder="Ej. Circo del Valle de la Luna"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor={AndeanTheme.colors.textMuted}
         />
       </View>
 
@@ -81,7 +82,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
               onPress={() => setDifficulty(d.value)}
               style={[
                 styles.chip,
-                difficulty === d.value && { borderColor: d.color, backgroundColor: '#0A241C' },
+                difficulty === d.value && { borderColor: d.color, backgroundColor: AndeanTheme.colors.cardElevated },
               ]}
             >
               <Text style={[styles.chipText, difficulty === d.value && { color: d.color }]}>
@@ -96,7 +97,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
       <PlanPointPicker start={start} end={end} onStartChange={setStart} onEndChange={setEnd} height={260} />
 
       <View style={styles.confirmBadge}>
-        <Pin size={14} color={plan?.startPointConfirmed ? '#34D399' : '#9CA3AF'} />
+        <Pin size={14} color={plan?.startPointConfirmed ? AndeanTheme.colors.primary : AndeanTheme.colors.textSecondary} />
         <Text style={[styles.confirmText, plan?.startPointConfirmed && styles.confirmTextOn]}>
           {plan?.startPointConfirmed
             ? 'Punto inicial real confirmado'
@@ -107,7 +108,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
       {localError && <Text style={styles.error}>{localError}</Text>}
       {savedOk && (
         <View style={styles.successBanner}>
-          <CheckCircle2 size={14} color="#34D399" />
+          <CheckCircle2 size={14} color={AndeanTheme.colors.primary} />
           <Text style={styles.successText}>Cambios guardados correctamente.</Text>
         </View>
       )}
@@ -118,10 +119,10 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
         style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
       >
         {saving ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
+          <ActivityIndicator color="#064E3B" size="small" />
         ) : (
           <>
-            <Save size={15} color="#FFFFFF" />
+            <Save size={15} color="#064E3B" />
             <Text style={styles.saveBtnText}>GUARDAR CAMBIOS</Text>
           </>
         )}
@@ -137,7 +138,7 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
         ]}
       >
         <Text style={styles.continueBtnText}>CONTINUAR: CONFIRMAR PUNTO DE INICIO</Text>
-        <ChevronRight size={15} color="#F9FAFB" />
+        <ChevronRight size={15} color={AndeanTheme.colors.text} />
       </Pressable>
     </ScrollView>
   );
@@ -151,75 +152,75 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: '#9CA3AF',
+    color: AndeanTheme.colors.textMuted,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#F9FAFB',
+    color: AndeanTheme.colors.text,
     fontSize: 13,
   },
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  chipText: { fontSize: 11, fontWeight: '700', color: '#9CA3AF' },
+  chipText: { fontSize: 11, fontWeight: '700', color: AndeanTheme.colors.textSecondary },
   confirmBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 10,
   },
-  confirmText: { color: '#9CA3AF', fontSize: 11, fontWeight: '700' },
-  confirmTextOn: { color: '#34D399' },
-  error: { color: '#FCA5A5', fontSize: 11 },
+  confirmText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: '700' },
+  confirmTextOn: { color: AndeanTheme.colors.text },
+  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#0A241C',
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 12,
     padding: 10,
   },
-  successText: { color: '#6EE7B7', fontSize: 11 },
+  successText: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },
-  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#FFFFFF' },
+  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
   continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#064E3B',
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 14,
   },
   continueBtnDisabled: { opacity: 0.4 },
-  continueBtnText: { fontSize: 12, fontWeight: '800', color: '#F9FAFB' },
+  continueBtnText: { fontSize: 12, fontWeight: '800', color: AndeanTheme.colors.text },
   pressed: { opacity: 0.8 },
 });

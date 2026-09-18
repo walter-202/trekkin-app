@@ -11,6 +11,7 @@ import { History, ChevronRight, ArrowUp, CloudOff } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Historial de actividades del usuario.
@@ -45,16 +46,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
       {isLoading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#10B981" />
+          <ActivityIndicator color={AndeanTheme.colors.primary} />
         </View>
       ) : error && activities.length === 0 ? (
         <View style={styles.center}>
-          <CloudOff size={24} color="#9CA3AF" />
+          <CloudOff size={24} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>{error}</Text>
         </View>
       ) : activities.length === 0 ? (
         <View style={styles.center}>
-          <History size={26} color="#9CA3AF" />
+          <History size={26} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>
             Aún no hay actividades en tu historial.
           </Text>
@@ -116,12 +117,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   </View>
                   {!item.isSynced && (
                     <View style={styles.unsyncedRow}>
-                      <CloudOff size={11} color="#F59E0B" />
+                      <CloudOff size={11} color={AndeanTheme.colors.accentWarning} />
                       <Text style={styles.unsyncedText}>Sin sincronizar</Text>
                     </View>
                   )}
                 </View>
-                <ChevronRight size={16} color="#4B5563" />
+                <ChevronRight size={16} color={AndeanTheme.colors.textMuted} />
               </Pressable>
             );
           }}
@@ -134,7 +135,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           style={styles.backBtn}
           accessibilityRole="button"
         >
-          <ArrowUp size={14} color="#9CA3AF" />
+          <ArrowUp size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.backText}>Volver</Text>
         </Pressable>
       )}
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerRow: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
   headerTitle: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1,
@@ -156,15 +157,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
   },
   cardBody: { flex: 1, gap: 6 },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  routeTitle: { flex: 1, color: "#F9FAFB", fontSize: 13, fontWeight: "800" },
+  routeTitle: { flex: 1, color: AndeanTheme.colors.text, fontSize: 13, fontWeight: "800" },
   badge: {
     borderWidth: 1,
     paddingHorizontal: 8,
@@ -176,17 +177,17 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   badgeIncomplete: {
-    backgroundColor: "rgba(16,185,129,0.15)",
-    borderColor: "rgba(16,185,129,0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: AndeanTheme.colors.borderLight,
   },
   badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
-  badgeTextCompleted: { color: "#F59E0B" },
-  badgeTextIncomplete: { color: "#10B981" },
+  badgeTextCompleted: { color: AndeanTheme.colors.accentWarning },
+  badgeTextIncomplete: { color: AndeanTheme.colors.textSecondary },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { color: "#9CA3AF", fontSize: 11 },
-  metaDot: { color: "#4B5563", fontSize: 11 },
+  metaText: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
+  metaDot: { color: AndeanTheme.colors.borderLight, fontSize: 11 },
   unsyncedRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  unsyncedText: { color: "#F59E0B", fontSize: 10, fontWeight: "700" },
+  unsyncedText: { color: AndeanTheme.colors.accentWarning, fontSize: 10, fontWeight: "700" },
   center: {
     flex: 1,
     alignItems: "center",
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 24,
   },
-  muted: { color: "#9CA3AF", fontSize: 12, textAlign: "center" },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: "center" },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -202,6 +203,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 12,
   },
-  backText: { color: "#9CA3AF", fontSize: 12 },
+  backText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   pressed: { opacity: 0.8 },
 });

@@ -38,7 +38,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Volver"
               >
-                <ChevronLeft size={20} color={AndeanTheme.colors.text} />
+                <ChevronLeft size={20} color={AndeanTheme.colors.primary} />
               </Pressable>
             ) : null}
             <Text style={styles.topTitle}>MI PERFIL</Text>
@@ -49,7 +49,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Editar perfil"
           >
-            <Edit2 size={14} color={AndeanTheme.colors.textSecondary} />
+            <Edit2 size={14} color={AndeanTheme.colors.primary} />
             <Text style={styles.editBtnText}>Editar</Text>
           </Pressable>
         </View>
@@ -71,7 +71,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               color={
                 isAdmin
                   ? AndeanTheme.colors.amberLight
-                  : AndeanTheme.colors.textSecondary
+                  : AndeanTheme.colors.primaryLight
               }
             />
             <Text style={[styles.roleText, isAdmin && styles.roleTextAdmin]}>
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.primaryLight,
   },
   editBtn: {
     flexDirection: "row",
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: "800",
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.primary,
   },
   identity: {
     alignItems: "center",
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   avatarInitial: {
     fontSize: 48,
     fontWeight: "900",
-    color: AndeanTheme.colors.white,
+    color: AndeanTheme.colors.primary,
   },
   onlineDot: {
     position: "absolute",
@@ -247,9 +247,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 9999,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: "rgba(16, 185, 129, 0.2)",
   },
   roleBadgeAdmin: {
     backgroundColor: "rgba(217, 119, 6, 0.15)",
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.primaryLight,
   },
   roleTextAdmin: {
     color: AndeanTheme.colors.amberLight,

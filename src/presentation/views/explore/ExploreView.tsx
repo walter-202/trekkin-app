@@ -123,8 +123,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.badge}>
-          <Compass size={14} color={AndeanTheme.colors.primaryLight} />
-          <Text style={styles.badgeText}>HU-03 · EXPLORAR</Text>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>CATÁLOGO</Text>
         </View>
         {onBack ? (
           <Pressable onPress={onBack} accessibilityLabel="Volver al inicio">
@@ -173,7 +173,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>Cargando rutas publicadas…</Text>
         </View>
       ) : (
@@ -223,26 +223,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
   },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
+  },
   badgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: AndeanTheme.colors.primaryLight,
+    letterSpacing: 1,
+    color: AndeanTheme.colors.textSecondary,
   },
   link: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   session: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -267,26 +274,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: AndeanTheme.colors.backgroundSecondary },
+  chipActive: {
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderColor: AndeanTheme.colors.borderLight,
+  },
   chipText: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "700",
   },
-  chipTextActive: { color: AndeanTheme.colors.primaryLight },
+  chipTextActive: { color: AndeanTheme.colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   list: { gap: 10, paddingBottom: 16 },
   authBtn: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     backgroundColor: AndeanTheme.colors.card,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
   authBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
