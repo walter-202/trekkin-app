@@ -208,7 +208,7 @@ export function buildGPX(track: {
         const nameTag = w.name ? `<name>${escapeXml(w.name)}</name>` : "";
         const descTag = w.desc ? `<desc>${escapeXml(w.desc)}</desc>` : "";
         const eleTag = w.altitude !== undefined ? `<ele>${w.altitude}</ele>` : "";
-        return `  <wpt lat="${w.lat}" lon="${w.lng}">\n    ${nameTag}\n    ${descTag}\n    ${eleTag}\n  </wpt>`;
+        return `  <wpt lat="${w.lat}" lon="${w.lng}">\n    ${eleTag}\n    ${nameTag}\n    ${descTag}\n  </wpt>`;
       })
       .join("\n") + "\n";
   }
@@ -218,7 +218,7 @@ export function buildGPX(track: {
     trkptsXml = track.points
       .map((p) => {
         const eleTag = p.altitude !== undefined ? `<ele>${p.altitude}</ele>` : "";
-        const timeTag = p.timestamp ? `<time>${new Date(p.timestamp).toISOString()}</time>` : "";
+        const timeTag = p.timestamp !== undefined ? `<time>${new Date(p.timestamp).toISOString()}</time>` : "";
         return `      <trkpt lat="${p.lat}" lon="${p.lng}">\n        ${eleTag}\n        ${timeTag}\n      </trkpt>`;
       })
       .join("\n");

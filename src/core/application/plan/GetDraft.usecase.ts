@@ -15,6 +15,8 @@ export async function GetDraftUseCase(
   args: { uid: string; id: string },
   ports: GetDraftPorts
 ): Promise<RoutePlan> {
+  const local = await ports.loadLocalPlan();
+  if (local?.id === args.id && local.creatorId === args.uid) return local;
   const route = await ports.getDraft(args.id);
   if (!route) {
     throw new Error('El borrador no existe o ya fue eliminado.');
@@ -22,8 +24,6 @@ export async function GetDraftUseCase(
   if (route.creatorId !== args.uid) {
     throw new Error('No tienes permiso para abrir este borrador.');
   }
-
-  const local = await ports.loadLocalPlan();
 
   return {
     id: route.id,

@@ -8,3 +8,7 @@ coverage/
 *.log
 .env*
 !.env.example
+# Local AI runtime state
+.atl/
+.gentle-ai*
+

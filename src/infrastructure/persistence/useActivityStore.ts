@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
-import { toTrekkinActivity } from "../../core/domain/activity";
 import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
 import type { RoutePlan } from "../../core/domain/plan";
-import { appStorage } from "./storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createSerialQueue } from "./serialQueue";
 import { routeService } from "../database/routeService";
 import { activityService } from "../database/activityService";
 import {
@@ -38,38 +38,40 @@ import { GetActivityUseCase } from "../../core/application/activity/GetActivity.
  * - La actividad en curso vive en AsyncStorage (clave trekking_activity_autosave),
  *   por lo que no se pierde al salir de la pantalla ni ante pérdida de conexión.
  * - El recorrido se persiste en Firestore al FINALIZAR (colección `activities`).
- * - Si el guardado en Firestore falla (ej. sin red), la actividad se conserva en
- *   una lista local de pendientes de sincronización y se muestra en el historial.
+ * - Completed activities stay in the local archive, including after cloud upload.
+ *   The legacy unsynced key is retained for compatibility with existing records.
  */
 const AUTOSAVE_KEY = "trekking_activity_autosave";
 const UNSYNCED_KEY = "trekking_activity_unsynced";
+const enqueue = createSerialQueue();
+let watchGeneration = 0;
 
 function saveLive(live: LiveActivity): Promise<void> {
-  return appStorage.setItem(AUTOSAVE_KEY, JSON.stringify(live));
+  return AsyncStorage.setItem(AUTOSAVE_KEY, JSON.stringify(live));
 }
 
 function loadLive(): Promise<LiveActivity | null> {
-  return appStorage.getItem(AUTOSAVE_KEY).then((raw) => {
+  return AsyncStorage.getItem(AUTOSAVE_KEY).then((raw) => {
     if (!raw) return null;
     try {
       return JSON.parse(raw) as LiveActivity;
     } catch {
-      return null;
+      throw new Error("No se pudo leer la grabación local. No se ha borrado.");
     }
   });
 }
 
 function saveUnsynced(list: TrekkinActivity[]): Promise<void> {
-  return appStorage.setItem(UNSYNCED_KEY, JSON.stringify(list));
+  return AsyncStorage.setItem(UNSYNCED_KEY, JSON.stringify(list));
 }
 
 function loadUnsynced(): Promise<TrekkinActivity[] | null> {
-  return appStorage.getItem(UNSYNCED_KEY).then((raw) => {
+  return AsyncStorage.getItem(UNSYNCED_KEY).then((raw) => {
     if (!raw) return null;
     try {
       return JSON.parse(raw) as TrekkinActivity[];
     } catch {
-      return null;
+      throw new Error("No se pudo leer el historial local. No se ha borrado.");
     }
   });
 }
@@ -127,7 +129,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   error: null,
   watch: null,
 
-  restoreLiveSession: async () => {
+  restoreLiveSession: () => enqueue(async () => {
+    if (get().live) return get().live!.phase === "in_progress" || get().live!.phase === "paused";
     const restored = await loadLive();
     if (restored) {
       const resumable =
@@ -138,7 +141,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       }
     }
     return false;
-  },
+  }),
 
   loadCatalog: async () => {
     set({ isLoading: true, error: null });
@@ -146,16 +149,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       // Restaurar actividad persistida (no se pierde al salir de la pantalla),
       // pero solo si está en curso o pausada. Una selección sin iniciar (ready)
       // o una actividad ya cerrada (finished) vuelve a mostrar el catálogo.
-      const restored = await loadLive();
-      if (restored) {
-        const resumable =
-          restored.phase === "in_progress" || restored.phase === "paused";
-        if (resumable) {
-          set({ live: restored });
-        } else {
-          await appStorage.removeItem(AUTOSAVE_KEY);
-        }
-      }
+      await get().restoreLiveSession();
       const routes = await routeService.listPublishedRoutes();
       set({ catalogRoutes: routes, isLoading: false });
     } catch (err: unknown) {
@@ -170,7 +164,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  startRoute: async (uid, userName, routeId) => {
+  startRoute: (uid, userName, routeId) => enqueue(async () => {
     set({ isLoading: true, error: null });
     try {
       const live = await StartActivityUseCase(
@@ -192,9 +186,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  startFromPlan: async (plan, uid, userName) => {
+  startFromPlan: (plan, uid, userName) => enqueue(async () => {
     set({ isLoading: true, error: null });
     try {
       const prepared = StartRecordingFromPlanUseCase({
@@ -216,9 +210,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  startFreeRecording: async (position, uid, userName) => {
+  startFreeRecording: (position, uid, userName) => enqueue(async () => {
     set({ isLoading: true, error: null });
     try {
       const prepared = StartFreeRecordingUseCase({
@@ -240,9 +234,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  beginTracking: async () => {
+  beginTracking: () => enqueue(async () => {
     const live = get().live;
     if (!live) return false;
     set({ error: null });
@@ -260,9 +254,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  recordPoint: async (p) => {
+  recordPoint: (p) => enqueue(async () => {
     const live = get().live;
     if (!live || live.phase !== "in_progress") return;
     try {
@@ -277,12 +271,12 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       const updated = await RecordPointUseCase(live, point);
       await saveLive(updated);
       set({ live: updated });
-    } catch {
-      // Punto descartado o estado inválido: no interrumpir el seguimiento.
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : "No se pudo guardar el punto GPS." });
     }
-  },
+  }),
 
-  pauseActivity: async () => {
+  pauseActivity: () => enqueue(async () => {
     const live = get().live;
     if (!live) return false;
     set({ error: null });
@@ -299,9 +293,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  resumeActivity: async () => {
+  resumeActivity: () => enqueue(async () => {
     const live = get().live;
     if (!live) return false;
     set({ error: null });
@@ -319,9 +313,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  addCheckpoint: async (input: AddCheckpointInput) => {
+  addCheckpoint: (input: AddCheckpointInput) => enqueue(async () => {
     const live = get().live;
     if (!live) return false;
     try {
@@ -338,88 +332,82 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       });
       return false;
     }
-  },
+  }),
 
-  finishActivity: async () => {
+  finishActivity: () => enqueue(async () => {
     const live = get().live;
-    if (!live) return null;
+    if (!live || live.phase === "finished") return null;
     set({ finishing: true, error: null });
     get().stopWatch();
     try {
-      const result = await FinishActivityUseCase(live, {
-        saveActivity: activityService.createActivity,
+      let localHistory = (await loadUnsynced()) ?? [];
+      const finished = await FinishActivityUseCase(live, {
+        // The durable local archive is the completion boundary, not the network.
+        saveActivity: async (saved) => {
+          localHistory = [...localHistory.filter((a) => a.id !== saved.id), { ...saved, isSynced: false }];
+          await saveUnsynced(localHistory);
+        },
         saveLocalActivity: saveLive,
       });
+      const result = { ...finished, saved: { ...finished.saved, isSynced: false } };
       set({
         live: result.activity,
         lastResult: result.saved,
+        unsynced: localHistory.filter((a) => !a.isSynced),
         finishing: false,
       });
+      void activityService.createActivity({ ...result.saved, isSynced: true })
+        .then(() => enqueue(async () => {
+          const history = ((await loadUnsynced()) ?? []).map((a) =>
+            a.id === result.saved.id ? { ...a, isSynced: true } : a);
+          await saveUnsynced(history);
+          set({ unsynced: history.filter((a) => !a.isSynced) });
+        }))
+        .catch(() => { /* The local archive remains available for export and retry. */ });
       return result;
     } catch (err: unknown) {
-      // Local primero, Firestore después: ante cualquier fallo de guardado se
-      // conserva un resultado local para que el Resultado SIEMPRE aparezca.
-      const raw = await loadLive();
-      const failed = raw && raw.phase === "finished" ? raw : null;
-      const liveNow = failed ?? get().live;
-      if (!liveNow) {
-        set({
-          error:
-            err instanceof Error
-              ? err.message
-              : "No se pudo guardar la actividad. Intenta nuevamente.",
-          finishing: false,
-        });
-        return null;
-      }
-      const finishedNow: LiveActivity = failed ?? {
-        ...liveNow,
-        phase: "finished",
-        finishedAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      const pending = toTrekkinActivity(finishedNow, { isSynced: false });
-      const prev = (await loadUnsynced()) ?? [];
-      const next = [...prev.filter((a) => a.id !== pending.id), pending];
-      await saveUnsynced(next);
       set({
-        live: finishedNow,
-        lastResult: pending,
-        unsynced: next,
         finishing: false,
-        error: "No se pudo guardar la actividad. Intenta nuevamente.",
+        error: err instanceof Error ? err.message : "No se pudo guardar la actividad en el dispositivo.",
       });
-      return { activity: finishedNow, saved: pending };
+      return null;
     }
-  },
+  }),
 
   startWatch: async (options) => {
     get().stopWatch();
+    const generation = watchGeneration;
     const sub = await locationService.startWatching((p) => {
       get().recordPoint(p);
     }, options);
+    if (generation !== watchGeneration || get().live?.phase !== "in_progress") {
+      if (sub) locationService.stopWatching(sub);
+      return false;
+    }
     set({ watch: sub });
     return sub != null;
   },
 
   stopWatch: () => {
+    watchGeneration += 1;
     const { watch } = get();
     if (watch) locationService.stopWatching(watch);
     set({ watch: null });
   },
 
   listActivities: async (uid) => {
-    set({ isLoading: true, error: null });
+    set({ activities: [], isLoading: true, error: null });
     try {
-      const joined = (await loadUnsynced()) ?? [];
+      const joined = ((await loadUnsynced()) ?? []).filter((a) => a.userId === uid);
+      set({ activities: joined, unsynced: joined.filter((a) => !a.isSynced), isLoading: false });
       const remote = await ListActivitiesUseCase(uid, {
         listByUser: activityService.listUserActivities,
       });
       const merged = [
-        ...joined.filter((j) => !remote.some((r) => r.id === j.id)),
-        ...remote,
+        ...joined,
+        ...remote.filter((r) => !joined.some((j) => j.id === r.id)),
       ].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-      set({ activities: merged, unsynced: joined, isLoading: false });
+      set({ activities: merged, isLoading: false });
     } catch (err: unknown) {
       set({
         error:
@@ -433,11 +421,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   loadActivity: async (id, uid) => {
     set({ error: null });
-    const local = (
-      get().unsynced.length > 0
-        ? get().unsynced
-        : ((await loadUnsynced()) ?? [])
-    ).find((a) => a.id === id);
+    const local = ((await loadUnsynced()) ?? []).find((a) => a.id === id && a.userId === uid);
     if (local) return local;
     try {
       return await GetActivityUseCase(
@@ -455,11 +439,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  clearLive: async () => {
+  clearLive: () => enqueue(async () => {
     get().stopWatch();
+    await AsyncStorage.removeItem(AUTOSAVE_KEY);
     set({ live: null, lastResult: null, error: null });
-    await appStorage.removeItem(AUTOSAVE_KEY);
-  },
+  }),
 
   clearError: () => set({ error: null }),
 }));
