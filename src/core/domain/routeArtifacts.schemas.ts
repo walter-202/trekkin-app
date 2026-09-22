@@ -14,7 +14,11 @@ export const RouteArtifactMetadataSchema = z.object({
   fileName: z.enum(["route.gpx", "basemap.pmtiles"]),
   mimeType: z.enum(["application/gpx+xml", "application/vnd.pmtiles"]),
   byteSize: z.number().int().nonnegative(),
-  sha256: z.string().trim().min(1).max(128),
+  sha256: z
+    .string()
+    .trim()
+    .regex(/^[0-9a-fA-F]{64}$/, "sha256 debe ser un digest hexadecimal de 64 caracteres")
+    .optional(),
   status: artifactStatusSchema,
   updatedAt: z.number(),
   error: z.string().max(500).optional(),

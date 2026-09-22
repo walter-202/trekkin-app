@@ -88,10 +88,10 @@ service cloud.firestore {
              data.kind == kind &&
              data.fileName == expectedName &&
              data.mimeType == expectedMime &&
-             data.version is number && data.version >= 1 &&
+             data.version is int && data.version >= 1 &&
              data.storagePath is string &&
              data.byteSize is number && data.byteSize >= 0 && data.byteSize <= 524288000 &&
-             data.sha256 is string && data.sha256.size() > 0 && data.sha256.size() <= 128 &&
+             (!('sha256' in data) || (data.sha256 is string && data.sha256.matches('^[0-9a-fA-F]{64}$'))) &&
              data.status in ['pending', 'uploading', 'uploaded', 'failed'] &&
              (!requireUploaded || data.status == 'uploaded') &&
              data.updatedAt is number &&
@@ -102,7 +102,7 @@ service cloud.firestore {
       return data is map &&
              data.keys().hasAll(['version', 'gpx', 'pmtiles']) &&
              data.keys().hasOnly(['version', 'gpx', 'pmtiles']) &&
-             data.version is number && data.version >= 1 &&
+             data.version is int && data.version >= 1 &&
              isValidRouteArtifact(data.gpx, 'gpx', 'route.gpx', 'application/gpx+xml', requireUploaded) &&
              isValidRouteArtifact(data.pmtiles, 'pmtiles', 'basemap.pmtiles', 'application/vnd.pmtiles', requireUploaded) &&
              data.gpx.version == data.version &&

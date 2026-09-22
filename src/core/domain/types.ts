@@ -28,7 +28,8 @@ export interface RouteArtifactMetadata {
   fileName: "route.gpx" | "basemap.pmtiles";
   mimeType: "application/gpx+xml" | "application/vnd.pmtiles";
   byteSize: number;
-  sha256: string;
+  /** Optional while an upload is pending; when present it is a SHA-256 digest. */
+  sha256?: string;
   status: RouteArtifactStatus;
   updatedAt: number;
   error?: string;

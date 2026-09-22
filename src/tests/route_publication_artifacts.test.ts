@@ -76,6 +76,26 @@ async function main() {
   assert.deepEqual(RoutePublicationArtifactsSchema.parse(artifacts), artifacts);
   assert.deepEqual(ValidateRoutePublicationUseCase(routeId, artifacts), artifacts);
 
+  assert.throws(() => RoutePublicationArtifactsSchema.parse({
+    ...artifacts,
+    version: 1.5,
+  }), /int|integer|entero/i);
+  assert.throws(() => RoutePublicationArtifactsSchema.parse({
+    ...artifacts,
+    version: 0,
+  }), /positive|positivo|too small/i);
+  assert.throws(() => RoutePublicationArtifactsSchema.parse({
+    ...artifacts,
+    gpx: { ...artifacts.gpx, sha256: "not-a-digest" },
+  }), /sha256|digest|64/i);
+  assert.deepEqual(
+    RoutePublicationArtifactsSchema.parse({
+      ...artifacts,
+      gpx: { ...artifacts.gpx, sha256: undefined },
+    }).gpx.sha256,
+    undefined,
+  );
+
   const mixedVersion = { ...artifacts, pmtiles: { ...artifacts.pmtiles, version: 2 } };
   assert.throws(
     () => ValidateRoutePublicationUseCase(routeId, mixedVersion),
