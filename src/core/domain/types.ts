@@ -85,6 +85,23 @@ export interface Coordinates {
   accuracy?: number;
 }
 
+/** Exact geographic extent of the bounded geometry included in a published route. */
+export interface RoutePreviewBounds {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}
+
+/** Compact, versioned online geometry. Full GPX remains a private Storage artifact. */
+export interface RoutePreview {
+  version: 1;
+  encoding: "polyline6";
+  polyline: string;
+  pointCount: number;
+  bbox: RoutePreviewBounds;
+}
+
 export interface Checkpoint {
   id: string;
   name: string;
@@ -120,6 +137,8 @@ export interface RouteModel {
   isPrivate: boolean;
   creatorId: string;
   creatorName: string;
+  /** Optional while legacy documents still expose waypoints during the HU-03 migration. */
+  preview?: RoutePreview;
   waypoints: Coordinates[];
   checkpoints: Checkpoint[];
   photos: string[];

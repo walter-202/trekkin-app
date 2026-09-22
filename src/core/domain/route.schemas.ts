@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoutePreviewSchema } from "./routePreview.schemas";
 
 /**
  * HU-03 Explorar — Dominio Route (puro, sin Firebase/RN).
@@ -48,6 +49,7 @@ export const RouteSchema = z.object({
   isPrivate: z.boolean().default(false),
   creatorId: z.string().trim().min(1).max(128),
   creatorName: z.string().trim().max(150).default(""),
+  preview: RoutePreviewSchema.optional(),
   waypoints: z.array(coordinateSchema).max(5000).default([]),
   checkpoints: z
     .array(
