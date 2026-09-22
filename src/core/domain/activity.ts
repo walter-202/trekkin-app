@@ -54,6 +54,8 @@ export interface LiveActivity {
   /** Tiempo activo acumulado, excluyendo pausas. */
   accumulatedActiveMs: number;
   recordedPoints: Coordinates[];
+  /** Total distance retained while the in-memory track is windowed. */
+  totalDistanceKm?: number;
   completedCheckpoints: string[];
   /** Paradas agregadas en vivo por el usuario durante la actividad (HU-08). */
   newCheckpoints?: Checkpoint[];
@@ -181,10 +183,13 @@ export function toTrekkinActivity(
   const endPoint = activity.route.endPoint;
   const routePolyline: Coordinates[] = [...activity.route.waypoints, endPoint];
   const lastPoint = activity.recordedPoints[activity.recordedPoints.length - 1];
-  const distanceCoveredKm = accumulatedDistanceKm(activity.recordedPoints, {
-    minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-    maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-  });
+  const distanceCoveredKm = activity.totalDistanceKm ?? accumulatedDistanceKm(
+    activity.recordedPoints,
+    {
+      minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+      maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+    },
+  );
   const remainingKm = lastPoint
     ? remainingDistanceToEndKm(lastPoint, routePolyline)
     : activity.route.distanceKm;

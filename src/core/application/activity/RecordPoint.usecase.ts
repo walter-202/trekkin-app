@@ -13,6 +13,34 @@ import {
  * (errores GPS); los checkpoints cercanos se marcan como visitados.
  */
 
+export type PointDiscardReason =
+  | "accepted"
+  | "invalid_phase"
+  | "invalid_schema"
+  | "low_accuracy"
+  | "jitter"
+  | "jump";
+
+/** Classifies the persistence outcome using the same rules as RecordPointUseCase. */
+export function classifyPointDiscard(
+  activity: LiveActivity,
+  rawPoint: RecordedPointInput,
+): PointDiscardReason {
+  if (activity.phase !== "in_progress") return "invalid_phase";
+  const parsed = RecordedPointSchema.safeParse(rawPoint);
+  if (!parsed.success) return "invalid_schema";
+  const point = parsed.data;
+  if (point.accuracy != null && point.accuracy > ACTIVITY_CONFIG.MAX_ACCURACY_M) {
+    return "low_accuracy";
+  }
+  if (activity.recordedPoints.length === 0) return "accepted";
+  const last = activity.recordedPoints[activity.recordedPoints.length - 1];
+  const distance = distanceM(last, point);
+  if (distance < ACTIVITY_CONFIG.MIN_GPS_DELTA_M) return "jitter";
+  if (distance > ACTIVITY_CONFIG.MAX_GPS_JUMP_M) return "jump";
+  return "accepted";
+}
+
 export async function RecordPointUseCase(
   activity: LiveActivity,
   rawPoint: RecordedPointInput,

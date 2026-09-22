@@ -32,6 +32,33 @@ import {
 } from "../../core/application/activity/AddCheckpoint.usecase";
 import { ListActivitiesUseCase } from "../../core/application/activity/ListActivities.usecase";
 import { GetActivityUseCase } from "../../core/application/activity/GetActivity.usecase";
+import {
+  resolvePointPersistence,
+  restoreLiveFromHeader,
+  sliceWindow,
+  nextSeqAfterMax,
+  slimLiveForAutosave,
+  TRACK_WINDOW_SIZE,
+} from "../../core/application/activity/TrackWindow";
+import { accumulatedDistanceKm, haversineKm } from "../../core/domain/calculations";
+import { ACTIVITY_CONFIG } from "../../core/domain/activity";
+import {
+  openTrackDbConnection,
+  migrateTrackDb,
+  saveActivityHeader,
+  updateActivityHeader,
+  insertTrackPoint,
+  getMaxSeq,
+  countTrackPoints,
+  getLastTrackPoints,
+  getTrackPointsPage,
+  deleteActivity as deleteTrackDbActivity,
+} from "../database/activityTrackDb";
+import type {
+  ActivityHeader,
+  NewTrackPoint,
+  TrackDbConnection,
+} from "../database/activityTrackDb";
 
 /**
  * HU-06 — Estado de la actividad (zustand) con autosave local.
@@ -50,6 +77,13 @@ function saveLive(live: LiveActivity): Promise<void> {
   return AsyncStorage.setItem(AUTOSAVE_KEY, JSON.stringify(live));
 }
 
+function saveLiveHeader(live: LiveActivity): Promise<void> {
+  return AsyncStorage.setItem(
+    AUTOSAVE_KEY,
+    JSON.stringify(slimLiveForAutosave(live)),
+  );
+}
+
 function loadLive(): Promise<LiveActivity | null> {
   return AsyncStorage.getItem(AUTOSAVE_KEY).then((raw) => {
     if (!raw) return null;
@@ -59,6 +93,155 @@ function loadLive(): Promise<LiveActivity | null> {
       throw new Error("No se pudo leer la grabación local. No se ha borrado.");
     }
   });
+}
+
+let trackDb: TrackDbConnection | null = null;
+let trackCursor: { activityId: string; nextSeq: number } | null = null;
+let trackPersistenceUnavailable = false;
+
+function getTrackDb(): TrackDbConnection {
+  if (!trackDb) {
+    trackDb = openTrackDbConnection();
+    migrateTrackDb(trackDb);
+  }
+  return trackDb;
+}
+
+function toNewTrackPoint(point: {
+  lat: number;
+  lng: number;
+  altitude?: number | null;
+  accuracy?: number | null;
+  speed?: number | null;
+  timestamp?: number;
+}): NewTrackPoint {
+  return {
+    lat: point.lat,
+    lng: point.lng,
+    altitude: point.altitude ?? null,
+    accuracy: point.accuracy ?? null,
+    speed: point.speed ?? null,
+    timestamp: point.timestamp ?? Date.now(),
+  };
+}
+
+function headerFromLive(live: LiveActivity): ActivityHeader {
+  return {
+    id: live.id,
+    userId: live.userId,
+    routeId: live.route.routeId,
+    routeTitle: live.route.routeTitle,
+    origin: live.origin ?? null,
+    status: live.phase,
+    startedAt: live.startedAt ?? live.createdAt,
+    finishedAt: live.finishedAt ?? null,
+    distanceKm: live.totalDistanceKm ?? 0,
+    durationSec: Math.round(live.accumulatedActiveMs / 1000),
+    synced: 0,
+    createdAt: live.createdAt,
+    updatedAt: live.updatedAt,
+  };
+}
+
+function ensureTrackReady(live: LiveActivity): number {
+  if (trackCursor?.activityId === live.id) return trackCursor.nextSeq;
+  const db = getTrackDb();
+  let max = getMaxSeq(db, live.id);
+  saveActivityHeader(db, headerFromLive(live));
+  // Backfill old AsyncStorage autosaves once, before switching to the slim form.
+  if (max === 0 && live.recordedPoints.length > 0) {
+    live.recordedPoints.forEach((point, index) => {
+      insertTrackPoint(db, live.id, index + 1, toNewTrackPoint(point));
+    });
+    max = live.recordedPoints.length;
+  }
+  trackCursor = { activityId: live.id, nextSeq: nextSeqAfterMax(max) };
+  return trackCursor.nextSeq;
+}
+
+function initializeTrackPersistence(live: LiveActivity): boolean {
+  if (trackPersistenceUnavailable) return false;
+  try {
+    ensureTrackReady(live);
+    return true;
+  } catch (error) {
+    // SQLite is native-only in this app. Keep web/tsx and old clients on the
+    // existing AsyncStorage path, while surfacing failures from an opened DB.
+    if (trackDb === null) {
+      trackPersistenceUnavailable = true;
+      return false;
+    }
+    throw error;
+  }
+}
+
+function saveLiveForPersistence(live: LiveActivity): Promise<void> {
+  return trackPersistenceUnavailable ? saveLive(live) : saveLiveHeader(live);
+}
+
+function loadFullTrack(live: LiveActivity): LiveActivity {
+  try {
+    const db = getTrackDb();
+    const total = countTrackPoints(db, live.id);
+    if (total === 0) return live;
+    const all: LiveActivity["recordedPoints"] = [];
+    const pageSize = 2000;
+    for (let offset = 0; offset < total; offset += pageSize) {
+      all.push(
+        ...getTrackPointsPage(db, live.id, pageSize, offset).map((row) => ({
+          lat: row.lat,
+          lng: row.lng,
+          altitude: row.altitude ?? undefined,
+          accuracy: row.accuracy ?? undefined,
+          speed: row.speed ?? undefined,
+          timestamp: row.timestamp,
+        })),
+      );
+    }
+    return { ...live, recordedPoints: all };
+  } catch {
+    return live;
+  }
+}
+
+export async function restoreLiveSession(): Promise<LiveActivity | null> {
+  const restored = await loadLive();
+  if (!restored) return null;
+  if (restored.recordedPoints.length > 0) {
+    try {
+      ensureTrackReady(restored);
+      const totalDistanceKm = restored.totalDistanceKm ?? accumulatedDistanceKm(
+        restored.recordedPoints,
+        {
+          minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+          maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+        },
+      );
+      return {
+        ...restored,
+        recordedPoints: sliceWindow(restored.recordedPoints),
+        totalDistanceKm,
+      };
+    } catch {
+      trackPersistenceUnavailable = true;
+    }
+    return restored;
+  }
+  try {
+    const db = getTrackDb();
+    const rows = getLastTrackPoints(db, restored.id, TRACK_WINDOW_SIZE);
+    return restoreLiveFromHeader(restored, () => rows.map((row) => ({
+      lat: row.lat,
+      lng: row.lng,
+      altitude: row.altitude ?? undefined,
+      accuracy: row.accuracy ?? undefined,
+      speed: row.speed ?? undefined,
+      timestamp: row.timestamp,
+    })));
+  } catch {
+    trackPersistenceUnavailable = true;
+    return restored;
+  }
 }
 
 function saveUnsynced(list: TrekkinActivity[]): Promise<void> {
@@ -131,7 +314,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   restoreLiveSession: () => enqueue(async () => {
     if (get().live) return get().live!.phase === "in_progress" || get().live!.phase === "paused";
-    const restored = await loadLive();
+    const restored = await restoreLiveSession();
     if (restored) {
       const resumable =
         restored.phase === "in_progress" || restored.phase === "paused";
@@ -173,7 +356,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           getRoute: (id) => routeService.getRoute(id),
         },
       );
-      await saveLive(live);
+      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+      else await saveLive(live);
       set({ live, isLoading: false });
       return true;
     } catch (err: unknown) {
@@ -197,7 +381,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         userName,
       });
       const live = await BeginTrackingUseCase(prepared);
-      await saveLive(live);
+      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+      else await saveLive(live);
       set({ live, isLoading: false });
       return true;
     } catch (err: unknown) {
@@ -221,7 +406,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         userName,
       });
       const live = await BeginTrackingUseCase(prepared);
-      await saveLive(live);
+      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+      else await saveLive(live);
       set({ live, isLoading: false });
       return true;
     } catch (err: unknown) {
@@ -242,7 +428,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ error: null });
     try {
       const updated = await BeginTrackingUseCase(live);
-      await saveLive(updated);
+      if (initializeTrackPersistence(updated)) await saveLiveHeader(updated);
+      else await saveLive(updated);
       set({ live: updated });
       return true;
     } catch (err: unknown) {
@@ -268,9 +455,36 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         altitude: p.altitude,
         speed: p.speed,
       };
+      const persistence = resolvePointPersistence(live, point);
       const updated = await RecordPointUseCase(live, point);
-      await saveLive(updated);
-      set({ live: updated });
+      if (persistence.action === "insert") {
+        if (trackPersistenceUnavailable) {
+          await saveLive(updated);
+          set({ live: updated });
+          return;
+        }
+        const db = getTrackDb();
+        const seq = ensureTrackReady(live);
+        insertTrackPoint(db, live.id, seq, toNewTrackPoint(point));
+        if (trackCursor) trackCursor.nextSeq = seq + 1;
+        const previous = live.recordedPoints[live.recordedPoints.length - 1];
+        const distance = live.totalDistanceKm ?? accumulatedDistanceKm(live.recordedPoints, {
+          minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+          maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+        });
+        const tracked: LiveActivity = {
+          ...updated,
+          recordedPoints: sliceWindow(updated.recordedPoints),
+          totalDistanceKm: previous ? distance + haversineKm(previous, point) : distance,
+        };
+        await saveLiveHeader(tracked);
+        set({ live: tracked });
+      } else {
+        // Rejected fixes can still update checkpoint/updatedAt state, but do not
+        // create a SQLite row or inflate the in-memory window.
+        await saveLiveForPersistence(updated);
+        set({ live: updated });
+      }
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : "No se pudo guardar el punto GPS." });
     }
@@ -283,7 +497,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     try {
       const updated = await PauseActivityUseCase(live);
       get().stopWatch();
-      await saveLive(updated);
+      await saveLiveForPersistence(updated);
+      if (trackDb) updateActivityHeader(trackDb, updated.id, {
+        status: updated.phase,
+        updatedAt: updated.updatedAt,
+      });
       set({ live: updated });
       return true;
     } catch (err: unknown) {
@@ -301,7 +519,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ error: null });
     try {
       const updated = await ResumeActivityUseCase(live);
-      await saveLive(updated);
+      await saveLiveForPersistence(updated);
+      if (trackDb) updateActivityHeader(trackDb, updated.id, {
+        status: updated.phase,
+        updatedAt: updated.updatedAt,
+      });
       set({ live: updated });
       return true;
     } catch (err: unknown) {
@@ -320,7 +542,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     if (!live) return false;
     try {
       const { activity } = AddCheckpointUseCase(live, input);
-      await saveLive(activity);
+      await saveLiveForPersistence(activity);
       set({ live: activity });
       return true;
     } catch (err: unknown) {
@@ -340,8 +562,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     set({ finishing: true, error: null });
     get().stopWatch();
     try {
+      // The in-memory value is a bounded recovery window. Rehydrate the full
+      // SQLite track before GPX generation and local-first completion.
+      const fullLive = loadFullTrack(live);
       let localHistory = (await loadUnsynced()) ?? [];
-      const finished = await FinishActivityUseCase(live, {
+      const finished = await FinishActivityUseCase(fullLive, {
         // The durable local archive is the completion boundary, not the network.
         saveActivity: async (saved) => {
           localHistory = [...localHistory.filter((a) => a.id !== saved.id), { ...saved, isSynced: false }];
@@ -356,12 +581,25 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         unsynced: localHistory.filter((a) => !a.isSynced),
         finishing: false,
       });
+      try {
+        const db = getTrackDb();
+        updateActivityHeader(db, result.saved.id, {
+          status: "finished",
+          finishedAt: result.activity.finishedAt ?? Date.now(),
+          distanceKm: result.saved.distanceCoveredKm,
+          durationSec: result.saved.durationSeconds,
+          updatedAt: Date.now(),
+        });
+      } catch {
+        // SQLite is an optimization for recovery; the local archive is already durable.
+      }
       void activityService.createActivity({ ...result.saved, isSynced: true })
         .then(() => enqueue(async () => {
           const history = ((await loadUnsynced()) ?? []).map((a) =>
             a.id === result.saved.id ? { ...a, isSynced: true } : a);
           await saveUnsynced(history);
           set({ unsynced: history.filter((a) => !a.isSynced) });
+          if (trackDb) updateActivityHeader(trackDb, result.saved.id, { synced: 1, updatedAt: Date.now() });
         }))
         .catch(() => { /* The local archive remains available for export and retry. */ });
       return result;
@@ -441,7 +679,15 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   clearLive: () => enqueue(async () => {
     get().stopWatch();
+    const activityId = get().live?.id;
     await AsyncStorage.removeItem(AUTOSAVE_KEY);
+    if (activityId && trackDb) {
+      try {
+        deleteTrackDbActivity(trackDb, activityId);
+      } finally {
+        if (trackCursor?.activityId === activityId) trackCursor = null;
+      }
+    }
     set({ live: null, lastResult: null, error: null });
   }),
 
