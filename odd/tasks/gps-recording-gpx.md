@@ -29,7 +29,7 @@ Deliver the v1 route lifecycle: plan -> record GPS -> generate GPX -> persist/up
 - [x] T5 — Add Firebase Storage GPX upload/download ports, metadata, rules, and retryable activity sync (local-first; no Firestore point chunks).
 - [x] T6 — Add published route GPX/PMTiles artifact metadata and publication validation (this commit).
 - [x] T7 — Implement atomic offline GPX + PMTiles bundle download and offline consumption (commits 94eae6c, b6465ab, 04b55ea, 04a5b00).
-- [x] T8 — Implement background GPS capture and native permission/build configuration (commit d732bd2).
+- [x] T8 — Implement background GPS capture and native permission/build configuration (implementation commit 50b6179).
 - [ ] T9 — Run verification matrix and update HU evidence without claiming unverified device behavior.
 
 ## Evidence
