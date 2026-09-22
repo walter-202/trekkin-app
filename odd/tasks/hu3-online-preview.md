@@ -18,17 +18,21 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 
 - [x] HU3-1 — Add the published route preview domain contract, validation, bounded simplification/encoding helpers, and focused tests (commit 015dee9; focused preview test, lint, and diff checks pass).
 - [x] HU3-2 — Make the published catalog paginated and ordered, apply search results correctly, and validate preview data at the Firestore boundary (commit ef49a94; focused catalog test, lint, and diff checks pass).
-- [ ] HU3-3 — Wire the route detail to the online preview contract and protect the offline download action for authenticated users/artifact availability; add UI/use-case regression tests.
-- [ ] HU3-4 — Synchronize HU-03 documentation and evidence matrix; record limitations and checks without claiming device proof.
+- [ ] HU3-3 — Generate/validate the bounded preview at publication and stop retaining full public waypoints; keep exact offline geometry by parsing the downloaded GPX into the local manifest.
+- [ ] HU3-4 — Render the online detail from RoutePreview, preserve honest legacy fallback, and protect offline download by authentication and paired artifact availability.
+- [ ] HU3-5 — Add a small local route-detail cache keyed by route ID and preview version/hash with stale-while-revalidate behavior.
+- [ ] HU3-6 — Synchronize HU-03 documentation and evidence matrix; record limitations and checks without claiming device proof.
 
 ## Acceptance criteria
 
 1. Catalog requests use stable cursor pagination and do not need complete route geometry.
-2. Published detail carries a versioned, bounded preview (`polyline6` or equivalent) with point count and bounding box.
+2. Publication creates a versioned, bounded preview (`polyline6`) and removes full `waypoints` from the public Firestore document.
 3. `TrekMap` receives online preview geometry in memory and never receives `offlinePackPath` in HU-03.
-4. GPX + PMTiles download remains behind the authenticated action and existing atomic offline bundle use case.
-5. Existing tests, new focused tests, TypeScript lint, and diff checks pass.
-6. HU-03 evidence remains honest about pending Firebase Emulator, Expo Go/device, and UI review gates.
+4. Offline bundle creation derives its exact local trail from the downloaded GPX, not public Firestore geometry.
+5. GPX + PMTiles download remains behind the authenticated action and requires a valid uploaded pair.
+6. Local route-detail cache uses route ID and preview version/hash; network refresh replaces stale cache.
+7. Existing tests, new focused tests, TypeScript lint, and diff checks pass.
+8. HU-03 evidence remains honest about pending Firebase Emulator, Expo Go/device, and UI review gates.
 
 ## Progress
 
@@ -40,4 +44,4 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 
 ## Next step
 
-Next: implement HU3-3 (online preview on detail, authentication/artifact gates for offline download, regression tests).
+Next: implement HU3-3 (publication-time preview, compact published documents, and offline GPX-derived trace) with focused regression tests.
