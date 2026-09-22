@@ -9,6 +9,13 @@ service firebase.storage {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'wfernando.aguilarm@gmail.com' ||
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
     match /users/{userId}/activities/{activityId}/activity.gpx {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId) &&
@@ -16,6 +23,17 @@ service firebase.storage {
         request.resource.contentType == 'application/gpx+xml' &&
         request.resource.size <= 10485760;
       allow delete: if isOwner(userId);
+    }
+
+    // Published route bundle: authenticated users may download both binary
+    // artifacts; only admins may create/replace/delete publication bytes.
+    match /routes/{routeId}/v{version}/{fileName} {
+      allow read: if isSignedIn() &&
+        fileName in ['route.gpx', 'basemap.pmtiles'];
+      allow write, delete: if isAdmin() &&
+        ((fileName == 'route.gpx' && request.resource.contentType == 'application/gpx+xml') ||
+         (fileName == 'basemap.pmtiles' && request.resource.contentType == 'application/vnd.pmtiles')) &&
+        request.resource.size > 0 && request.resource.size <= 524288000;
     }
   }
 }

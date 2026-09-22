@@ -41,7 +41,7 @@ type FlowState = "estimate" | "downloading" | "done" | "error";
 /**
  * HU-04 T2–T5 + T10–T11 — Flujo "Descargar ruta":
  * 1. Botón en el detalle (T2) → modal con tamaño estimado (T3/T4).
- * 2. Confirmación (T5) → descarga mapa+trazado+info con progreso (T6–T10).
+ * 2. Confirmación (T5) → descarga PMTiles+GPX y confirma el manifiesto (T7).
  * 3. Confirmación de completado (T11).
  */
 export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
@@ -55,10 +55,17 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [doneRecord, setDoneRecord] = useState<OfflineRoute | null>(null);
 
-  const estimate = useMemo(
-    () => EstimateRouteDownloadSizeUseCase(route),
-    [route],
-  );
+  const estimateResult = useMemo(() => {
+    try {
+      return { estimate: EstimateRouteDownloadSizeUseCase(route), error: null };
+    } catch (error) {
+      return {
+        estimate: null,
+        error: error instanceof Error ? error.message : "El paquete offline no está publicado.",
+      };
+    }
+  }, [route]);
+  const estimate = estimateResult.estimate;
 
   useEffect(() => {
     if (visible) {
@@ -76,10 +83,10 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
       const record = await DownloadRouteOfflineUseCase(
         route,
         {
-          saveMap: (id, p) => tileCacheDB.saveMap(id, p),
-          saveTrail: (id, p) => tileCacheDB.saveTrail(id, p),
-          saveInfo: (id, p) => tileCacheDB.saveInfo(id, p),
-          finalize: (id, r) => tileCacheDB.finalize(id, r),
+          downloadArtifact: (id, kind, metadata) =>
+            tileCacheDB.downloadArtifact(id, kind, metadata),
+          cleanupArtifact: (path) => tileCacheDB.cleanupArtifact(path),
+          finalize: (id, r, files) => tileCacheDB.finalize(id, r, files),
         },
         { onStage: (s) => setStage(s) },
       );
@@ -126,37 +133,38 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               <Text style={styles.section}>TAMAÑO ESTIMADO</Text>
               <View style={styles.sizeBox}>
                 <Text style={styles.sizeTotal}>
-                  {formatBytes(estimate.totalBytes)}
+                  {estimate ? formatBytes(estimate.totalBytes) : "No disponible"}
                 </Text>
                 <Text style={styles.sizeHint}>
-                  Espacio aproximado antes de confirmar la descarga.
+                  {estimateResult.error ?? "Espacio exacto según los artefactos publicados."}
                 </Text>
               </View>
-              <View style={styles.breakdown}>
+              {estimate ? <View style={styles.breakdown}>
                 <View style={styles.breakRow}>
                   <MapPinned size={13} color={AndeanTheme.colors.primaryLight} />
-                  <Text style={styles.breakLabel}>Mapa vectorial</Text>
+                  <Text style={styles.breakLabel}>Paquete de mapa (PMTiles)</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.mapBytes)}
                   </Text>
                 </View>
                 <View style={styles.breakRow}>
                   <Route size={13} color={AndeanTheme.colors.primaryLight} />
-                  <Text style={styles.breakLabel}>Trazado y puntos</Text>
+                  <Text style={styles.breakLabel}>GPX y trazado</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.trailBytes)}
                   </Text>
                 </View>
                 <View style={styles.breakRow}>
                   <Info size={13} color={AndeanTheme.colors.primaryLight} />
-                  <Text style={styles.breakLabel}>Información básica</Text>
+                  <Text style={styles.breakLabel}>Manifiesto offline</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.infoBytes)}
                   </Text>
                 </View>
-              </View>
+              </View> : null}
               <Pressable
                 onPress={startDownload}
+                disabled={!estimate}
                 style={styles.confirmBtn}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar descarga de la ruta"
@@ -179,7 +187,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
               <Text style={styles.progressLabel}>{stageLabel}</Text>
               <Text style={styles.progressHint}>
-                Descargando mapa, trazado e información…
+                Descargando mapa, GPX y manifiesto…
               </Text>
             </View>
           ) : null}
@@ -197,7 +205,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               <View style={styles.doneMeta}>
                 <HardDrive size={12} color={AndeanTheme.colors.textMuted} />
                 <Text style={styles.doneMetaText}>
-                  Mapa + trazado + información básica guardados en el dispositivo.
+                  PMTiles + GPX + manifiesto guardados en el dispositivo.
                 </Text>
               </View>
               <Pressable

@@ -1,105 +1,72 @@
-/**
- * HU-04 T6–T9 — Descargar ruta para consulta offline.
- * Orquesta la descarga en 3 etapas con progreso real (T10):
- *   1. map  → snapshot del mapa vectorial (T6)
- *   2. trail → trazado: waypoints + puntos relevantes (T7)
- *   3. info → información básica de la ruta (T8)
- * Cada etapa persiste su pieza vía puerto; `finalize` ensambla el
- * registro completo y marca la ruta como disponible offline (T9/T11).
- * Sin Firebase ni AsyncStorage aquí: solo puertos inyectados.
- */
-
-import type { RouteModel } from "../../domain/types";
-import {
-  buildBasicOfflineInfo,
-  buildMapSnapshot,
-  DOWNLOAD_STAGES,
-  estimateRouteOfflineSize,
-  type OfflineRoute,
-  type OfflineDownloadStage,
-} from "../../domain/offline";
+/** Downloads a published route's binary bundle using framework-free ports. */
+import type { RouteArtifactKind, RouteArtifactMetadata, RouteModel } from "../../domain/types";
+import { buildBasicOfflineInfo, buildMapSnapshot, DOWNLOAD_STAGES, estimateRouteOfflineSize, type OfflineRoute, type OfflineDownloadStage } from "../../domain/offline";
 import { OfflineRouteSchema } from "../../domain/offline.schemas";
+import { ValidateRoutePublicationUseCase } from "../route/PublishRoute.usecase";
 
 export type DownloadStageCallback = (stage: OfflineDownloadStage) => void;
-
+export interface DownloadedOfflineArtifact { tempPath: string; finalPath: string; byteSize: number; sha256?: string; headerBytes?: Uint8Array | number[] | string; }
 export interface DownloadRouteOfflinePorts {
-  saveMap: (routeId: string, payload: string) => Promise<void>;
-  saveTrail: (routeId: string, payload: string) => Promise<void>;
-  saveInfo: (routeId: string, payload: string) => Promise<void>;
-  finalize: (routeId: string, record: OfflineRoute) => Promise<void>;
+  downloadArtifact: (routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata) => Promise<DownloadedOfflineArtifact>;
+  cleanupArtifact: (path: string) => Promise<void>;
+  finalize: (routeId: string, record: OfflineRoute, files: { gpx: DownloadedOfflineArtifact; pmtiles: DownloadedOfflineArtifact }) => Promise<void>;
 }
+export interface DownloadRouteOfflineOptions { onStage?: DownloadStageCallback; downloadedAt?: number; }
 
-export interface DownloadRouteOfflineOptions {
-  /** Progreso por etapa (T10). Se invoca antes de persistir cada pieza. */
-  onStage?: DownloadStageCallback;
-  /** Timestamp de descarga (testeable); por defecto Date.now(). */
-  downloadedAt?: number;
+function toMB(bytes: number): number { return Math.round((bytes / (1024 * 1024)) * 100) / 100; }
+function headerString(header?: Uint8Array | number[] | string): string {
+  if (header == null) return "";
+  if (typeof header === "string") return header;
+  const bytes = header instanceof Uint8Array ? header : Uint8Array.from(header);
+  return String.fromCharCode(...bytes.slice(0, 8));
 }
-
-function toMB(bytes: number): number {
-  return Math.round((bytes / (1024 * 1024)) * 100) / 100;
-}
-
-export async function DownloadRouteOfflineUseCase(
-  route: RouteModel,
-  ports: DownloadRouteOfflinePorts,
-  options: DownloadRouteOfflineOptions = {},
-): Promise<OfflineRoute> {
-  // Invariante HU-03 + HU-04: solo rutas publicadas se descargan.
-  if (route.status !== "published") {
-    throw new Error("Solo se pueden descargar rutas publicadas.");
+function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata, actual: DownloadedOfflineArtifact): void {
+  if (!actual.tempPath || !actual.finalPath) throw new Error(`La descarga de ${kind} no produjo un archivo temporal válido.`);
+  if (!Number.isInteger(actual.byteSize) || actual.byteSize <= 0) throw new Error(`El archivo ${kind} está vacío o incompleto.`);
+  if (actual.byteSize !== expected.byteSize) throw new Error(`El tamaño de ${kind} no coincide (esperado ${expected.byteSize}, recibido ${actual.byteSize}).`);
+  if (expected.sha256) {
+    if (!actual.sha256) throw new Error(`No se pudo verificar el SHA-256 del artefacto ${kind}.`);
+    if (actual.sha256.toLowerCase() !== expected.sha256.toLowerCase()) throw new Error(`El SHA-256 de ${kind} no coincide con el publicado.`);
   }
+  if (kind === "pmtiles" && !headerString(actual.headerBytes).startsWith("PMTiles\u0003")) throw new Error("El artefacto de mapa no es un archivo PMTiles v3 válido.");
+}
 
+export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: DownloadRouteOfflinePorts, options: DownloadRouteOfflineOptions = {}): Promise<OfflineRoute> {
+  if (route.status !== "published") throw new Error("Solo se pueden descargar rutas publicadas.");
+  if (!route.artifacts) throw new Error("La ruta publicada no tiene artefactos GPX y PMTiles.");
+  const artifacts = ValidateRoutePublicationUseCase(route.id, route.artifacts);
   const onStage = options.onStage ?? (() => {});
   const downloadedAt = options.downloadedAt ?? Date.now();
-  const routeId = route.id;
-
-  // T6 — Mapa vectorial (bbox + conteos del trazado).
-  onStage("map");
-  await ports.saveMap(routeId, JSON.stringify(buildMapSnapshot(route)));
-
-  // T7 — Trazado: waypoints + checkpoints + puntos inicio/fin.
-  onStage("trail");
-  await ports.saveTrail(
-    routeId,
-    JSON.stringify({
-      waypoints: route.waypoints,
-      checkpoints: route.checkpoints,
-      startPoint: route.startPoint,
-      endPoint: route.endPoint,
-    }),
-  );
-
-  // T8 — Información básica persistida.
-  onStage("info");
-  await ports.saveInfo(
-    routeId,
-    JSON.stringify(buildBasicOfflineInfo(route)),
-  );
-
-  const estimate = estimateRouteOfflineSize(route);
-  const record: OfflineRoute = {
-    routeId,
-    ...buildBasicOfflineInfo(route),
-    map: buildMapSnapshot(route),
-    trail: route.waypoints,
-    checkpoints: route.checkpoints,
-    photoUrls: route.photos,
-    estimatedSizeMB: toMB(estimate.totalBytes),
-    downloadedAt,
-  };
-
-  // Integridad: el registro se valida con Zod antes de persistir (T9).
-  const validated = OfflineRouteSchema.parse(record);
-  await ports.finalize(routeId, validated);
-  return validated;
+  const temporary: string[] = [];
+  let gpx: DownloadedOfflineArtifact | undefined;
+  let pmtiles: DownloadedOfflineArtifact | undefined;
+  try {
+    onStage("map");
+    pmtiles = await ports.downloadArtifact(route.id, "pmtiles", artifacts.pmtiles);
+    temporary.push(pmtiles.tempPath);
+    verifyArtifact("pmtiles", artifacts.pmtiles, pmtiles);
+    onStage("trail");
+    gpx = await ports.downloadArtifact(route.id, "gpx", artifacts.gpx);
+    temporary.push(gpx.tempPath);
+    verifyArtifact("gpx", artifacts.gpx, gpx);
+    onStage("info");
+    const estimate = estimateRouteOfflineSize(route);
+    const record: OfflineRoute = OfflineRouteSchema.parse({
+      manifestVersion: 2, artifactVersion: artifacts.version, routeId: route.id, ...buildBasicOfflineInfo(route),
+      map: buildMapSnapshot(route), trail: route.waypoints, checkpoints: route.checkpoints, photoUrls: route.photos,
+      gpxPath: gpx.finalPath, pmtilesPath: pmtiles.finalPath, gpxBytes: gpx.byteSize, pmtilesBytes: pmtiles.byteSize,
+      ...(gpx.sha256 ? { gpxSha256: gpx.sha256 } : {}), ...(pmtiles.sha256 ? { pmtilesSha256: pmtiles.sha256 } : {}),
+      estimatedSizeMB: toMB(estimate.totalBytes), downloadedAt,
+    });
+    await ports.finalize(route.id, record, { gpx, pmtiles });
+    return record;
+  } catch (cause: unknown) {
+    await Promise.allSettled(temporary.map((path) => ports.cleanupArtifact(path)));
+    throw cause;
+  }
 }
 
-/** Etapas de descarga en orden (para UI de progreso T10). */
 export const DOWNLOAD_STAGE_LABELS: Record<OfflineDownloadStage, string> = {
-  map: "Descargando mapa…",
-  trail: "Descargando trazado…",
-  info: "Guardando información…",
+  map: "Descargando paquete de mapa…", trail: "Descargando GPX y preparando trazado…", info: "Guardando manifiesto offline…",
 };
-
 export { DOWNLOAD_STAGES };

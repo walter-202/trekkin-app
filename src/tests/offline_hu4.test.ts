@@ -76,6 +76,11 @@ const PUBLISHED_ROUTE: RouteModel = {
   photos: [],
   createdAt: 1717000000000,
   updatedAt: 1717000000000,
+  artifacts: {
+    version: 1,
+    gpx: { kind: 'gpx', version: 1, storagePath: 'routes/ruta-huayna-potosi/v1/route.gpx', fileName: 'route.gpx', mimeType: 'application/gpx+xml', byteSize: 128, status: 'uploaded', updatedAt: 1717000000000 },
+    pmtiles: { kind: 'pmtiles', version: 1, storagePath: 'routes/ruta-huayna-potosi/v1/basemap.pmtiles', fileName: 'basemap.pmtiles', mimeType: 'application/vnd.pmtiles', byteSize: 64, status: 'uploaded', updatedAt: 1717000000000 },
+  },
 };
 
 export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
@@ -115,15 +120,11 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
   const finalizedRecord = await DownloadRouteOfflineUseCase(
     PUBLISHED_ROUTE,
     {
-      saveMap: async (id) => {
-        callLog.push(`map:${id}`);
+      downloadArtifact: async (id, kind) => {
+        callLog.push(`${kind}:${id}`);
+        return { tempPath: `${id}-${kind}.part`, finalPath: `${id}-${kind}`, byteSize: kind === 'pmtiles' ? 64 : 128, headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx' };
       },
-      saveTrail: async (id) => {
-        callLog.push(`trail:${id}`);
-      },
-      saveInfo: async (id) => {
-        callLog.push(`info:${id}`);
-      },
+      cleanupArtifact: async (path) => { callLog.push(`cleanup:${path}`); },
       finalize: async (id) => {
         callLog.push(`finalize:${id}`);
       },
@@ -137,7 +138,7 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
   recordTest(
     'T2/T5: La descarga exige confirmación vía puerto finalize (flujo completo)',
     callLog.join(',') ===
-      `map:${PUBLISHED_ROUTE.id},trail:${PUBLISHED_ROUTE.id},info:${PUBLISHED_ROUTE.id},finalize:${PUBLISHED_ROUTE.id}`,
+      `pmtiles:${PUBLISHED_ROUTE.id},gpx:${PUBLISHED_ROUTE.id},finalize:${PUBLISHED_ROUTE.id}`,
     callLog.join(' → '),
   );
 
@@ -172,9 +173,8 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
     await DownloadRouteOfflineUseCase(
       { ...PUBLISHED_ROUTE, status: 'draft' },
       {
-        saveMap: async () => {},
-        saveTrail: async () => {},
-        saveInfo: async () => {},
+        downloadArtifact: async () => ({ tempPath: 'x.part', finalPath: 'x', byteSize: 1, headerBytes: 'PMTiles\u0003' }),
+        cleanupArtifact: async () => {},
         finalize: async () => {},
       },
     );

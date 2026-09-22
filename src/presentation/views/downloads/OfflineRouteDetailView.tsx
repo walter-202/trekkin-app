@@ -110,6 +110,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
         pointsOfInterest={record.checkpoints}
         start={record.startPoint}
         end={record.endPoint}
+        offlinePackPath={record.pmtilesPath}
         height={240}
         accessibilityLabel={`Mapa de ${record.title}`}
       />
@@ -177,7 +178,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
           Descargada {downloadedLabel} · {formatBytes(record.estimatedSizeMB * 1024 * 1024)}
         </Text>
         <HardDrive size={12} color={AndeanTheme.colors.textMuted} />
-        <Text style={styles.footerText}>Mapa vectorial + trazado + info</Text>
+        <Text style={styles.footerText}>PMTiles + GPX + manifiesto</Text>
         <CheckCircle2 size={12} color={AndeanTheme.colors.primaryLight} />
       </View>
     </ScrollView>
