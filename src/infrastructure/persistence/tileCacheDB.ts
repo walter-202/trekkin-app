@@ -10,6 +10,7 @@ import { appStorage } from "./storage";
 import type { RouteArtifactKind, RouteArtifactMetadata } from "../../core/domain/types";
 import type { OfflineRoute } from "../../core/domain/offline";
 import type { DownloadedOfflineArtifact } from "../../core/application/offline/DownloadRouteOffline.usecase";
+import { parseGPX } from "../../core/domain/trackFormats";
 import { sha256File } from "./sha256File";
 
 const OFFLINE_ROUTE_PREFIX = "trekkin_offline_route";
@@ -74,6 +75,9 @@ export const tileCacheDB = {
         byteSize: info.size,
         headerBytes: headerBytes(part),
         ...(metadata.sha256 ? { sha256: sha256File(part) } : {}),
+        ...(kind === "gpx" ? {
+          readTrackPoints: async () => parseGPX(await LegacyFileSystem.readAsStringAsync(part)).points,
+        } : {}),
       };
     } catch (error) {
       await removeFile(part);

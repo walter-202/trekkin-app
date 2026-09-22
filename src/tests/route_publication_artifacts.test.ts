@@ -5,6 +5,7 @@ import {
   routeArtifactStoragePath,
 } from "../core/application/route/PublishRoute.usecase";
 import { RoutePublicationArtifactsSchema } from "../core/domain/routeArtifacts.schemas";
+import { decodePolyline6 } from "../core/domain/routePreview";
 import type { RouteModel, RoutePublicationArtifacts } from "../core/domain/types";
 
 const routeId = "ruta-valle-luna";
@@ -53,7 +54,11 @@ const route = {
   isPrivate: false,
   creatorId: "creator-1",
   creatorName: "Trekker",
-  waypoints: [],
+  waypoints: [
+    { lat: -16.5, lng: -68.1 },
+    { lat: -16.505, lng: -68.105 },
+    { lat: -16.51, lng: -68.11 },
+  ],
   checkpoints: [],
   photos: [],
   createdAt: 1,
@@ -125,8 +130,23 @@ async function main() {
   );
   assert.equal(published.status, "published");
   assert.deepEqual(published.artifacts, artifacts);
+  assert.equal(published.preview?.pointCount, 3);
+  assert.equal(decodePolyline6(published.preview!.polyline).length, 3);
+  assert.deepEqual(published.waypoints, [], "published model drops full geometry after preview generation");
   assert.equal(updates.length, 1);
   assert.deepEqual((updates[0] as { status: string }).status, "published");
+  assert.deepEqual((updates[0] as { preview: unknown }).preview, published.preview);
+  assert.equal("waypoints" in (updates[0] as object), false, "publication writes compact preview instead of geometry");
+
+  await assert.rejects(
+    () => PublishRouteUseCase(
+      { ...route, waypoints: [] },
+      artifacts,
+      { publish: async () => {} },
+      43,
+    ),
+    /preview|coordenadas|waypoints/i,
+  );
 
   console.log(
     "Route publication artifacts: versioned paths, paired metadata, status and publication validation passed",

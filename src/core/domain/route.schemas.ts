@@ -47,6 +47,8 @@ export const RouteSchema = z.object({
   modality: z.enum(["solo", "acompañado"]).default("acompañado"),
   status: z.enum(["draft", "in_review", "published", "rejected"]),
   isPrivate: z.boolean().default(false),
+  createdAt: z.number(),
+  updatedAt: z.number(),
   creatorId: z.string().trim().min(1).max(128),
   creatorName: z.string().trim().max(150).default(""),
   preview: RoutePreviewSchema.optional(),

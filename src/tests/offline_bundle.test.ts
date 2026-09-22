@@ -5,6 +5,12 @@ import { DownloadRouteOfflineUseCase, type DownloadedOfflineArtifact } from "../
 import { OfflineRouteSchema } from "../core/domain/offline.schemas";
 import type { OfflineRoute } from "../core/domain/offline";
 
+const DOWNLOADED_TRACK_POINTS = [
+  { lat: -16.5, lng: -68.1, altitude: 4000 },
+  { lat: -16.505, lng: -68.105, altitude: 4100 },
+  { lat: -16.51, lng: -68.11, altitude: 4200 },
+];
+
 const route = (): RouteModel => ({
   id: "offline-bundle", title: "Bundle", description: "Published route", region: "La Paz",
   startPoint: { name: "Start", lat: -16.5, lng: -68.1 }, endPoint: { name: "End", lat: -16.51, lng: -68.11 },
@@ -18,6 +24,7 @@ const route = (): RouteModel => ({
 });
 const file = (kind: "gpx" | "pmtiles", overrides: Partial<DownloadedOfflineArtifact> = {}): DownloadedOfflineArtifact => ({
   tempPath: `${kind}.part`, finalPath: `${kind}.final`, byteSize: kind === "gpx" ? 10 : 8,
+  ...(kind === "gpx" ? { readTrackPoints: async () => DOWNLOADED_TRACK_POINTS } : {}),
   sha256: kind === "gpx" ? "a".repeat(64) : "b".repeat(64), headerBytes: kind === "pmtiles" ? "PMTiles\u0003" : "<gpx", ...overrides,
 });
 const ports = (download: (kind: "gpx" | "pmtiles") => Promise<DownloadedOfflineArtifact>) => {
@@ -51,7 +58,12 @@ async function main() {
   assert.equal(success.finalized, true);
   assert.equal(record.manifestVersion, 2);
   assert.equal(record.pmtilesPath, "pmtiles.final");
+  assert.equal(record.trail.length, 3, "offline trail comes from downloaded GPX, not Firestore waypoints");
+  assert.equal(record.trail[1].altitude, 4100);
   assert.equal(OfflineRouteSchema.safeParse(record).success, true);
+  const invalidGpx = ports(async (kind) => file(kind, kind === "gpx" ? { readTrackPoints: async () => [] } : {}));
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), invalidGpx), /GPX|track|puntos/i);
+  assert.deepEqual(invalidGpx.cleaned, ["pmtiles.part", "gpx.part"]);
   const generations: string[] = [];
   const committedPaths: string[] = [];
   const redownloadPorts = {

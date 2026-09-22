@@ -5,6 +5,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteField,
   deleteDoc,
   query,
   where,
@@ -13,12 +14,13 @@ import {
   startAfter,
   documentId,
   type DocumentData,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import type { RouteModel } from "../../core/domain/types";
 import type { RoutePublicationArtifacts } from "../../core/domain/types";
-import { ValidateRoutePublicationUseCase } from "../../core/application/route/PublishRoute.usecase";
+import { PublishRouteUseCase, ValidateRoutePublicationUseCase } from "../../core/application/route/PublishRoute.usecase";
 import { parseOptionalRoutePreview } from "../../core/domain/routeCatalog";
 import { handleFirestoreError, OperationType } from "./firestoreErrors";
 
@@ -133,7 +135,13 @@ export const routeService = {
     try {
       const snapshot = await getDoc(doc(db, ROUTES_COLLECTION, id));
       if (!snapshot.exists()) return null;
-      return { ...(snapshot.data() as RouteModel), id: snapshot.id };
+      const data = snapshot.data();
+      return {
+        ...(data as RouteModel),
+        id: snapshot.id,
+        preview: parseOptionalRoutePreview(data.preview),
+        waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, docPath);
     }
@@ -215,15 +223,33 @@ export const routeService = {
   ): Promise<void> {
     const validated = ValidateRoutePublicationUseCase(id, artifacts);
     const docPath = `${ROUTES_COLLECTION}/${id}`;
+    const routeRef = doc(db, ROUTES_COLLECTION, id);
+    let snapshot: DocumentSnapshot<DocumentData>;
     try {
-      await updateDoc(doc(db, ROUTES_COLLECTION, id), {
-        status: "published",
-        artifacts: validated,
-        updatedAt: Date.now(),
-      });
+      snapshot = await getDoc(routeRef);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, docPath);
+      handleFirestoreError(error, OperationType.GET, docPath);
     }
+    if (!snapshot.exists()) throw new Error(`No existe la ruta ${id} para publicar.`);
+    const data = snapshot.data();
+    const route: RouteModel = {
+      ...(data as RouteModel),
+      id: snapshot.id,
+      preview: parseOptionalRoutePreview(data.preview),
+      waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
+    };
+    await PublishRouteUseCase(route, validated, {
+      publish: async (_routeId, updates) => {
+        try {
+          await updateDoc(routeRef, {
+            ...updates,
+            waypoints: deleteField(),
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, docPath);
+        }
+      },
+    });
   },
 
   /**

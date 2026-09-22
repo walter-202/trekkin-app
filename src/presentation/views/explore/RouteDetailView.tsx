@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,9 +10,14 @@ import {
 import { ChevronLeft, Share2, Download, CheckCircle2, Activity } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
-import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
+import { GetRouteDetailWithCacheUseCase } from "../../../core/application/explore/GetRouteDetailWithCache.usecase";
+import {
+  CheckRouteDownloadAvailabilityUseCase,
+  GetRoutePreviewPointsUseCase,
+} from "../../../core/application/explore/RouteDetailSupport.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
+import { routeDetailCache } from "../../../infrastructure/persistence/routeDetailCache";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
@@ -60,17 +65,47 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [shareOpen, setShareOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const routeTrail = useMemo(
+    () => route ? GetRoutePreviewPointsUseCase(route) : [],
+    [route],
+  );
+  const downloadAvailability = useMemo(
+    () => route
+      ? CheckRouteDownloadAvailabilityUseCase(route, isAuthenticated)
+      : { available: false as const, reason: "route_not_published" as const },
+    [route, isAuthenticated],
+  );
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       setError(null);
+      setDownloaded(false);
+      setDownloadOpen(false);
+      setDownloadMessage(null);
+      setCacheMessage(null);
       try {
-        const detail = await GetRouteDetailUseCase(routeId, {
-          getById: (id) => routeService.getRouteById(id),
-        });
-        if (alive) setRoute(detail);
+        await GetRouteDetailWithCacheUseCase(
+          routeId,
+          {
+            getCached: (id) => routeDetailCache.get(id),
+            getById: (id) => routeService.getRouteById(id),
+            saveCached: (detail) => routeDetailCache.save(detail),
+          },
+          (detail, source) => {
+            if (!alive) return;
+            setRoute(detail);
+            setLoading(false);
+            setError(null);
+            setCacheMessage(source === "cache" ? "Mostrando detalles guardados mientras se actualizan." : null);
+          },
+          () => {
+            if (alive) setCacheMessage("Se muestra una copia guardada; no se pudo actualizar. El mapa base puede necesitar conexión.");
+          },
+        );
       } catch (err: any) {
         if (alive) {
           setError(err?.message ?? "No se pudo cargar la ruta.");
@@ -86,6 +121,19 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       alive = false;
     };
   }, [routeId]);
+
+  const requestDownload = () => {
+    if (!downloadAvailability.available) {
+      if (downloadAvailability.reason === "authentication_required") {
+        (onRequireAuth ?? exitGuest)();
+        return;
+      }
+      setDownloadMessage("Esta ruta todavía no tiene un par GPX + PMTiles validado para descargar.");
+      return;
+    }
+    setDownloadMessage(null);
+    setDownloadOpen(true);
+  };
 
   if (loading) {
     return (
@@ -142,7 +190,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             lng: route.endPoint.lng,
             name: route.endPoint.name,
           }}
-          trail={route.waypoints}
+          trail={routeTrail}
           pointsOfInterest={route.checkpoints}
           height={260}
           accessibilityLabel={`Mapa de ${route.title}`}
@@ -157,6 +205,16 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           </View>
         ) : null}
       </View>
+      {routeTrail.length < 2 ? (
+        <Text style={styles.downloadNotice} accessibilityRole="alert">
+          Esta ruta todavía no tiene una traza visible. Se muestran solo sus puntos de inicio y fin.
+        </Text>
+      ) : null}
+      {cacheMessage ? (
+        <Text style={styles.cacheNotice} accessibilityRole="alert">
+          {cacheMessage}
+        </Text>
+      ) : null}
 
       {/* 3. Título, región y dificultad */}
       <View>
@@ -176,7 +234,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         </Text>
       </View>
 
-      {/* 4. Acciones: Compartir (HU-05) y Descargar (HU-04 próximamente) */}
+      {/* 4. Acciones: compartir (HU-05) y descarga del paquete offline (HU-04) */}
       <View style={styles.actionsRow}>
         <Pressable
           onPress={() => setShareOpen(true)}
@@ -187,7 +245,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
         </Pressable>
         <Pressable
-          onPress={() => setDownloadOpen(true)}
+          onPress={requestDownload}
           style={styles.actionBtn}
           accessibilityRole="button"
           accessibilityLabel="Descargar ruta para uso offline"
@@ -202,6 +260,11 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           />
         </Pressable>
       </View>
+      {downloadMessage ? (
+        <Text style={styles.downloadNotice} accessibilityRole="alert">
+          {downloadMessage}
+        </Text>
+      ) : null}
 
       {/* 5. Tarjeta horizontal de métricas */}
       <View style={styles.metricsCard}>
@@ -304,7 +367,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setDownloadOpen(true)}
+            onPress={requestDownload}
             style={styles.downloadBtn}
             accessibilityRole="button"
             accessibilityLabel="Descargar ruta para consulta offline"
@@ -323,15 +386,17 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       ) : null}
 
       {/* 10. Modal de descarga offline (HU-04) */}
-      <DownloadRouteModal
-        route={route}
-        visible={downloadOpen}
-        onClose={() => setDownloadOpen(false)}
-        onCompleted={(record: OfflineRoute) => {
-          setDownloaded(true);
-          void record;
-        }}
-      />
+      {downloadOpen && downloadAvailability.available ? (
+        <DownloadRouteModal
+          route={route}
+          visible
+          onClose={() => setDownloadOpen(false)}
+          onCompleted={(record: OfflineRoute) => {
+            setDownloaded(true);
+            void record;
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 };
@@ -523,6 +588,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  downloadNotice: {
+    color: AndeanTheme.colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  cacheNotice: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   guestBox: {
     backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,

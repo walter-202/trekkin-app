@@ -110,16 +110,18 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   2. ✅ Búsqueda texto + chips dificultad (`Todas/Fácil/Moderado/Difícil/Experto`) con `RouteFiltersSchema`.
   3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, foto de portada real del usuario (`coverImageUrl || photos[0]`) sin peticiones de mapas.
   4. ✅ `RouteDetailView`: header andino, badge desnivel, métricas (distancia/desnivel/tiempo/modalidad), itinerario, checkpoints con categoría/notas.
-  5. ✅ Mapa con `TrekMap.tsx` (MapLibre GL JS): estilo OpenFreeMap oscuro, polyline del trazado, marcadores inicio/fin/checkpoints. **Sin descargar pack** (HU-03 es consulta online). Web = DOM; Android/iOS Expo Go = WebView con el mismo motor. 0 Google Maps SDK.
+  5. ✅ Mapa online con `TrekMap` (MapLibre GL JS): OpenFreeMap, trazado desde el `RoutePreview` compacto y acotado de Firestore, marcadores inicio/fin/checkpoints. Rutas legacy sin preview pueden usar `waypoints` como fallback, acotados antes de pintar. El detalle no solicita GPX/PMTiles a Storage ni entrega `offlinePackPath` al mapa. 0 Google Maps SDK.
   6. ✅ Paginación y control de carga: `routeService.listPublishedRoutesPaginated` para consumo eficiente de Firestore.
-  7. ✅ Gate amigable: acciones protegidas (descarga/tracking) invitan a sesión sin perder contexto.
-- **Estado real y brecha (10%):** catálogo y contrato de mapa listos. Pendiente: matriz Expo Go Android + iOS + web localhost del detalle (calles + trazado + pines) y OK del usuario. Plan: `docs/plan/plan_mapas_on_offline.md`.
+  7. ✅ Gate amigable: detalle público para visitantes; descarga/tracking requieren autenticación. La descarga además exige un par GPX + PMTiles publicado y válido (ambos `uploaded`, misma versión, MIME/rutas canónicas).
+  8. ✅ Publicación: genera y valida un `RoutePreview` versionado y acotado, escribe solo esa geometría pública y elimina `waypoints` completos del documento Firestore.
+  9. ✅ Cache local del detalle: AsyncStorage guarda metadata y preview compacto (nunca bytes de artefactos), con identidad por ruta + versión/hash del preview; capacidad máxima de 30 detalles y refresco desde Firestore tipo stale-while-revalidate.
+- **Estado real y brecha (90%):** contratos, catálogo, preview de publicación, detalle online, cache y gates tienen evidencia en suites automatizadas. Siguen pendientes Firebase Emulator, validación UI en Expo Go/dispositivo y web local, matriz de Android/iOS y revisión UI humana; no se declara 100% hasta reunir esa evidencia. Plan: `docs/plan/plan_mapas_on_offline.md`.
 - **Mapeo Técnico:**
-  - _Dominio:_ `src/core/domain/route.schemas.ts`, `src/core/domain/geoBounds.ts`.
-  - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` usecases.
-  - _Infraestructura:_ `src/infrastructure/database/routeService.ts`, `routeSeed.ts`, `src/infrastructure/map/mapStyle.ts`.
-  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap.web.tsx` / `TrekMap.native.tsx`.
-  - _Suite:_ `src/tests/map_service_hu3.test.ts`.
+  - _Dominio:_ `src/core/domain/route.schemas.ts`, `routePreview.ts`, `routePreview.schemas.ts`, `routeCatalog.ts`.
+  - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` / `GetRouteDetailWithCache` / `RouteDetailSupport` / `PublishRoute` usecases.
+  - _Infraestructura:_ `src/infrastructure/database/routeService.ts` (detalle, preview y publicación), `src/infrastructure/persistence/routeDetailCache.ts` + `RouteDetailCacheRepository` (AsyncStorage), `src/infrastructure/map/mapStyle.ts`.
+  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap` (`TrekMap.web.tsx` / `TrekMap.native.tsx`).
+  - _Suite:_ `src/tests/catalog_hu3.test.ts`, `route_preview_hu3.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts`, `route_detail_cache_hu3.test.ts`, `firestore_rules_published_preview.test.ts`, `map_service_hu3.test.ts`.
 
 ---
 
@@ -128,17 +130,18 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** senderista sin cobertura **quiero** descargar ruta + mapa base **para** consultarla en campo sin internet.
 - **Criterios de Aceptación (DoD):**
-  1. ✅ Botón "Descargar ruta" en `RouteDetailView` activo y enlazado a `DownloadRouteModal`.
-  2. ✅ Estimación matemática real: cálculo de teselas y MB por bounding box y niveles de zoom (12–15) vía `geoBounds.ts` (`estimateTileCount` y `estimateDownloadSizeMB`).
-  3. ✅ Guardado: `tileCacheDB` descarga y valida GPX + PMTiles binarios, los mueve de forma atómica y persiste un manifiesto v2; Firestore conserva solo metadatos.
-  4. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve `.pmtiles` a `pmtiles://` y cambia el estilo; si el renderer no está disponible, el GPX se muestra con fallback neutral. Falta evidencia de renderer PMTiles frío en dispositivos físicos.
-- **Estado real y brecha (20%):** contrato, descarga binaria, manifiesto atómico, validaciones y fallback tienen evidencia en suites puras. Pendientes: Firebase Emulator, Expo Go UI, Storage real y prueba Android/iOS con almacenamiento local en frío y modo avión.
+  1. ✅ `RouteDetailView` ofrece descarga solo a usuarios autenticados y cuando el par GPX + PMTiles está completo, `uploaded`, versionado en conjunto y cumple los metadatos/rutas canónicas publicados.
+  2. ✅ Estimación previa basada en los tamaños publicados de GPX y PMTiles más la metadata básica de ruta.
+  3. ✅ `tileCacheDB` descarga los artefactos binarios separados desde Firebase Storage, verifica tamaño/hash y cabecera PMTiles, los promueve atómicamente y persiste un manifiesto v2; Firestore conserva solo metadatos.
+  4. ✅ Tras validar la integridad del GPX descargado, la traza local del manifiesto se obtiene parseando ese GPX (geometría exacta); no se deriva del preview ni de los waypoints públicos. PMTiles sigue siendo un artefacto Storage separado para el mapa base.
+  5. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve el PMTiles local a `pmtiles://` y cambia el estilo; si el renderer no está disponible, el GPX/trail se muestra con fallback neutral. Falta evidencia del renderer PMTiles en frío en dispositivos físicos.
+- **Estado real y brecha (80%):** contratos, autenticación/validación del par, descarga binaria, integridad GPX/PMTiles, traza GPX, manifiesto atómico y fallback tienen evidencia en suites automatizadas. Pendientes Firebase Emulator, Expo Go/dispositivo, Storage real y prueba Android/iOS con almacenamiento local en frío y modo avión.
 - **Mapeo Técnico:**
-  - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`, `src/core/domain/mapPackFormats.ts`.
-  - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `ResolveOfflinePack` usecases.
+  - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/offline.schemas.ts`, `src/core/domain/routeArtifacts.schemas.ts`, `src/core/domain/mapPackFormats.ts`.
+  - _Aplicación:_ `CheckRouteDownloadAvailability` / `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `ResolveOfflinePack` usecases; `ValidateRoutePublicationUseCase` valida el par publicado.
   - _Infraestructura:_ `src/infrastructure/persistence/tileCacheDB.ts`, `src/infrastructure/map/mapStyle.ts` (`buildOfflineVectorStyle`). Destino: `expo-file-system`.
   - _Presentación:_ `DownloadRouteModal.tsx`, `DownloadsView.tsx`, `TrekMap` (`offlinePackPath`).
-  - _Suite:_ `src/tests/offline_hu4.test.ts`, `src/tests/map_pack_formats.test.ts`.
+  - _Suite:_ `src/tests/offline_bundle.test.ts`, `offline_hu4.test.ts`, `storage_rules_route_bundle.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts`.
 
 ---
 
@@ -260,8 +263,8 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | :-------- | :------------------- | :---------: | :------------------------------------------------------- |
 | **HU-01** | Registro             |   🟢 95%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-02** | Sesión y perfil      |   🟢 90%    | `auth_hu1_hu2.test.ts`                                   |
-| **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (geoBounds) + TrekMap MapLibre |
-| **HU-04** | Descarga offline     |   🟡 80%    | `offline_bundle.test.ts`, `storage_rules_route_bundle.test.ts`, `offline_hu4.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts` |
+| **HU-03** | Explorar y mapa      |   🟢 90%    | `catalog_hu3.test.ts`, `route_preview_hu3.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts`, `route_detail_cache_hu3.test.ts`, `firestore_rules_published_preview.test.ts`, `map_service_hu3.test.ts` |
+| **HU-04** | Descarga offline     |   🟡 80%    | `offline_bundle.test.ts`, `offline_hu4.test.ts`, `storage_rules_route_bundle.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts` |
 | **HU-05** | Compartir ruta       |   🟢 80%    | `share_hu5.test.ts` + `gpx_delivery.test.ts`              |
 | **HU-06** | Realizar ruta (guía) |   🟡 75%    | `activity_hu6.test.ts`, `activity_store.test.ts`, `activity_record_sqlite.test.ts` |
 | **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |

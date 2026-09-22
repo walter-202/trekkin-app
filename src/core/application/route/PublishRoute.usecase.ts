@@ -1,12 +1,16 @@
 import type {
   RouteModel,
+  RoutePreview,
   RoutePublicationArtifacts,
 } from "../../domain/types";
 import { RoutePublicationArtifactsSchema } from "../../domain/routeArtifacts.schemas";
+import { buildRoutePreview } from "../../domain/routePreview";
+import { RoutePreviewSchema } from "../../domain/routePreview.schemas";
 
 export interface PublishRouteUpdates {
   status: "published";
   artifacts: RoutePublicationArtifacts;
+  preview: RoutePreview;
   updatedAt: number;
 }
 
@@ -88,11 +92,20 @@ export async function PublishRouteUseCase(
   updatedAt = Date.now(),
 ): Promise<RouteModel> {
   const artifacts = ValidateRoutePublicationUseCase(route.id, rawArtifacts);
+  const preview = route.waypoints.length >= 2
+    ? buildRoutePreview(route.waypoints)
+    : route.preview
+      ? RoutePreviewSchema.parse(route.preview)
+      : undefined;
+  if (!preview) {
+    throw new Error("La ruta necesita al menos dos coordenadas para generar su preview público.");
+  }
   const updates: PublishRouteUpdates = {
     status: "published",
     artifacts,
+    preview,
     updatedAt,
   };
   await ports.publish(route.id, updates);
-  return { ...route, ...updates };
+  return { ...route, ...updates, waypoints: [] };
 }

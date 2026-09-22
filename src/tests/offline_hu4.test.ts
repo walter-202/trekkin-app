@@ -122,7 +122,11 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
     {
       downloadArtifact: async (id, kind) => {
         callLog.push(`${kind}:${id}`);
-        return { tempPath: `${id}-${kind}.part`, finalPath: `${id}-${kind}`, byteSize: kind === 'pmtiles' ? 64 : 128, headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx' };
+        return {
+          tempPath: `${id}-${kind}.part`, finalPath: `${id}-${kind}`, byteSize: kind === 'pmtiles' ? 64 : 128,
+          headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx',
+          ...(kind === 'gpx' ? { readTrackPoints: async () => PUBLISHED_ROUTE.waypoints } : {}),
+        };
       },
       cleanupArtifact: async (path) => { callLog.push(`cleanup:${path}`); },
       finalize: async (id) => {

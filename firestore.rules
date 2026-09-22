@@ -78,7 +78,28 @@ service cloud.firestore {
              (!('reviewedBy' in data) || (data.reviewedBy is string && data.reviewedBy.size() <= 150)) &&
              (!('reviewedAt' in data) || data.reviewedAt is number) &&
              (!('artifacts' in data) || isValidRouteArtifacts(data.artifacts, data.id, data.status == 'published')) &&
-             (data.status != 'published' || ('artifacts' in data && isValidRouteArtifacts(data.artifacts, data.id, true)));
+             (!('preview' in data) || isValidRoutePreview(data.preview)) &&
+             (data.status != 'published' ||
+               ('artifacts' in data && isValidRouteArtifacts(data.artifacts, data.id, true) &&
+                'preview' in data && isValidRoutePreview(data.preview) && !('waypoints' in data)));
+    }
+
+    function isValidRoutePreview(data) {
+      return data is map &&
+             data.keys().hasAll(['version', 'encoding', 'polyline', 'pointCount', 'bbox']) &&
+             data.keys().hasOnly(['version', 'encoding', 'polyline', 'pointCount', 'bbox']) &&
+             data.version is int && data.version == 1 &&
+             data.encoding == 'polyline6' &&
+             data.polyline is string && data.polyline.size() > 0 && data.polyline.size() <= 4096 &&
+             data.pointCount is int && data.pointCount >= 2 && data.pointCount <= 200 &&
+             data.bbox is map &&
+             data.bbox.keys().hasAll(['minLng', 'minLat', 'maxLng', 'maxLat']) &&
+             data.bbox.keys().hasOnly(['minLng', 'minLat', 'maxLng', 'maxLat']) &&
+             data.bbox.minLng is number && data.bbox.minLng >= -180 && data.bbox.minLng <= 180 &&
+             data.bbox.maxLng is number && data.bbox.maxLng >= -180 && data.bbox.maxLng <= 180 &&
+             data.bbox.minLat is number && data.bbox.minLat >= -90 && data.bbox.minLat <= 90 &&
+             data.bbox.maxLat is number && data.bbox.maxLat >= -90 && data.bbox.maxLat <= 90 &&
+             data.bbox.minLng <= data.bbox.maxLng && data.bbox.minLat <= data.bbox.maxLat;
     }
 
     // Route bytes never belong in Firestore. These fields are a metadata-only

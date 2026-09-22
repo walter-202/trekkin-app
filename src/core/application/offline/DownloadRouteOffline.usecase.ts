@@ -1,11 +1,18 @@
 /** Downloads a published route's binary bundle using framework-free ports. */
-import type { RouteArtifactKind, RouteArtifactMetadata, RouteModel } from "../../domain/types";
+import type { Coordinates, RouteArtifactKind, RouteArtifactMetadata, RouteModel } from "../../domain/types";
 import { buildBasicOfflineInfo, buildMapSnapshot, DOWNLOAD_STAGES, estimateRouteOfflineSize, type OfflineRoute, type OfflineDownloadStage } from "../../domain/offline";
 import { OfflineRouteSchema } from "../../domain/offline.schemas";
 import { ValidateRoutePublicationUseCase } from "../route/PublishRoute.usecase";
 
 export type DownloadStageCallback = (stage: OfflineDownloadStage) => void;
-export interface DownloadedOfflineArtifact { tempPath: string; finalPath: string; byteSize: number; sha256?: string; headerBytes?: Uint8Array | number[] | string; }
+export interface DownloadedOfflineArtifact {
+  tempPath: string;
+  finalPath: string;
+  byteSize: number;
+  sha256?: string;
+  headerBytes?: Uint8Array | number[] | string;
+  readTrackPoints?: () => Promise<Coordinates[]>;
+}
 export interface DownloadRouteOfflinePorts {
   downloadArtifact: (routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata, generation?: string) => Promise<DownloadedOfflineArtifact>;
   cleanupArtifact: (path: string) => Promise<void>;
@@ -50,11 +57,16 @@ export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: Down
     gpx = await ports.downloadArtifact(route.id, "gpx", artifacts.gpx, generation);
     temporary.push(gpx.tempPath);
     verifyArtifact("gpx", artifacts.gpx, gpx);
+    const trackPoints = await gpx.readTrackPoints?.();
+    if (!trackPoints || trackPoints.length < 2) {
+      throw new Error("El GPX descargado no contiene una traza válida de al menos dos puntos.");
+    }
     onStage("info");
     const estimate = estimateRouteOfflineSize(route);
+    const routeWithTrack = { ...route, waypoints: trackPoints };
     const record: OfflineRoute = OfflineRouteSchema.parse({
-      manifestVersion: 2, artifactVersion: artifacts.version, routeId: route.id, ...buildBasicOfflineInfo(route),
-      map: buildMapSnapshot(route), trail: route.waypoints, checkpoints: route.checkpoints, photoUrls: route.photos,
+      manifestVersion: 2, artifactVersion: artifacts.version, routeId: route.id, ...buildBasicOfflineInfo(routeWithTrack),
+      map: buildMapSnapshot(routeWithTrack), trail: trackPoints, checkpoints: route.checkpoints, photoUrls: route.photos,
       gpxPath: gpx.finalPath, pmtilesPath: pmtiles.finalPath, gpxBytes: gpx.byteSize, pmtilesBytes: pmtiles.byteSize,
       ...(gpx.sha256 ? { gpxSha256: gpx.sha256 } : {}), ...(pmtiles.sha256 ? { pmtilesSha256: pmtiles.sha256 } : {}),
       estimatedSizeMB: toMB(estimate.totalBytes), downloadedAt,
