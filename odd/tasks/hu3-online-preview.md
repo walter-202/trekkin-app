@@ -11,12 +11,13 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 - No raster PNG tile cache or new map engine.
 - Preserve Clean Architecture and TypeScript strictness.
 - Keep current branch delivery local; no push, PR, or merge.
+- Delivery strategy: `ask-on-risk`; user-selected chain strategy: `stacked-to-main` (each eventual PR targets `main`, sequenced after the preceding merge). This records intended PR structure only; no remote delivery is authorized.
 - TDD mode is not explicitly configured; use ordinary regression tests with `npx --no-install tsx` and `npm run lint`.
 
 ## Tasks
 
 - [x] HU3-1 — Add the published route preview domain contract, validation, bounded simplification/encoding helpers, and focused tests (commit 015dee9; focused preview test, lint, and diff checks pass).
-- [ ] HU3-2 — Make the published catalog paginated and ordered, apply search results correctly, and validate preview data at the Firestore boundary.
+- [x] HU3-2 — Make the published catalog paginated and ordered, apply search results correctly, and validate preview data at the Firestore boundary (commit ef49a94; focused catalog test, lint, and diff checks pass).
 - [ ] HU3-3 — Wire the route detail to the online preview contract and protect the offline download action for authenticated users/artifact availability; add UI/use-case regression tests.
 - [ ] HU3-4 — Synchronize HU-03 documentation and evidence matrix; record limitations and checks without claiming device proof.
 
@@ -34,7 +35,9 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 - Branch created: `codex/hu3-online-preview` from current `main`.
 - Exploration completed: current detail already renders `route.waypoints` online; pagination/search/download gates are incomplete.
 - HU3-1 complete: `RoutePreview` is optional for migration compatibility; polyline6, bounded simplification, deterministic cap, and bbox/hash validation are covered by `src/tests/route_preview_hu3.test.ts`.
+- HU3-2 complete: Firestore catalog pages use stable `createdAt` + document-id ordering; `ExploreView` applies search over loaded pages and loads more on demand. Firebase Web Firestore cannot project individual document fields, so legacy waypoint payloads remain on the wire until data migration; the catalog mapper discards them.
+- Delivery strategy chosen by user: `stacked-to-main`. No push, PR, or merge has occurred or is authorized.
 
 ## Next step
 
-Next: implement HU3-2 (stable paginated catalog, search application, and Firestore preview boundary).
+Next: implement HU3-3 (online preview on detail, authentication/artifact gates for offline download, regression tests).
