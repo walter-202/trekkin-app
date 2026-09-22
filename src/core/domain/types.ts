@@ -24,6 +24,25 @@ export type CheckpointCategory =
 export type ActivityStatus =
   "in_progress" | "paused" | "completed" | "incomplete";
 
+/** Lifecycle of the private GPX artifact associated with a finished activity. */
+export type ActivityGpxUploadStatus =
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "failed";
+
+/** Firestore metadata only; the GPX bytes live in owner-scoped Storage. */
+export interface ActivityGpxMetadata {
+  storagePath: string;
+  fileName: string;
+  mimeType: "application/gpx+xml";
+  byteSize?: number;
+  sha256?: string;
+  status: ActivityGpxUploadStatus;
+  updatedAt: number;
+  error?: string;
+}
+
 /** Origen de una actividad: libre (GRABAR RUTA), ruta (ACTIVIDAD GPS) o plan (HU-07). */
 export type LiveActivityOrigin = "free" | "route" | "plan";
 
@@ -97,6 +116,8 @@ export interface TrekkinActivity {
   remainingDistanceKm: number;
   durationSeconds: number;
   recordedPoints: Coordinates[];
+  /** Optional Storage/Firestore metadata. Never contains GPS point arrays. */
+  gpx?: ActivityGpxMetadata;
   completedCheckpoints: string[];
   isSynced: boolean;
   createdAt: number;

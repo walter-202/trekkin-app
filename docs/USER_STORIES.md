@@ -50,7 +50,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 ### 3. Firestore y Base de Datos Anti-Colapso
 
 - **Catálogo Paginado:** Usar `routeService.listPublishedRoutesPaginated(pageSize, lastVisibleDoc)` con cursor (`limit` + `startAfter`). Nunca hacer queries abiertas sin límite.
-- **Actividades Largas (>500 puntos):** Usar `activityService.saveActivityPointsChunks(id, points)` para almacenar puntos en bloques bajo la subcolección `activities/{id}/points/chunk_{n}`. Protegido en `firestore.rules`.
+- **Actividades Largas (>500 puntos):** Los puntos completos se conservan localmente en SQLite/AsyncStorage; no se escriben arrays ni subcolecciones `points` en Firestore. El GPX terminado usa Firebase Storage privado y Firestore solo guarda sus metadatos/estado.
 - **Regla Triple:** Si agregas un campo a una entidad, debe figurar en `types.ts`, `firestore.rules` y `DATABASE.md`.
 
 ---
@@ -211,9 +211,9 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Criterios de Aceptación (DoD):**
   1. ✅ Muestreo lat/lng/alt + `cleanTrack` (jitter/saltos) + descarte `accuracy > 25 m`.
   2. ✅ Checkpoints con 7 categorías Zod + alta manual (`AddCheckpointModal`) en la posición GPS.
-  3. ✅ Resumen: distancia, ritmo, velocidad, desnivel; persistencia local/Firestore.
+  3. ✅ Resumen: distancia, ritmo, velocidad, desnivel; persistencia local y sincronización retryable de metadatos/GPX.
   4. ✅ Exportación GPX 1.1 desde el resumen (`ExportTrackFile` + share/descarga).
-  5. ✅ Protección Firestore Anti-Colapso: actividades con >500 puntos en `points/{chunkIndex}`.
+  5. ✅ Protección anti-colapso: sin arrays GPS ni `points/{chunkIndex}` en Firestore; GPX en Storage con reglas owner-only y límite de tamaño.
   6. ⚠️ Grabación con pantalla apagada (background location task).
   7. ✅ Handoff HU-07→HU-08: `ReadyForGpsView` inicia GPS (`StartRecordingFromPlan` + `TrackingView` High).
 - **Estado real y brecha (15%):** se puede planificar, iniciar GPS en primer plano, marcar paradas, finalizar y exportar GPX. Falta background con pantalla apagada.

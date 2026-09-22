@@ -26,7 +26,7 @@ Deliver the v1 route lifecycle: plan -> record GPS -> generate GPX -> persist/up
 - [x] T2 — Preserve ordered GPS updates and finish locally without network waits (commit ef71de3).
 - [x] T3 — Verify planning-to-recording recovery and document remaining limits (commit ef71de3).
 - [x] T4 — Add incremental SQLite track storage and bounded in-memory recovery (SQLite repository, 300-point window, legacy autosave backfill, local cleanup; focused suites pass).
-- [ ] T5 — Add Firebase Storage GPX upload/download ports, metadata, rules, and retryable activity sync.
+- [x] T5 — Add Firebase Storage GPX upload/download ports, metadata, rules, and retryable activity sync (local-first; no Firestore point chunks).
 - [ ] T6 — Add published route GPX/PMTiles artifact metadata and publication validation.
 - [ ] T7 — Implement atomic offline GPX + PMTiles bundle download and offline consumption.
 - [ ] T8 — Implement background GPS capture and native permission/build configuration.
@@ -40,6 +40,7 @@ Deliver the v1 route lifecycle: plan -> record GPS -> generate GPX -> persist/up
 - Expo Doctor status: `npx expo-doctor` passed 21/21 (100%).
 - Device runtime harness: pending physical device tests for long-track endurance, PMTiles local range reads, Storage download, and background capture.
 - T4 checks: `npx --no-install tsx src/tests/activity_track_db.test.ts`, `activity_record_sqlite.test.ts`, `activity_autosave_slim.test.ts`, and `activity_store.test.ts` all passed; `git diff --check` passed. `npm run lint` is blocked by the pre-existing missing `invariant` declaration in `expo-modules-core` after dependency installation.
+- T5 checks: `npm test` passed (including `activity_gpx_storage.test.ts`), `npx --no-install tsx src/tests/activity_gpx_storage.test.ts` passed, `npx expo-doctor` passed 21/21, and `git diff --check` passed. `npm run lint`/`tsc --noEmit` remain blocked only by the pre-existing missing `invariant` declaration in `expo-modules-core`. Firebase Storage/Firestore emulator and physical-device proof were not run.
 
 ## Next step
 Implement T4-T9 one work unit at a time. Do not mark HU-04/HU-08 complete until the binary bundle and background/device gates have evidence.

@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import * as authModule from 'firebase/auth';
 import { getAuth, initializeAuth, type Auth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import firebaseConfig from '../../../firebase-applet-config.json';
 
@@ -25,6 +26,7 @@ function initializeFirebaseAuth(): Auth {
 
 export const auth = initializeFirebaseAuth();
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const storage = getStorage(app);
 
 /**
  * Validates Firestore server connection on boot.

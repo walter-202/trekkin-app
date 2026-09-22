@@ -7,7 +7,7 @@ Fuente de verdad triple: `src/core/domain/types.ts` (tipos) + `firestore.rules`
 
 - Proyecto: `gen-lang-client-0923763848` · DB: `ai-studio-trekkingbolivia-1ecbcee3-…`
   (nombrada; no es `(default)`). Reglas e índices se despliegan con
-  `firebase deploy --only firestore` (ver `firebase.json`).
+  `firebase deploy --only firestore,storage` (ver `firebase.json`).
 - Clave de sesión local (NO es colección): `trekkin_auth_user` en AsyncStorage.
 
 ## Diagrama (colecciones y referencias)
@@ -96,17 +96,18 @@ lo usa `DraftsView`).
 | `startedAt` / `finishedAt` | number | — | Requerido en tipo TS; reglas no lo exigen. |
 | `distanceCoveredKm` | number | ✅ | ≥ 0. |
 | `remainingDistanceKm` / `durationSeconds` | number | — | |
-| `recordedPoints` | list | — | `{lat, lng, altitude?, timestamp?}`. |
+| `recordedPoints` | — | — | **Local-only** (SQLite/AsyncStorage); never written to Firestore. |
 | `completedCheckpoints` | list | — | Ids de checkpoints. |
 | `isSynced` | boolean | — | |
 | `createdAt` | number | — | |
+| `gpx` | map | — | `{storagePath, fileName, mimeType, byteSize?, sha256?, status, updatedAt, error?}`; metadata only. |
 
 Reglas: todo exige dueño (`userId == auth.uid`); borrar = dueño o admin.
 
-### `activities/{activityId}/points/{chunkId}` — subcolección chunked (BK-030)
-Para grabaciones de más de 500 puntos GPS, los datos se particionan en documentos de 500 coordenadas (`chunk_0`, `chunk_1`, …) evitando superar el límite de 1 MB por documento de Firestore y optimizando lecturas.
-Campos: `chunkIndex` (number), `points` (list de `{lat, lng, altitude?, timestamp?}`), `count` (number), `updatedAt` (number).
-Reglas: lectura y escritura exclusivas del dueño de la actividad padre.
+No existe una subcolección `points`: los puntos completos permanecen locales y el
+GPX terminado se guarda como bytes privados en Firebase Storage bajo
+`users/{uid}/activities/{activityId}/activity.gpx`. Firestore conserva únicamente
+el estado y metadatos del artefacto (`pending`, `uploading`, `uploaded` o `failed`).
 
 ## `reviews/{reviewId}` — auditoría admin (sin HU-09: solo admin)
 

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
-import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
+import type { ActivityGpxMetadata, TrekkinActivity, RouteModel } from "../../core/domain/types";
 import type { RoutePlan } from "../../core/domain/plan";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createSerialQueue } from "./serialQueue";
@@ -42,6 +42,11 @@ import {
 } from "../../core/application/activity/TrackWindow";
 import { accumulatedDistanceKm, haversineKm } from "../../core/domain/calculations";
 import { ACTIVITY_CONFIG } from "../../core/domain/activity";
+import { ExportTrackFileUseCase } from "../../core/application/activity/ExportTrackFile.usecase";
+import {
+  activityGpxStoragePath,
+  SyncActivityGpxUseCase,
+} from "../../core/application/activity/activityGpx";
 import {
   openTrackDbConnection,
   migrateTrackDb,
@@ -99,6 +104,7 @@ function loadLive(): Promise<LiveActivity | null> {
 let trackDb: TrackDbConnection | null = null;
 let trackCursor: { activityId: string; nextSeq: number } | null = null;
 let trackPersistenceUnavailable = false;
+const gpxSyncInFlight = new Set<string>();
 
 function getTrackDb(): TrackDbConnection {
   if (!trackDb) {
@@ -263,6 +269,61 @@ function loadUnsynced(): Promise<TrekkinActivity[] | null> {
       throw new Error("No se pudo leer el historial local. No se ha borrado.");
     }
   });
+}
+
+function pendingGpxMetadata(activity: TrekkinActivity): ActivityGpxMetadata {
+  return {
+    storagePath: activityGpxStoragePath(activity.userId, activity.id),
+    fileName: "activity.gpx",
+    mimeType: "application/gpx+xml",
+    status: "pending",
+    updatedAt: Date.now(),
+  };
+}
+
+async function syncFinishedActivity(activity: TrekkinActivity): Promise<TrekkinActivity> {
+  if (!activity.recordedPoints || activity.recordedPoints.length === 0) return activity;
+  if (gpxSyncInFlight.has(activity.id)) return activity;
+  gpxSyncInFlight.add(activity.id);
+  const pending = activity.gpx ?? pendingGpxMetadata(activity);
+  try {
+    // Lazy import keeps pure/unit test consumers independent of Firebase SDK initialization.
+    const { activityGpxService } = await import("../database/activityGpxService");
+    await activityService.createActivity({ ...activity, isSynced: false, gpx: pending });
+    const file = ExportTrackFileUseCase(activity);
+    const synced = await SyncActivityGpxUseCase(
+      {
+        userId: activity.userId,
+        activityId: activity.id,
+        fileName: file.fileName,
+        mimeType: "application/gpx+xml",
+        content: file.content,
+      },
+      {
+        ...activityGpxService,
+        save: async (metadata) => {
+          await activityService.updateActivityGpxMetadata(activity.id, metadata);
+        },
+      },
+    );
+    if (synced.error) return { ...activity, isSynced: false, gpx: synced.metadata };
+    const completed = { ...activity, isSynced: true, gpx: synced.metadata };
+    await activityService.updateActivity(activity.id, {
+      isSynced: true,
+      gpx: synced.metadata,
+    });
+    return completed;
+  } catch (error: unknown) {
+    const failed: ActivityGpxMetadata = {
+      ...pending,
+      status: "failed",
+      updatedAt: Date.now(),
+      error: error instanceof Error ? error.message : String(error),
+    };
+    return { ...activity, isSynced: false, gpx: failed };
+  } finally {
+    gpxSyncInFlight.delete(activity.id);
+  }
 }
 
 interface ActivityState {
@@ -580,7 +641,17 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         },
         saveLocalActivity: saveLive,
       });
-      const result = { ...finished, saved: { ...finished.saved, isSynced: false } };
+      const savedWithGpx = {
+        ...finished.saved,
+        isSynced: false,
+        gpx: pendingGpxMetadata(finished.saved),
+      };
+      localHistory = [
+        ...localHistory.filter((a) => a.id !== savedWithGpx.id),
+        savedWithGpx,
+      ];
+      await saveUnsynced(localHistory);
+      const result = { ...finished, saved: savedWithGpx };
       set({
         live: result.activity,
         lastResult: result.saved,
@@ -599,15 +670,18 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       } catch {
         // SQLite is an optimization for recovery; the local archive is already durable.
       }
-      void activityService.createActivity({ ...result.saved, isSynced: true })
-        .then(() => enqueue(async () => {
-          const history = ((await loadUnsynced()) ?? []).map((a) =>
-            a.id === result.saved.id ? { ...a, isSynced: true } : a);
-          await saveUnsynced(history);
-          set({ unsynced: history.filter((a) => !a.isSynced) });
-          if (trackDb) updateActivityHeader(trackDb, result.saved.id, { synced: 1, updatedAt: Date.now() });
-        }))
-        .catch(() => { /* The local archive remains available for export and retry. */ });
+      void syncFinishedActivity(result.saved).then((synced) => enqueue(async () => {
+        const history = ((await loadUnsynced()) ?? []).map((a) =>
+          a.id === synced.id ? synced : a);
+        await saveUnsynced(history);
+        set({
+          unsynced: history.filter((a) => !a.isSynced),
+          activities: get().activities.map((a) => a.id === synced.id ? synced : a),
+        });
+        if (trackDb && synced.isSynced) {
+          updateActivityHeader(trackDb, synced.id, { synced: 1, updatedAt: Date.now() });
+        }
+      }));
       return result;
     } catch (err: unknown) {
       set({
@@ -642,7 +716,24 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   listActivities: async (uid) => {
     set({ activities: [], isLoading: true, error: null });
     try {
-      const joined = ((await loadUnsynced()) ?? []).filter((a) => a.userId === uid);
+      let joined = ((await loadUnsynced()) ?? []).filter((a) => a.userId === uid);
+      // Retry pending/failed GPX syncs when history is opened. The archive is
+      // updated only after an idempotent owner-scoped Storage/Firestore write.
+      const retryable = joined.filter((a) => !a.isSynced && a.recordedPoints.length > 0);
+      if (retryable.length > 0) {
+        void Promise.all(retryable.map(syncFinishedActivity)).then((retried) =>
+          enqueue(async () => {
+            const byId = new Map(retried.map((a) => [a.id, a]));
+            const all = (await loadUnsynced()) ?? [];
+            await saveUnsynced(all.map((a) => byId.get(a.id) ?? a));
+            const current = get().activities;
+            set({
+              activities: current.map((a) => byId.get(a.id) ?? a),
+              unsynced: (await loadUnsynced() ?? []).filter((a) => !a.isSynced),
+            });
+          }),
+        ).catch(() => { /* local history remains available for a later retry */ });
+      }
       set({ activities: joined, unsynced: joined.filter((a) => !a.isSynced), isLoading: false });
       const remote = await ListActivitiesUseCase(uid, {
         listByUser: activityService.listUserActivities,

@@ -84,7 +84,21 @@ service cloud.firestore {
              data.userId is string && data.userId == request.auth.uid &&
              data.routeId is string && data.routeId.size() <= 128 &&
              data.status in ['in_progress', 'paused', 'completed', 'incomplete'] &&
-             data.distanceCoveredKm is number && data.distanceCoveredKm >= 0;
+             data.distanceCoveredKm is number && data.distanceCoveredKm >= 0 &&
+             // Track points are local-only. GPX bytes are in Storage.
+             !('recordedPoints' in data) &&
+             (!('gpx' in data) || (
+               data.gpx is map &&
+               data.gpx.storagePath is string &&
+               data.gpx.storagePath.matches('^users/[a-zA-Z0-9_\\-]+/activities/[a-zA-Z0-9_\\-]+/activity\\.gpx$') &&
+               data.gpx.fileName == 'activity.gpx' &&
+               data.gpx.mimeType == 'application/gpx+xml' &&
+               data.gpx.status in ['pending', 'uploading', 'uploaded', 'failed'] &&
+               data.gpx.updatedAt is number &&
+               (!('byteSize' in data.gpx) || (data.gpx.byteSize is number && data.gpx.byteSize >= 0 && data.gpx.byteSize <= 10485760)) &&
+               (!('sha256' in data.gpx) || (data.gpx.sha256 is string && data.gpx.sha256.size() <= 128)) &&
+               (!('error' in data.gpx) || (data.gpx.error is string && data.gpx.error.size() <= 500))
+             ));
     }
 
     function isValidReview(data) {
@@ -171,10 +185,10 @@ service cloud.firestore {
       allow delete: if isSignedIn() &&
                        (resource.data.userId == request.auth.uid || isAdmin());
 
-      // Subcolección chunked para actividades largas (>500 puntos)
+      // GPS points/chunks are intentionally not a cloud data path. The default
+      // deny rule below also protects legacy `points` documents from new use.
       match /points/{chunkId} {
-        allow read, write: if isSignedIn() &&
-          get(/databases/$(database)/documents/activities/$(activityId)).data.userId == request.auth.uid;
+        allow read, write: if false;
       }
     }
 

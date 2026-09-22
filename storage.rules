@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/activities/{activityId}/activity.gpx {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) &&
+        request.resource != null &&
+        request.resource.contentType == 'application/gpx+xml' &&
+        request.resource.size <= 10485760;
+      allow delete: if isOwner(userId);
+    }
+  }
+}
