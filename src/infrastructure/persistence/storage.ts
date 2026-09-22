@@ -32,6 +32,12 @@ export const appStorage = {
     }
   },
 
+  /** Strict variant for atomic repositories that must observe persistence failures. */
+  async setItemStrict(key: string, value: string): Promise<void> {
+    memoryCache[key] = value;
+    await AsyncStorage.setItem(key, value);
+  },
+
   async removeItem(key: string): Promise<void> {
     delete memoryCache[key];
     try {
@@ -39,6 +45,11 @@ export const appStorage = {
     } catch (err) {
       console.warn('AsyncStorage removeItem error:', err);
     }
+  },
+
+  async removeItemStrict(key: string): Promise<void> {
+    delete memoryCache[key];
+    await AsyncStorage.removeItem(key);
   },
 
   async initialize(): Promise<void> {

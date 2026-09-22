@@ -20,7 +20,8 @@ const root = (): string => `${LegacyFileSystem.documentDirectory ?? LegacyFileSy
 const routeDirectory = (id: string): string => `${root()}${safeId(id)}/`;
 const filePath = (id: string, name: string): string => `${routeDirectory(id)}${name}`;
 const tempPath = (id: string, kind: RouteArtifactKind): string => filePath(id, `${kind}.download`);
-const finalPath = (id: string, kind: RouteArtifactKind): string => filePath(id, kind === "gpx" ? "route.gpx" : "basemap.pmtiles");
+const finalPath = (id: string, kind: RouteArtifactKind, generation: string): string =>
+  filePath(id, `generations/${generation}/${kind === "gpx" ? "route.gpx" : "basemap.pmtiles"}`);
 
 async function readIndex(): Promise<string[]> {
   const raw = await appStorage.getItem(INDEX_KEY);
@@ -35,6 +36,9 @@ function parseJson<T>(raw: string | null): T | null { if (!raw) return null; try
 
 async function ensureDirectory(id: string): Promise<void> {
   await LegacyFileSystem.makeDirectoryAsync(routeDirectory(id), { intermediates: true });
+}
+async function ensureGenerationDirectory(routeId: string, generation: string): Promise<void> {
+  await LegacyFileSystem.makeDirectoryAsync(filePath(routeId, `generations/${generation}/`), { intermediates: true });
 }
 async function removeFile(path: string): Promise<void> {
   try {
@@ -55,7 +59,7 @@ function headerBytes(path: string): Uint8Array {
 }
 
 export const tileCacheDB = {
-  async downloadArtifact(routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata): Promise<DownloadedOfflineArtifact> {
+  async downloadArtifact(routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata, generation = "current"): Promise<DownloadedOfflineArtifact> {
     await ensureDirectory(routeId);
     const part = tempPath(routeId, kind);
     await removeFile(part);
@@ -66,7 +70,7 @@ export const tileCacheDB = {
       if (!info.exists || !info.size) throw new Error(`El archivo ${kind} no está disponible o quedó vacío.`);
       return {
         tempPath: part,
-        finalPath: finalPath(routeId, kind),
+        finalPath: finalPath(routeId, kind, generation),
         byteSize: info.size,
         headerBytes: headerBytes(part),
         ...(metadata.sha256 ? { sha256: sha256File(part) } : {}),
@@ -79,25 +83,43 @@ export const tileCacheDB = {
 
   async cleanupArtifact(path: string): Promise<void> { await removeFile(path); },
 
-  /** Finalizes both files first; the manifest/index are committed only after both moves succeed. */
+  /**
+   * Finalizes both files first; the manifest/index are committed only after
+   * both moves succeed. New generations never overwrite the generation used
+   * by the current manifest, so a failed replacement leaves the old bundle
+   * readable and intact.
+   */
   async finalize(routeId: string, record: OfflineRoute, files: { gpx: DownloadedOfflineArtifact; pmtiles: DownloadedOfflineArtifact }): Promise<void> {
     await ensureDirectory(routeId);
     const moved: string[] = [];
+    const previousRaw = await appStorage.getItem(finalKey(routeId));
+    const previousIndexRaw = await appStorage.getItem(INDEX_KEY);
+    const previous = parseJson<OfflineRoute>(previousRaw);
     try {
-      await new File(files.gpx.tempPath).move(new File(record.gpxPath), { overwrite: true });
+      await ensureGenerationDirectory(
+        routeId,
+        record.pmtilesPath.split("/generations/")[1]?.split("/")[0] ?? "current",
+      );
+      await new File(files.gpx.tempPath).move(new File(record.gpxPath), { overwrite: false });
       moved.push(record.gpxPath);
-      await new File(files.pmtiles.tempPath).move(new File(record.pmtilesPath), { overwrite: true });
+      await new File(files.pmtiles.tempPath).move(new File(record.pmtilesPath), { overwrite: false });
       moved.push(record.pmtilesPath);
-      await appStorage.setItem(finalKey(routeId), JSON.stringify(record));
+      await appStorage.setItemStrict(finalKey(routeId), JSON.stringify(record));
       const index = await readIndex();
-      await writeIndex(index.includes(routeId) ? index : [...index, routeId]);
+      await appStorage.setItemStrict(INDEX_KEY, JSON.stringify(index.includes(routeId) ? index : [...index, routeId]));
     } catch (error) {
       await Promise.allSettled([
         ...moved.map((path) => removeFile(path)),
         removeFile(files.gpx.tempPath),
         removeFile(files.pmtiles.tempPath),
+        previousRaw == null ? appStorage.removeItemStrict(finalKey(routeId)) : appStorage.setItemStrict(finalKey(routeId), previousRaw),
+        previousIndexRaw == null ? appStorage.removeItemStrict(INDEX_KEY) : appStorage.setItemStrict(INDEX_KEY, previousIndexRaw),
       ]);
       throw error;
+    }
+    // Only after the new manifest is durable may old generation files go.
+    if (previous && previous.manifestVersion === 2) {
+      await Promise.all([removeFile(previous.gpxPath), removeFile(previous.pmtilesPath)]);
     }
   },
 

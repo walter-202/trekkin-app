@@ -39,6 +39,12 @@ async function main() {
   const cleanupCase = ports(async (kind) => kind === "pmtiles" ? file(kind) : Promise.reject(new Error("network")));
   await assert.rejects(() => DownloadRouteOfflineUseCase(route(), cleanupCase));
   assert.deepEqual(cleanupCase.cleaned, ["pmtiles.part"]);
+  const previousBundle = { gpx: "old/route.gpx", pmtiles: "old/basemap.pmtiles", manifest: "old-manifest" };
+  const replacement = ports(async (kind) => file(kind));
+  replacement.finalize = async () => { throw new Error("manifest persistence failed"); };
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), replacement), /manifest persistence failed/);
+  assert.deepEqual(previousBundle, { gpx: "old/route.gpx", pmtiles: "old/basemap.pmtiles", manifest: "old-manifest" });
+  assert.deepEqual(replacement.cleaned, ["pmtiles.part", "gpx.part"]);
   const success = ports(async (kind) => file(kind));
   const record = await DownloadRouteOfflineUseCase(route(), success, { downloadedAt: 42 });
   assert.equal(success.finalized, true);

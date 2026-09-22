@@ -7,7 +7,7 @@ import { ValidateRoutePublicationUseCase } from "../route/PublishRoute.usecase";
 export type DownloadStageCallback = (stage: OfflineDownloadStage) => void;
 export interface DownloadedOfflineArtifact { tempPath: string; finalPath: string; byteSize: number; sha256?: string; headerBytes?: Uint8Array | number[] | string; }
 export interface DownloadRouteOfflinePorts {
-  downloadArtifact: (routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata) => Promise<DownloadedOfflineArtifact>;
+  downloadArtifact: (routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata, generation?: string) => Promise<DownloadedOfflineArtifact>;
   cleanupArtifact: (path: string) => Promise<void>;
   finalize: (routeId: string, record: OfflineRoute, files: { gpx: DownloadedOfflineArtifact; pmtiles: DownloadedOfflineArtifact }) => Promise<void>;
 }
@@ -37,16 +37,17 @@ export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: Down
   const artifacts = ValidateRoutePublicationUseCase(route.id, route.artifacts);
   const onStage = options.onStage ?? (() => {});
   const downloadedAt = options.downloadedAt ?? Date.now();
+  const generation = `${downloadedAt.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
   const temporary: string[] = [];
   let gpx: DownloadedOfflineArtifact | undefined;
   let pmtiles: DownloadedOfflineArtifact | undefined;
   try {
     onStage("map");
-    pmtiles = await ports.downloadArtifact(route.id, "pmtiles", artifacts.pmtiles);
+    pmtiles = await ports.downloadArtifact(route.id, "pmtiles", artifacts.pmtiles, generation);
     temporary.push(pmtiles.tempPath);
     verifyArtifact("pmtiles", artifacts.pmtiles, pmtiles);
     onStage("trail");
-    gpx = await ports.downloadArtifact(route.id, "gpx", artifacts.gpx);
+    gpx = await ports.downloadArtifact(route.id, "gpx", artifacts.gpx, generation);
     temporary.push(gpx.tempPath);
     verifyArtifact("gpx", artifacts.gpx, gpx);
     onStage("info");
