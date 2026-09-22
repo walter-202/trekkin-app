@@ -40,7 +40,7 @@ Deliver the v1 route lifecycle: plan -> record GPS -> generate GPX -> persist/up
 - Expo Doctor status: `npx expo-doctor` passed 21/21 (100%).
 - Device runtime harness: pending physical device tests for long-track endurance, PMTiles local range reads, Storage download, and background capture.
 - T4 checks: `npx --no-install tsx src/tests/activity_track_db.test.ts`, `activity_record_sqlite.test.ts`, `activity_autosave_slim.test.ts`, and `activity_store.test.ts` all passed; `git diff --check` passed. `npm run lint` is blocked by the pre-existing missing `invariant` declaration in `expo-modules-core` after dependency installation.
-- T5 checks: `npm test` passed (including `activity_gpx_storage.test.ts`), `npx --no-install tsx src/tests/activity_gpx_storage.test.ts` passed, `npx expo-doctor` passed 21/21, and `git diff --check` passed. `npm run lint`/`tsc --noEmit` remain blocked only by the pre-existing missing `invariant` declaration in `expo-modules-core`. Firebase Storage/Firestore emulator and physical-device proof were not run.
+- T5 checks: `npm test` passed (including the dynamic local filename → stable `activity.gpx` metadata regression), `npx --no-install tsx src/tests/activity_gpx_storage.test.ts` and `activity_store.test.ts` passed, `npx expo-doctor` passed 21/21, and `git diff --check` passed. `npm run lint`/`tsc --noEmit` remain blocked only by the pre-existing missing `invariant` declaration in `expo-modules-core`. Firebase Storage/Firestore emulator and physical-device proof were not run.
 
 ## Next step
 Implement T4-T9 one work unit at a time. Do not mark HU-04/HU-08 complete until the binary bundle and background/device gates have evidence.

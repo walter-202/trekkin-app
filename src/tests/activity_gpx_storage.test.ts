@@ -13,9 +13,11 @@ class FakeStorage implements ActivityGpxStoragePort {
   files = new Map<string, Uint8Array>();
   uploads = 0;
   failUploads = 0;
+  uploadedFileNames: string[] = [];
 
   async upload(input: { path: string; data: string | Uint8Array }): Promise<{ byteSize: number }> {
     this.uploads += 1;
+    this.uploadedFileNames.push((input as { fileName?: string }).fileName ?? "");
     if (this.failUploads > 0) {
       this.failUploads -= 1;
       throw new Error("offline");
@@ -48,6 +50,7 @@ async function main() {
   const payload = {
     userId: "user-1",
     activityId: "activity-1",
+    fileName: "trekkin_Summit_2026-09-22.gpx",
     content: "<gpx/>",
   };
   const ports = (save: (metadata: ActivityGpxMetadata) => Promise<void>) => ({
@@ -63,6 +66,8 @@ async function main() {
   assert.equal(result.metadata.status, "uploaded");
   assert.deepEqual(transitions.map((m) => m.status), ["pending", "uploading", "uploaded"]);
   assert.equal(result.metadata.storagePath, "users/user-1/activities/activity-1/activity.gpx");
+  assert.equal(result.metadata.fileName, "activity.gpx");
+  assert.deepEqual(storage.uploadedFileNames, ["activity.gpx"]);
   assert.equal(result.metadata.byteSize, 6);
   assert.equal(storage.uploads, 1);
 

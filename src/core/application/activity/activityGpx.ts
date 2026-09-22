@@ -67,7 +67,10 @@ function transition(
 ): ActivityGpxMetadata {
   return {
     storagePath: activityGpxStoragePath(payload.userId, payload.activityId),
-    fileName: payload.fileName ?? ACTIVITY_GPX_FILE_NAME,
+    // The Storage object and Firestore metadata deliberately use one stable
+    // filename. ExportTrackFile may choose a friendly local-share filename,
+    // but it must not diverge from the Storage rules/path contract.
+    fileName: ACTIVITY_GPX_FILE_NAME,
     mimeType: payload.mimeType ?? ACTIVITY_GPX_MIME_TYPE,
     ...(payload.byteSize === undefined ? {} : { byteSize: payload.byteSize }),
     ...(payload.sha256 === undefined ? {} : { sha256: payload.sha256 }),
