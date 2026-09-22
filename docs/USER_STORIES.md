@@ -3,10 +3,11 @@
 > **Revisión técnica consolidada 2026-09-17 (MapLibre GL — desbloqueo Android/web).**
 > Regla de validación vigente: **100% solo con matriz Expo Go + web localhost + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
 >
-> **Alcance real consolidado:**
+> **Alcance real consolidado (verificación T9):**
 >
-> - **🟢 Sólidas (≥80%):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (85%), HU-07 (85%), HU-08 (85%), HU-10 (90%).
-> - **🟡 En progreso / pendientes de campo:** HU-06 (70%), HU-04 (60%).
+> - **🟢 Sólidas (sin declarar cierre de campo para HU-04…HU-08):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (80%), HU-07 (85%), HU-08 (85%), HU-10 (90%).
+> - **🟡 En progreso / pendientes de campo:** HU-06 (75%), HU-04 (80%).
+> - **Regla T9:** HU-04…HU-08 no pueden superar 90% ni declararse 100% mientras falten Firebase Emulator, Expo Go UI, dispositivos físicos y revisión UI completa.
 > - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
 
 ---
@@ -22,7 +23,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   - **Web:** GL JS en el DOM (`TrekMap.web.tsx`).
   - **Android / iOS (Expo Go):** el mismo GL JS en `react-native-webview` (`TrekMap.native.tsx`). No es el SDK de Google: no hay logo Google ni key de billing.
   - **V2 (opcional, rebuild):** `@maplibre/maplibre-react-native` + `expo prebuild`. Mismo contrato; ver `docs/plan/plan_mapas_on_offline.md`.
-  - **PROHIBIDO:** `react-native-maps`, `PlanMap.tsx`, `OfflineRouteMap.tsx`, teselas PNG caseras, Google Maps API.
+  - **PROHIBIDO:** `react-native-maps`, `PlanMap.tsx`, teselas PNG caseras, Google Maps API. `OfflineRouteMap.tsx` solo puede actuar como fallback neutral de GPX cuando el renderer PMTiles no está disponible; no es un basemap.
 - **Catálogo de Rutas (HU-03 Lista):**
   - La tarjeta [`RouteCard.tsx`](../src/presentation/views/explore/RouteCard.tsx) usa `route.coverImageUrl || route.photos?.[0]` o el placeholder andino.
   - **CERO mapas en el feed.**
@@ -122,16 +123,16 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-04: Descargar Ruta Offline — 🟡 60% en progreso
+## HU-04: Descargar Ruta Offline — 🟡 80% en progreso
 
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** senderista sin cobertura **quiero** descargar ruta + mapa base **para** consultarla en campo sin internet.
 - **Criterios de Aceptación (DoD):**
   1. ✅ Botón "Descargar ruta" en `RouteDetailView` activo y enlazado a `DownloadRouteModal`.
   2. ✅ Estimación matemática real: cálculo de teselas y MB por bounding box y niveles de zoom (12–15) vía `geoBounds.ts` (`estimateTileCount` y `estimateDownloadSizeMB`).
-  3. ⚠️ Guardado: persiste JSON del trazado y waypoints. Dominio de pack listo (`mapPackFormats` + `ResolveOfflinePack`). Falta el downloader a disco.
-  4. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve `.pmtiles` a `pmtiles://` y cambia el estilo. Un `.mbtiles` no se pinta en V1 (mensaje de conversión). Falta copiar el archivo local al dispositivo.
-- **Estado real y brecha (40%):** estimación, modal, registro del track y detección PMTiles/MBTiles listos. Falta bajar el archivo del pack al dispositivo.
+  3. ✅ Guardado: `tileCacheDB` descarga y valida GPX + PMTiles binarios, los mueve de forma atómica y persiste un manifiesto v2; Firestore conserva solo metadatos.
+  4. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve `.pmtiles` a `pmtiles://` y cambia el estilo; si el renderer no está disponible, el GPX se muestra con fallback neutral. Falta evidencia de renderer PMTiles frío en dispositivos físicos.
+- **Estado real y brecha (20%):** contrato, descarga binaria, manifiesto atómico, validaciones y fallback tienen evidencia en suites puras. Pendientes: Firebase Emulator, Expo Go UI, Storage real y prueba Android/iOS con almacenamiento local en frío y modo avión.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/geoBounds.ts`, `src/core/domain/mapPackFormats.ts`.
   - _Aplicación:_ `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `ResolveOfflinePack` usecases.
@@ -141,7 +142,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-05: Compartir Ruta Publicada — 🟢 85% funcional
+## HU-05: Compartir Ruta Publicada — 🟢 80% funcional
 
 - **Rol:** Senderista / Usuario.
 - **Narrativa:** **Como** usuario **quiero** compartir una ruta pública por enlace y mensajería **para** difundirla con mi grupo.
@@ -151,8 +152,8 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   3. ✅ URL canónica `trekkin-app://r/{routeId}` por `routeId` Firestore, sin duplicar colecciones.
   4. ✅ `ShareModal`: resumen + caja enlace + "Copiar enlace" (`expo-clipboard` + feedback) + Share Sheet nativo.
   5. ✅ Deep link en `App.tsx` (`Linking.addEventListener`) abre el detalle.
-  6. ⚠️ Exportación de archivo: usecase `ExportTrackFileUseCase` disponible para adjuntar archivo `.gpx` al compartir.
-- **Estado real y brecha (15%):** flujo verificado. Falta enlazar directamente el share sheet con el archivo GPX generado.
+  6. ⚠️ Exportación de archivo: `ExportTrackFileUseCase` genera el `.gpx`; falta verificar el adjunto en el share sheet nativo.
+- **Estado real y brecha (20%):** contrato de enlace, permisos y serialización tienen evidencia en `share_hu5.test.ts`. Pendientes: Firebase Emulator, share sheet nativo en Android/iOS, adjunto GPX real, Expo Go UI y revisión UI completa.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/share.schemas.ts`, `src/core/domain/trackFormats.ts`.
   - _Aplicación:_ `ShareRoute` / `CopyShareLink` / `PublishShareLink` / `ExportTrackFile` usecases.
@@ -162,7 +163,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-06: Realizar una Ruta Existente — 🟡 70% en progreso
+## HU-06: Realizar una Ruta Existente — 🟡 75% en progreso
 
 - **Rol:** Senderista registrado.
 - **Narrativa:** **Como** senderista en campo **quiero** seguir una ruta con GPS en vivo **para** guiarme por el trazado oficial, chequear checkpoints y guardar mi historial.
@@ -171,8 +172,8 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   2. ✅ `TrackingView`: trazado oficial + track GPS + posición + HUD sobre `<TrekMap />`.
   3. ✅ Checkpoints auto-visitados por proximidad (`isNearM`) + manual.
   4. ✅ Pausa/reanuda/finaliza con `completed`/`incomplete` + autosave local + guardado en Firestore.
-  5. ⚠️ Background GPS: pantalla bloqueada requiere configurar `expo-task-manager` y `ACCESS_BACKGROUND_LOCATION`.
-- **Estado real y brecha (30%):** lógica de estados/métricas y mapa `TrekMap` en prepare/tracking/resultado. Falta background GPS y matriz en dispositivo.
+  5. ⚠️ Background GPS: task, permisos y persistencia serializada están implementados; falta verificar pantalla bloqueada, app terminada y endurance en dispositivos.
+- **Estado real y brecha (25%):** lógica de estados/métricas, persistencia local y task tienen evidencia pura. Pendientes: Firebase Emulator, Expo Go UI, Android/iOS con pantalla apagada/terminada, endurance y revisión UI.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/activity.ts`, `activity.schemas.ts`, `calculations.ts`.
   - _Aplicación:_ `Start/Begin/RecordPoint/Pause/Resume/Finish/List/GetActivity` usecases.
@@ -194,7 +195,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   5. ✅ Dual: Firestore `routes/{id}` `status:'draft'` + autosave Zustand/AsyncStorage.
   6. ✅ `DraftsView` + `PlanEditorView` (listar y editar borradores).
   7. ⚠️ Edición geométrica fina: undo/clear/drag de puntos individuales en UI.
-- **Estado real y brecha (15%):** persistencia, modelo y motor de importación completos. Falta pulido de botones undo/clear en la interfaz de edición.
+- **Estado real y brecha (15%):** persistencia, modelo y motor de importación completos; la suite no usa ni valida caché raster. Falta pulido de botones undo/clear, Firebase Emulator, Expo Go UI y revisión UI completa.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/plan.ts`, `plan.schemas.ts`, `src/core/domain/trackFormats.ts`.
   - _Aplicación:_ `SaveDraft`, `GetDraft`, `UpdatePlan`, `ConfirmStartPoint`, `MarkReadyForGps`, `ImportTrackFile`.
@@ -214,9 +215,9 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   3. ✅ Resumen: distancia, ritmo, velocidad, desnivel; persistencia local y sincronización retryable de metadatos/GPX.
   4. ✅ Exportación GPX 1.1 desde el resumen (`ExportTrackFile` + share/descarga).
   5. ✅ Protección anti-colapso: sin arrays GPS ni `points/{chunkIndex}` en Firestore; GPX en Storage con reglas owner-only y límite de tamaño.
-  6. ⚠️ Grabación con pantalla apagada (background location task).
+  6. ⚠️ Grabación con pantalla apagada: task y configuración nativa están implementados, pero no hay evidencia de dispositivo para pantalla apagada, app terminada ni endurance.
   7. ✅ Handoff HU-07→HU-08: `ReadyForGpsView` inicia GPS (`StartRecordingFromPlan` + `TrackingView` High).
-- **Estado real y brecha (15%):** se puede planificar, iniciar GPS en primer plano, marcar paradas, finalizar y exportar GPX. Falta background con pantalla apagada.
+- **Estado real y brecha (15%):** primer plano, checkpoints, finalización, GPX, SQLite y sincronización local tienen evidencia pura. Pendientes: Firebase Emulator, Expo Go UI, Android/iOS con pantalla apagada/terminada/endurance, share sheet nativo y revisión UI completa.
 - **Mapeo Técnico:**
   - _Dominio:_ `activity.schemas.ts`, `calculations.ts`, `src/core/domain/trackFormats.ts` (`toGeoJSON`, `buildGPX11`).
   - _Aplicación:_ `StartRecordingFromPlan`, `AddCheckpoint`, `RecordPoint`, `FinishActivity`, `ExportTrackFile`.
@@ -260,18 +261,30 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | **HU-01** | Registro             |   🟢 95%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-02** | Sesión y perfil      |   🟢 90%    | `auth_hu1_hu2.test.ts`                                   |
 | **HU-03** | Explorar y mapa      |   🟢 90%    | `map_service_hu3.test.ts` (geoBounds) + TrekMap MapLibre |
-| **HU-04** | Descarga offline     |   🟡 60%    | `offline_hu4.test.ts` + `map_pack_formats.test.ts`       |
-| **HU-05** | Compartir ruta       |   🟢 85%    | `share_hu5.test.ts`                                      |
-| **HU-06** | Realizar ruta (guía) |   🟡 70%    | `activity_hu6.test.ts`                                   |
+| **HU-04** | Descarga offline     |   🟡 80%    | `offline_bundle.test.ts`, `storage_rules_route_bundle.test.ts`, `offline_hu4.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts` |
+| **HU-05** | Compartir ruta       |   🟢 80%    | `share_hu5.test.ts` + `gpx_delivery.test.ts`              |
+| **HU-06** | Realizar ruta (guía) |   🟡 75%    | `activity_hu6.test.ts`, `activity_store.test.ts`, `activity_record_sqlite.test.ts` |
 | **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |
-| **HU-08** | Grabar GPS y GPX     |   🟢 85%    | `activity_hu8.test.ts` + `track_formats_hu7_hu8.test.ts` |
+| **HU-08** | Grabar GPS y GPX     |   🟢 85%    | `activity_hu8.test.ts`, `track_formats_hu7_hu8.test.ts`, `activity_track_db.test.ts`, `activity_gpx_storage.test.ts`, `background_location.test.ts` |
 | **HU-09** | Moderación           |    🚫 —     | Eliminada del alcance                                    |
 | **HU-10** | Admin y roles        |   🟢 90%    | `user_management_hu10.test.ts`                           |
+
+### Matriz T9: evidencia y límites explícitos
+
+`npm test` (suite mayormente pura, con un smoke existente de conectividad Firestore), `npm run lint`, `npx expo-doctor` y `git diff --check` son evidencia local; no equivalen a una prueba de campo ni al Firebase Emulator. La ejecución T9 no debe declarar 100% porque todavía faltan:
+
+- Firebase Emulator para reglas, Storage y sincronización real.
+- Expo Go UI y revisión `/ui-review` completa sin blockers.
+- Android/iOS físico: Storage local, renderer PMTiles en frío y modo avión.
+- Background con pantalla apagada, app terminada y endurance.
+- Share Sheet nativo y adjunto GPX real.
+
+No se usa Firestore para chunks de puntos, no se descarga PNG/raster tile a tile y el único bundle offline es GPX + PMTiles con manifiesto binario atómico. La ruta canónica de mapa es `TrekMap`; el legado `PlanMap`/`tileCache` raster fue retirado.
 
 ### Comandos Canónicos de Verificación
 
 ```bash
 npm run lint   # tsc --noEmit — DEBE quedar en 0 errores
-npm test       # 9 suites automáticas en serie (>95 casos de prueba en verde)
+npm test       # suites puras HU-01…HU-08 + persistencia/background
 npx expo-doctor # obligatorio antes de tocar dependencias o permisos nativos
 ```

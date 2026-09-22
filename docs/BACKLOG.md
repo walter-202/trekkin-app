@@ -1,4 +1,4 @@
-# trekkin-app — Backlog Técnico Priorizado (Actualizado 2026-09-16)
+# trekkin-app — Backlog Técnico Priorizado (Actualizado 2026-09-22, T9)
 
 > Trazabilidad: cada tarea cuelga de una HU de `USER_STORIES.md`.
 > Convención: `BK-###` + HU + prioridad P0 (bloqueante) → P3 (pulido).
@@ -8,12 +8,12 @@
 
 ## 📊 Resumen Ejecutivo del Backlog
 
-- **Tareas Completadas (10):** `BK-002`, `BK-003`, `BK-004`, `BK-011`, `BK-020`, `BK-021`, `BK-022`, `BK-030`, `BK-031`, `BK-040`, `BK-043`, `BK-044`.
+- **Tareas Completadas (T9):** `BK-002`, `BK-003`, `BK-004`, `BK-010`, `BK-011`, `BK-013`, `BK-020`, `BK-021`, `BK-022`, `BK-030`, `BK-031`, `BK-033`, `BK-040`, `BK-043`, `BK-044`.
 - **Foco Próximo Inmediato:**
-  1. Matriz física HU-03: Expo Go Android + web localhost (`docs/plan/plan_mapas_on_offline.md` §4).
-  2. `BK-010` / `BK-013` (HU-04): pack PMTiles a disco (`docs/plan/offline_maps.md`).
+  1. Matriz física HU-03…HU-08: Expo Go Android/iOS + web localhost + modo avión.
+  2. Firebase Emulator: reglas, Storage y sincronización real.
   3. `BK-041` (HU-07): Botones de edición fina en planificación (undo, clear, drag).
-  4. `BK-033` (HU-08): Background location task con `expo-task-manager`.
+  4. `BK-051` / `BK-052`: revisión UI completa, share sheet nativo y endurance background.
 
 ---
 
@@ -32,10 +32,10 @@
 
 | ID | HU | Tarea | Qué cambia | Estado | Pri / Esf |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| **BK-010** | HU-04 | Casos `CreatePack/DeletePack` | Detectar PMTiles/MBTiles (`mapPackFormats`) y pintar `.pmtiles` en `TrekMap`. Falta persistir el archivo a disco. | 🟡 **EN CURSO** | P0 · 2d |
+| **BK-010** | HU-04 | Casos `CreatePack/DeletePack` | Detectar PMTiles/MBTiles (`mapPackFormats`), descargar el par binario y persistirlo con manifiesto v2 en `TrekMap`. | ✅ **HECHO** | P0 · 2d |
 | **BK-011** | HU-04 | Estimación matemática real | `geoBounds.ts`: `estimateTileCount` + `estimateDownloadSizeMB` por bounding box y zooms 12–15. | ✅ **HECHO** | P0 · 0.5d |
 | **BK-012** | HU-04 | `packSpec` en Firestore | Metadata de versión, bounds, zooms y tamaño en bytes; badge "desactualizada". | 🟡 **EN CURSO** | P0 · 1d |
-| **BK-013** | HU-04 | Modo avión en mapa | `TrekMap.offlinePackPath` lee `.pmtiles` (`pmtiles://`). `.mbtiles` se rechaza en V1. Falta el archivo local. | 🟡 **EN CURSO** | P1 · 1d |
+| **BK-013** | HU-04 | Modo avión en mapa | `TrekMap.offlinePackPath` lee `.pmtiles` (`pmtiles://`); `.mbtiles` se rechaza en V1 y el fallback muestra GPX/trail. El archivo local ya se persiste. | ✅ **HECHO** | P1 · 1d |
 | **BK-014** | HU-04 | Progreso/cuota/cancel | Listeners de descarga, porcentaje de avance en modal y control de almacenamiento. | ⏳ **PENDIENTE** | P1 · 1d |
 
 ---
@@ -55,10 +55,10 @@
 
 | ID | HU | Tarea | Qué cambia | Estado | Pri / Esf |
 | :--- | :--- | :--- | :--- | :---: | :--- |
-| **BK-030** | HU-03/06 | Partir docs gigantes | Catálogo con cursor pagination `limit(20)`; subcolección chunked `activities/{id}/points/{chunkIndex}` para tracks largos. | ✅ **HECHO** | P0 · 2d |
-| **BK-031** | Todas | Alinear tipos↔reglas↔DATABASE.md | `coverImageUrl` y subcolección `points` sincronizados en `types.ts`, `firestore.rules` y `DATABASE.md`. | ✅ **HECHO** | P0 · 1d |
+| **BK-030** | HU-03/06 | Partir docs gigantes | Catálogo con cursor pagination `limit(20)`; puntos GPS largos permanecen locales y el GPX terminado va a Storage. | ✅ **HECHO** | P0 · 2d |
+| **BK-031** | Todas | Alinear tipos↔reglas↔DATABASE.md | `coverImageUrl`, metadatos GPX/PMTiles y reglas owner-only sincronizados; no hay arrays ni subcolección `points` en Firestore. | ✅ **HECHO** | P0 · 1d |
 | **BK-032** | HU-06 | Reintento `unsynced` real | Cola con backoff exponencial para sincronización automática de actividades al recuperar red. | ⏳ **PENDIENTE** | P1 · 1d |
-| **BK-033** | HU-08 | GPS fondo + precisión | Descarte `accuracy > 25 m` en `RecordPoint` (cruz). Falta background con `expo-task-manager`. | 🟡 **EN CURSO** | P1 · 2d |
+| **BK-033** | HU-08 | GPS fondo + precisión | Descarte `accuracy > 25 m` en `RecordPoint` y task Expo Location/Task Manager serializado. Falta evidencia en dispositivo de pantalla apagada/terminada/endurance. | ✅ **HECHO** | P1 · 2d |
 
 ---
 
@@ -69,7 +69,7 @@
 | **BK-040** | HU-03 | Migrar `Detail` a `TrekMap` | `RouteDetailView` + plan/activity/downloads en MapLibre GL. | ✅ **HECHO** |
 | **BK-041** | HU-07 | Undo/clear/drag en editor | Controles de edición geométrica fina en `CreateRouteView` / `PlanEditorView`. | ⏳ **PENDIENTE** |
 | **BK-042** | HU-02/10 | Password/theme & paginación | Cambio de contraseña en perfil y paginación cursor en lista admin. | ⏳ **PENDIENTE** |
-| **BK-043** | Suites | Suites automáticas completas | 9 suites de pruebas unitarias (`npm test` con más de 95 casos 100% aprobados). | ✅ **HECHO** |
+| **BK-043** | Suites | Suites automáticas completas | Suites puras HU-01…HU-08, persistencia y background (`npm test`); no son evidencia de dispositivo ni Firebase Emulator. | ✅ **HECHO** |
 | **BK-044** | Docs | Actualización de documentación | Sincronización de `USER_STORIES.md`, `INFORME_PRESENTACION_CLIENTE.md`, `DATABASE.md` y guía canónica. | ✅ **HECHO** |
 
 ---
@@ -88,8 +88,8 @@
 ## 🎯 Próximo Orden Sugerido para los Agentes y Devs
 
 ```
-1. Matriz HU-03 (web localhost + Expo Go Android)
-2. BK-010 / BK-013 (HU-04: pack PMTiles)
+1. Matriz física HU-03…HU-08 (web localhost + Expo Go Android/iOS + modo avión)
+2. Firebase Emulator y Storage real para reglas/sincronización
 3. BK-041 (HU-07: Undo/clear en pantalla de planificación)
-4. BK-033 (HU-08: Background location task)
+4. BK-051 / BK-052 (UI review, share sheet y endurance background)
 ```

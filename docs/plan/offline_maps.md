@@ -1,11 +1,11 @@
-# Packs offline (PMTiles / MBTiles) — anexo de `plan_mapas_on_offline.md` v7
+# Packs offline (PMTiles / MBTiles) — anexo de `plan_mapas_on_offline.md` v8
 
 > El renderer canónico y cómo probar V1/V2 están en `plan_mapas_on_offline.md`.
 > Este archivo solo cubre **la capa de fondo** para HU-04/06/08.
 
 ## La pregunta
 
-¿Mapa base en modo avión sin miles de PNG y sin Google? **Sí**, con **un archivo** por ruta.
+¿Mapa base en modo avión sin miles de PNG y sin Google? **Sí**, con **un archivo PMTiles** por ruta más el GPX de usuario.
 
 ```
 ❌ Tile a tile (PNG en /offline_packs/{id}/{z}/{x}/{y}.png)
@@ -26,7 +26,7 @@
 | PNG `{z}/{x}/{y}` | Árbol de imágenes | No usar | No usar |
 | `OfflineManager.createPack` | Caché interna MapLibre Native | ❌ | ✅ bbox + style URL |
 
-**Canónico Trekkin:** generar / servir **PMTiles** (sirve web + Expo Go + nativo). Si llega un `.mbtiles`, convertir:
+**Canónico Trekkin:** publicar y descargar **PMTiles** (sirve web + Expo Go + nativo). Si llega un `.mbtiles`, convertir:
 
 ```bash
 pmtiles convert ruta.mbtiles ruta.pmtiles
@@ -53,7 +53,9 @@ Cada entrada contiene `kind`, `version`, `storagePath`, `fileName`, `mimeType`,
 y `updatedAt`. El MIME canónico es `application/gpx+xml` para GPX y
 `application/vnd.pmtiles` para PMTiles. Los bytes no se guardan en Firestore y
 no se permiten arreglos/chunks de puntos como artefactos. PMTiles es el formato
-canónico de V1; generar y descargar el bundle queda para los siguientes slices.
+canónico de V1. T7 implementa la descarga binaria GPX + PMTiles, validación de
+tamaño/hash/magic bytes, reemplazo por generación y manifiesto v2; Firestore
+solo conserva metadatos.
 
 ## Por qué no WebView “solo para offline” como plan aparte
 
@@ -83,7 +85,11 @@ Hoy (V1) `TrekMap.offlinePackPath` resuelve el formato:
 - `.pmtiles` (http/https o ya prefijado `pmtiles://`) → fuente `pmtiles://` + estilo vectorial andino.
 - `.mbtiles` → no se pinta el fondo en Expo Go/web; el GPX/trail sí. Hay que convertir: `pmtiles convert ruta.mbtiles ruta.pmtiles`.
 
-Falta el downloader a disco (`tileDownloader` / `expo-file-system`).
+La descarga a disco está implementada en
+`src/infrastructure/persistence/tileCacheDB.ts` con `expo-file-system`: descarga
+a temporal, valida, mueve ambos archivos y publica el manifiesto solo después de
+completar el par. No debe confundirse con el legado retirado `tileCache.ts`, que
+persistía PNG como data-URI.
 
 ## Riesgos HU-04
 
@@ -93,3 +99,21 @@ Falta el downloader a disco (`tileDownloader` / `expo-file-system`).
 | OPFS / WebView en Android viejo | Fallback: mensaje “mapa base no disponible”; el track GPX sí se ve |
 | Pack > 100 MB | Zooms 12–16, bbox con buffer, progreso + cancel |
 | V2 saca de Expo Go | No mezclar: o se itera HU-04 en PMTiles V1, o el equipo entero pasa a dev client |
+
+## Verificación T9 y límites actuales
+
+Evidencia de contratos y persistencia simulada: `offline_bundle.test.ts`, `storage_rules_route_bundle.test.ts`,
+`offline_hu4.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts`
+y `route_publication_artifacts.test.ts`, además de `npm test`, `npm run lint`,
+`npx expo-doctor` y `git diff --check`. `npm test` es mayormente local pero
+conserva un smoke existente de conectividad Firestore; no sustituye al
+Firebase Emulator ni prueba el dispositivo.
+
+Pendiente antes de superar 90%: Firebase Emulator/Storage real, UI en Expo Go,
+Android/iOS físico con Storage local y renderer PMTiles en frío/modo avión,
+recuperación de app terminada y endurance. El fallback de GPX/trail es
+intencional y no equivale a un mapa base vectorial renderizado.
+
+No hay downloader de PNG, caché raster, data-URI ni árbol `{z}/{x}/{y}` en el
+repositorio. La ruta canónica es `TrekMap` + `offlinePackPath`; GPX y PMTiles
+permanecen como archivos locales fuera de Firestore.

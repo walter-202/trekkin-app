@@ -65,13 +65,20 @@ Sin sesión, las rutas privadas no se renderizan (Gate en `App.tsx`).
 | HU | Vista | Servicio | Dominio |
 |---|---|---|---|
 | HU-03 Explorar rutas | `views/explore/` + `components/map/TrekMap` | `database/routeService.ts` + `map/mapStyle.ts` | `domain/route.schemas.ts`, `geoBounds.ts` |
-| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` + `mapPackFormats.ts` (PMTiles V1; downloader pendiente) | `domain/offline.ts`, `mapPackFormats.ts` |
+| HU-04 Offline | `views/downloads/` | `persistence/tileCacheDB.ts` + `mapPackFormats.ts` (manifiesto binario GPX + PMTiles, reemplazo atómico) | `domain/offline.ts`, `mapPackFormats.ts` |
 | HU-05 Compartir | modal en explore | `share/shareService.ts` | `share.schemas.ts` |
 | HU-06 Actividad GPS | `views/activity/` + `TrekMap` | `activityService.ts`, `locationService.ts` | `activity.schemas.ts` |
 | HU-07/08 Planificar + Grabar | `views/record/` + `TrekMap` | `expo-location` + routeService | `plan.ts`, `calculations.ts`, `trackFormats.ts` |
 | HU-10 Usuarios y roles | `views/profile/` + `hasRole(['admin'])` | `userProfileService` | `UserRole` |
 
 (Sin HU-09: eliminada por el equipo; no hay vista de moderación ni rol moderador.)
+
+### Offline y GPS: límites verificados (T9)
+
+- No existe caché raster por tesela: se retiraron `tileCache.ts`, `offlineMaps.ts`, `tileRegistry.ts`, `PlanMap.tsx` y los PNG preempaquetados. Ningún flujo persiste ni descarga data-URIs PNG.
+- La ruta canónica de mapa es `TrekMap`. Las descargas usan `tileCacheDB` únicamente como nombre histórico del repositorio binario: guarda archivos GPX/PMTiles y un manifiesto v2 en AsyncStorage; no guarda puntos ni bytes binarios en Firestore.
+- El task de background GPS está configurado con Expo Location/Task Manager y delega al almacenamiento SQLite serializado. La ejecución real con pantalla apagada, app terminada y endurance aún requiere Android/iOS físico.
+- La evidencia actual es de suites puras, lint y Expo Doctor. Firebase Emulator, Expo Go UI, renderer PMTiles en frío/modo avión, share sheet nativo y revisión UI completa siguen pendientes; por eso HU-04…HU-08 no se declaran al 100%.
 
 `firestore.rules` ya incluye las reglas de `users/routes/activities/reviews` para no
 reescribir seguridad cuando se implemente cada módulo.

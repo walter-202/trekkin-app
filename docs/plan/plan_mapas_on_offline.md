@@ -57,7 +57,7 @@ infrastructure/map/mapBridge.ts                  # TrekMapScene / eventos
 **Se quita:** `react-native-maps`.  
 **No se instala aún:** `@maplibre/maplibre-react-native` (rompe Expo Go).
 
-`PlanMap.tsx` y `OfflineRouteMap.tsx` quedan **deprecated**; las vistas usan `TrekMap`.
+`PlanMap.tsx` fue retirado junto con la caché raster. `OfflineRouteMap.tsx` se conserva únicamente como fallback neutral de GPX/trail en el detalle offline cuando el renderer PMTiles no está disponible; las vistas usan `TrekMap` para el mapa canónico.
 
 ## 3. Trazabilidad backlog
 
