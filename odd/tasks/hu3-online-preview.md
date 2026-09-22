@@ -18,10 +18,10 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 
 - [x] HU3-1 — Add the published route preview domain contract, validation, bounded simplification/encoding helpers, and focused tests (commit 015dee9; focused preview test, lint, and diff checks pass).
 - [x] HU3-2 — Make the published catalog paginated and ordered, apply search results correctly, and validate preview data at the Firestore boundary (commit ef49a94; focused catalog test, lint, and diff checks pass).
-- [x] HU3-3 — Generate/validate the bounded preview at publication and stop retaining full public waypoints; derive exact offline geometry from the downloaded GPX (focused publication, offline-bundle, and HU-04 tests pass; TypeScript lint and diff checks pass).
-- [x] HU3-4 — Render the online detail from RoutePreview, preserve bounded legacy fallback, and protect offline download by authentication and paired-artifact validation (focused detail and publication tests pass).
-- [x] HU3-5 — Add a bounded local route-detail cache keyed by route ID and preview version/hash with stale-while-revalidate behavior (focused cache test and TypeScript lint pass).
-- [x] HU3-6 — Synchronize HU-03/HU-04 documentation and evidence matrix; record limitations and checks without claiming device proof.
+- [x] HU3-3 — Generate/validate the bounded preview at publication and stop retaining full public waypoints; derive exact offline geometry from the downloaded GPX (commit 357d7db; focused publication, offline-bundle, and HU-04 tests, lint, and diff checks pass).
+- [x] HU3-4 — Render the online detail from RoutePreview, preserve bounded legacy fallback, and protect offline download by authentication and paired-artifact validation (commit 357d7db; focused detail/publication tests and lint pass).
+- [x] HU3-5 — Add a bounded local route-detail cache keyed by route ID and preview version/hash with stale-while-revalidate behavior (commit 357d7db; focused cache test and lint pass).
+- [x] HU3-6 — Synchronize HU-03/HU-04 documentation and evidence matrix; record limitations and checks without claiming device proof (commit 357d7db).
 
 ## Acceptance criteria
 
@@ -48,7 +48,9 @@ Implement the authorized separation between the HU-03 connected catalog/detail f
 - Not run: Firebase Emulator/Storage integration, Expo Go/device matrix, web runtime map check, and human UI review.
 - `RouteSchema` now explicitly preserves required top-level `createdAt` and `updatedAt`, fixing Zod's previous stripping of those `RouteModel` fields in cache validation.
 - Delivery strategy chosen by user: `stacked-to-main`. No push, PR, or merge has occurred or is authorized.
+- Work-unit commit: `357d7db feat(routes): separate online preview from offline bundle` (20 files; 731 additions / 71 deletions).
+- Planned local-only PR stack: (1) `015dee9` + `41396f1` for the preview contract; (2) `ef49a94`, `aef123b`, and `d953f57` for catalog pagination and HU-03 tracking; (3) `357d7db` for publication/detail/cache/offline-GPX separation. The third candidate is 731 changed lines, over the 400-line delivery budget; before any PR it will need a justified split or explicit size exception. No PR has been created.
 
 ## Next step
 
-Next: create the local Conventional Commit for HU3-3 through HU3-6, record its commit identity here and in the Engram mirror, and leave remote delivery to the user.
+Next: validate the Firebase Emulator/Storage and Expo Go/device/web UI gates; HU-03 remains 90% and HU-04 80% until those checks and human UI review are completed. Any remote delivery remains the user's decision.
