@@ -3,6 +3,7 @@ import type { RouteModel, RoutePublicationArtifacts } from "../core/domain/types
 import { routeArtifactStoragePath } from "../core/application/route/PublishRoute.usecase";
 import { DownloadRouteOfflineUseCase, type DownloadedOfflineArtifact } from "../core/application/offline/DownloadRouteOffline.usecase";
 import { OfflineRouteSchema } from "../core/domain/offline.schemas";
+import type { OfflineRoute } from "../core/domain/offline";
 
 const route = (): RouteModel => ({
   id: "offline-bundle", title: "Bundle", description: "Published route", region: "La Paz",
@@ -51,6 +52,22 @@ async function main() {
   assert.equal(record.manifestVersion, 2);
   assert.equal(record.pmtilesPath, "pmtiles.final");
   assert.equal(OfflineRouteSchema.safeParse(record).success, true);
+  const generations: string[] = [];
+  const committedPaths: string[] = [];
+  const redownloadPorts = {
+    downloadArtifact: async (_id: string, kind: "gpx" | "pmtiles", _metadata: unknown, generation?: string) => {
+      assert.ok(generation, "each artifact download receives a generation");
+      generations.push(`${kind}:${generation}`);
+      return file(kind, { finalPath: `${generation}/${kind}` });
+    },
+    cleanupArtifact: async () => {},
+    finalize: async (_id: string, next: OfflineRoute) => { committedPaths.push(next.pmtilesPath); },
+  };
+  await DownloadRouteOfflineUseCase(route(), redownloadPorts);
+  await DownloadRouteOfflineUseCase(route(), redownloadPorts);
+  assert.equal(generations.length, 4);
+  assert.notEqual(generations[0].split(":")[1], generations[2].split(":")[1]);
+  assert.notEqual(committedPaths[0], committedPaths[1], "re-download uses a new generation instead of overwriting current files");
   console.log("Offline bundle: metadata/path/version, size/hash, cleanup and atomic manifest invariants passed");
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

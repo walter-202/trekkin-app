@@ -83,8 +83,8 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
       const record = await DownloadRouteOfflineUseCase(
         route,
         {
-          downloadArtifact: (id, kind, metadata) =>
-            tileCacheDB.downloadArtifact(id, kind, metadata),
+          downloadArtifact: (id, kind, metadata, generation) =>
+            tileCacheDB.downloadArtifact(id, kind, metadata, generation),
           cleanupArtifact: (path) => tileCacheDB.cleanupArtifact(path),
           finalize: (id, r, files) => tileCacheDB.finalize(id, r, files),
         },
