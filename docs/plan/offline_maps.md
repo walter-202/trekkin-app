@@ -37,6 +37,24 @@ pmtiles extract https://build.protomaps.com/LATEST.pmtiles cordillera.pmtiles \
 
 HU-03 **no** descarga pack: usa `ONLINE_STYLE_URL` (OpenFreeMap).
 
+## Contrato de artefactos publicados (T6)
+
+Una ruta publicada referencia dos objetos binarios en Firebase Storage; Firestore
+solo guarda sus metadatos. GPX y PMTiles deben compartir una versión positiva y
+estar cargados antes de cambiar `routes/{routeId}.status` a `published`:
+
+```text
+routes/{routeId}/v{version}/route.gpx
+routes/{routeId}/v{version}/basemap.pmtiles
+```
+
+Cada entrada contiene `kind`, `version`, `storagePath`, `fileName`, `mimeType`,
+`byteSize`, `sha256`, `status` (`pending` | `uploading` | `uploaded` | `failed`)
+y `updatedAt`. El MIME canónico es `application/gpx+xml` para GPX y
+`application/vnd.pmtiles` para PMTiles. Los bytes no se guardan en Firestore y
+no se permiten arreglos/chunks de puntos como artefactos. PMTiles es el formato
+canónico de V1; generar y descargar el bundle queda para los siguientes slices.
+
 ## Por qué no WebView “solo para offline” como plan aparte
 
 V1 **ya** usa MapLibre GL JS (web + WebView) para pintar. El pack HU-04 se enchufa al **mismo** documento (`loadOfflinePack` / source `pmtiles://`). No hay un segundo motor.

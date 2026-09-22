@@ -76,7 +76,39 @@ service cloud.firestore {
              (!('updatedAt' in data) || data.updatedAt is number) &&
              (!('moderationNotes' in data) || (data.moderationNotes is string && data.moderationNotes.size() <= 2000)) &&
              (!('reviewedBy' in data) || (data.reviewedBy is string && data.reviewedBy.size() <= 150)) &&
-             (!('reviewedAt' in data) || data.reviewedAt is number);
+             (!('reviewedAt' in data) || data.reviewedAt is number) &&
+             (!('artifacts' in data) || isValidRouteArtifacts(data.artifacts, data.id, data.status == 'published')) &&
+             (data.status != 'published' || ('artifacts' in data && isValidRouteArtifacts(data.artifacts, data.id, true)));
+    }
+
+    // Route bytes never belong in Firestore. These fields are a metadata-only
+    // contract for the paired Storage objects used by the offline bundle.
+    function isValidRouteArtifact(data, kind, expectedName, expectedMime, requireUploaded) {
+      return data is map &&
+             data.kind == kind &&
+             data.fileName == expectedName &&
+             data.mimeType == expectedMime &&
+             data.version is number && data.version >= 1 &&
+             data.storagePath is string &&
+             data.byteSize is number && data.byteSize >= 0 && data.byteSize <= 524288000 &&
+             data.sha256 is string && data.sha256.size() > 0 && data.sha256.size() <= 128 &&
+             data.status in ['pending', 'uploading', 'uploaded', 'failed'] &&
+             (!requireUploaded || data.status == 'uploaded') &&
+             data.updatedAt is number &&
+             (!('error' in data) || (data.error is string && data.error.size() <= 500));
+    }
+
+    function isValidRouteArtifacts(data, routeId, requireUploaded) {
+      return data is map &&
+             data.keys().hasAll(['version', 'gpx', 'pmtiles']) &&
+             data.keys().hasOnly(['version', 'gpx', 'pmtiles']) &&
+             data.version is number && data.version >= 1 &&
+             isValidRouteArtifact(data.gpx, 'gpx', 'route.gpx', 'application/gpx+xml', requireUploaded) &&
+             isValidRouteArtifact(data.pmtiles, 'pmtiles', 'basemap.pmtiles', 'application/vnd.pmtiles', requireUploaded) &&
+             data.gpx.version == data.version &&
+             data.pmtiles.version == data.version &&
+             data.gpx.storagePath.matches('^routes/' + routeId + '/v[1-9][0-9]*/route\\.gpx$') &&
+             data.pmtiles.storagePath.matches('^routes/' + routeId + '/v[1-9][0-9]*/basemap\\.pmtiles$');
     }
 
     function isValidActivity(data) {
@@ -153,15 +185,18 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
                        isValidId(routeId) &&
                        isValidRoute(incoming()) &&
+                       incoming().id == routeId &&
                        incoming().creatorId == request.auth.uid &&
                        (incoming().status == 'draft' || incoming().status == 'in_review');
       allow update: if isSignedIn() &&
                        isValidId(routeId) &&
                        isValidRoute(incoming()) &&
+                       incoming().id == routeId &&
                        (
                          (resource.data.creatorId == request.auth.uid &&
                           incoming().creatorId == existing().creatorId &&
-                           incoming().id == existing().id &&
+                          incoming().id == existing().id &&
+                          incoming().status != 'published' &&
                            (existing().status == 'draft' || existing().status == 'rejected' ||
                            incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'status', 'waypoints', 'checkpoints', 'photos', 'updatedAt', 'startPoint', 'endPoint', 'distanceKm', 'durationMinutes', 'difficulty', 'modality', 'region', 'isPrivate'])))
                          || isAdmin()

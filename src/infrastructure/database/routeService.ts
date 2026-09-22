@@ -14,6 +14,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import type { RouteModel } from "../../core/domain/types";
+import type { RoutePublicationArtifacts } from "../../core/domain/types";
+import { ValidateRoutePublicationUseCase } from "../../core/application/route/PublishRoute.usecase";
 import { handleFirestoreError, OperationType } from "./firestoreErrors";
 
 const ROUTES_COLLECTION = "routes";
@@ -162,6 +164,27 @@ export const routeService = {
       if (Object.keys(clean).length === 0) return;
       const docRef = doc(db, ROUTES_COLLECTION, id);
       await updateDoc(docRef, clean);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, docPath);
+    }
+  },
+
+  /**
+   * Admin-only publication boundary. Only Firestore metadata is written;
+   * GPX/PMTiles bytes must already exist at their validated Storage paths.
+   */
+  async publishRoute(
+    id: string,
+    artifacts: RoutePublicationArtifacts,
+  ): Promise<void> {
+    const validated = ValidateRoutePublicationUseCase(id, artifacts);
+    const docPath = `${ROUTES_COLLECTION}/${id}`;
+    try {
+      await updateDoc(doc(db, ROUTES_COLLECTION, id), {
+        status: "published",
+        artifacts: validated,
+        updatedAt: Date.now(),
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, docPath);
     }

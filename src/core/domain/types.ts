@@ -12,6 +12,35 @@ export type RouteModality = "solo" | "acompañado";
 
 export type RouteStatus = "draft" | "in_review" | "published" | "rejected";
 
+/** Published route artifacts are metadata only; bytes live in Firebase Storage. */
+export type RouteArtifactKind = "gpx" | "pmtiles";
+
+export type RouteArtifactStatus =
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "failed";
+
+export interface RouteArtifactMetadata {
+  kind: RouteArtifactKind;
+  version: number;
+  storagePath: string;
+  fileName: "route.gpx" | "basemap.pmtiles";
+  mimeType: "application/gpx+xml" | "application/vnd.pmtiles";
+  byteSize: number;
+  sha256: string;
+  status: RouteArtifactStatus;
+  updatedAt: number;
+  error?: string;
+}
+
+/** A published bundle is complete only when both artifacts share one version. */
+export interface RoutePublicationArtifacts {
+  version: number;
+  gpx: RouteArtifactMetadata;
+  pmtiles: RouteArtifactMetadata;
+}
+
 export type CheckpointCategory =
   | "agua"
   | "camping"
@@ -101,6 +130,8 @@ export interface RouteModel {
   updatedAt: number;
   isOfflineCached?: boolean;
   estimatedOfflineSizeMB?: number;
+  /** Firestore metadata for the published GPX + PMTiles Storage bundle. */
+  artifacts?: RoutePublicationArtifacts;
 }
 
 export interface TrekkinActivity {
