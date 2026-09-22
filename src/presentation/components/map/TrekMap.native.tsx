@@ -51,6 +51,10 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
       if (msg.type === "mapPress" && interactive) {
         onPress?.(msg.payload);
         onPressCoordinate?.(msg.payload);
+        return;
+      }
+      if (msg.type === "error") {
+        onMapError?.(new Error(msg.payload.message));
       }
     } catch (error) {
       onMapError?.(error instanceof Error ? error : new Error("Respuesta inválida del mapa."));

@@ -25,6 +25,10 @@ import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { TrekMap } from "../../components/map/TrekMap";
+import { OfflineRouteMap } from "../../components/map/OfflineRouteMap";
+import { shouldUseOfflineTrailFallback } from "../../../core/domain/offlineMapFallback";
+
+const OFFLINE_MAP_READY_TIMEOUT_MS = 3000;
 
 interface OfflineRouteDetailViewProps {
   routeId: string;
@@ -42,6 +46,9 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
   const [record, setRecord] = useState<OfflineRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<Error | null>(null);
+  const [mapTimedOut, setMapTimedOut] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -63,6 +70,15 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
       alive = false;
     };
   }, [routeId]);
+
+  useEffect(() => {
+    if (!record?.pmtilesPath) return;
+    setMapReady(false);
+    setMapError(null);
+    setMapTimedOut(false);
+    const timeout = setTimeout(() => setMapTimedOut(true), OFFLINE_MAP_READY_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [record?.pmtilesPath]);
 
   if (loading) {
     return (
@@ -89,6 +105,12 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     "es-BO",
     { day: "2-digit", month: "short", year: "numeric" },
   );
+  const showTrailFallback = shouldUseOfflineTrailFallback({
+    hasLocalPack: Boolean(record.pmtilesPath),
+    mapReady,
+    mapError: Boolean(mapError),
+    timedOut: mapTimedOut,
+  });
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -105,15 +127,31 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
       <Text style={styles.title}>{record.title}</Text>
       <Text style={styles.region}>{record.region}</Text>
 
-      <TrekMap
-        trail={record.trail}
-        pointsOfInterest={record.checkpoints}
-        start={record.startPoint}
-        end={record.endPoint}
-        offlinePackPath={record.pmtilesPath}
-        height={240}
-        accessibilityLabel={`Mapa de ${record.title}`}
-      />
+      {showTrailFallback ? (
+        <>
+          <Banner
+            tone="error"
+            message="El GPX y el trazado están disponibles sin conexión, pero el renderizador del mapa vectorial no está disponible en esta compilación de Expo."
+          />
+          <OfflineRouteMap
+            route={record}
+            height={240}
+            accessibilityLabel={`Trazado offline de ${record.title}`}
+          />
+        </>
+      ) : (
+        <TrekMap
+          trail={record.trail}
+          pointsOfInterest={record.checkpoints}
+          start={record.startPoint}
+          end={record.endPoint}
+          offlinePackPath={record.pmtilesPath}
+          onMapReady={() => setMapReady(true)}
+          onMapError={setMapError}
+          height={240}
+          accessibilityLabel={`Mapa de ${record.title}`}
+        />
+      )}
 
       <View style={styles.grid}>
         <View style={styles.metric}>
