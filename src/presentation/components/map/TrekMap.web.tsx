@@ -182,6 +182,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     children,
     onPress,
     onPressCoordinate,
+    onMapReady,
+    onMapError,
   } = props;
 
   const hostRef = useRef<any>(null);
@@ -245,6 +247,11 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         map.on("load", () => {
           if (cancelled) return;
           paintScene(map, sceneRef.current);
+          onMapReady?.();
+        });
+        map.on("error", (event: { error?: unknown }) => {
+          const cause = event?.error;
+          onMapError?.(cause instanceof Error ? cause : new Error("No se pudo cargar el mapa offline."));
         });
         let popup: any = null;
         map.on("click", (e: {
@@ -293,8 +300,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
           current.onPress?.(point);
           current.onPressCoordinate?.(point);
         });
-      } catch {
-        // El contenedor se queda con el fondo andino si el CDN no carga.
+      } catch (error) {
+        onMapError?.(error instanceof Error ? error : new Error("No se pudo inicializar el mapa offline."));
       }
     })();
 
