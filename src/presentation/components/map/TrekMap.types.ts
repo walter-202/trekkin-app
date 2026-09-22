@@ -39,7 +39,8 @@ export interface TrekMapProps {
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;
   onPress?: (coords: { lat: number; lng: number }) => void;
   /** Lifecycle hooks for views that need a truthful renderer fallback. */
-  onMapReady?: () => void;
+  /** True only after the configured local PMTiles style has loaded. */
+  onMapReady?: (offlinePackReady: boolean) => void;
   onMapError?: (error: Error) => void;
   interactive?: boolean;
   accessibilityLabel?: string;

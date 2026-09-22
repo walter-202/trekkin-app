@@ -258,6 +258,7 @@ export function buildTrekMapHtml(): string {
           currentPackUrl = nextUrl;
           switchingStyle = false;
           paintScene(pending);
+          post({ type: "mapReady", payload: { offlinePackReady: Boolean(nextUrl) } });
         });
         try {
           map.setStyle(nextUrl ? offlineStyle(nextUrl) : STYLE);
@@ -271,7 +272,7 @@ export function buildTrekMapHtml(): string {
         ready = true;
         if (pending) applyScene(pending);
         else addLayers();
-        post({ type: "mapReady" });
+        post({ type: "mapReady", payload: { offlinePackReady: Boolean(currentPackUrl) } });
       });
       map.on("error", function (e) {
         post({ type: "error", payload: { message: (e && e.error && e.error.message) || "map error" } });

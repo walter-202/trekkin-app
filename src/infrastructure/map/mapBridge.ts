@@ -34,6 +34,6 @@ export interface TrekMapScene {
 }
 
 export type MapToHostEvent =
-  | { type: "mapReady" }
+  | { type: "mapReady"; payload?: { offlinePackReady?: boolean } }
   | { type: "mapPress"; payload: { lat: number; lng: number } }
   | { type: "error"; payload: { message: string } };

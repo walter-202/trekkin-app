@@ -208,6 +208,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
       packUrlRef.current = nextUrl;
       switchingRef.current = false;
       paintScene(map, sceneRef.current);
+      onMapReady?.(Boolean(nextUrl));
     });
     map.setStyle(nextUrl ? buildOfflineVectorStyle(nextUrl) : ONLINE_STYLE_URL);
   };
@@ -247,7 +248,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         map.on("load", () => {
           if (cancelled) return;
           paintScene(map, sceneRef.current);
-          onMapReady?.();
+          onMapReady?.(Boolean(packUrlRef.current));
         });
         map.on("error", (event: { error?: unknown }) => {
           const cause = event?.error;

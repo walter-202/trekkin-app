@@ -45,7 +45,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
       if (msg.type === "mapReady") {
         readyRef.current = true;
         apply();
-        onMapReady?.();
+        onMapReady?.(Boolean(msg.payload?.offlinePackReady));
         return;
       }
       if (msg.type === "mapPress" && interactive) {

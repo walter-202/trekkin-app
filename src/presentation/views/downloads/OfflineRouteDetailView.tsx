@@ -46,7 +46,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
   const [record, setRecord] = useState<OfflineRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const [offlinePackReady, setOfflinePackReady] = useState(false);
   const [mapError, setMapError] = useState<Error | null>(null);
   const [mapTimedOut, setMapTimedOut] = useState(false);
 
@@ -73,7 +73,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
 
   useEffect(() => {
     if (!record?.pmtilesPath) return;
-    setMapReady(false);
+    setOfflinePackReady(false);
     setMapError(null);
     setMapTimedOut(false);
     const timeout = setTimeout(() => setMapTimedOut(true), OFFLINE_MAP_READY_TIMEOUT_MS);
@@ -107,7 +107,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
   );
   const showTrailFallback = shouldUseOfflineTrailFallback({
     hasLocalPack: Boolean(record.pmtilesPath),
-    mapReady,
+    mapReady: offlinePackReady,
     mapError: Boolean(mapError),
     timedOut: mapTimedOut,
   });
@@ -146,8 +146,11 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
           start={record.startPoint}
           end={record.endPoint}
           offlinePackPath={record.pmtilesPath}
-          onMapReady={() => setMapReady(true)}
-          onMapError={setMapError}
+          onMapReady={setOfflinePackReady}
+          onMapError={(nextError) => {
+            setOfflinePackReady(false);
+            setMapError(nextError);
+          }}
           height={240}
           accessibilityLabel={`Mapa de ${record.title}`}
         />
