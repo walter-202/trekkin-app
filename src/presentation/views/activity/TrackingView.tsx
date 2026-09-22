@@ -98,7 +98,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       ? { lat: startTwice.lat, lng: startTwice.lng, name: "Tu posición" }
       : undefined;
 
-  const distanceKm = accumulatedDistanceKm(live.recordedPoints, {
+  const distanceKm = live.totalDistanceKm ?? accumulatedDistanceKm(live.recordedPoints, {
     minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
     maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
   });

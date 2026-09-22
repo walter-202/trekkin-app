@@ -48,6 +48,7 @@ import {
   saveActivityHeader,
   updateActivityHeader,
   insertTrackPoint,
+  backfillTrackPoints,
   getMaxSeq,
   countTrackPoints,
   getLastTrackPoints,
@@ -149,10 +150,9 @@ function ensureTrackReady(live: LiveActivity): number {
   let max = getMaxSeq(db, live.id);
   saveActivityHeader(db, headerFromLive(live));
   // Backfill old AsyncStorage autosaves once, before switching to the slim form.
-  if (max === 0 && live.recordedPoints.length > 0) {
-    live.recordedPoints.forEach((point, index) => {
-      insertTrackPoint(db, live.id, index + 1, toNewTrackPoint(point));
-    });
+  if (max < live.recordedPoints.length) {
+    const missing = live.recordedPoints.slice(max).map(toNewTrackPoint);
+    backfillTrackPoints(db, live.id, missing, max + 1);
     max = live.recordedPoints.length;
   }
   trackCursor = { activityId: live.id, nextSeq: nextSeqAfterMax(max) };
@@ -223,7 +223,13 @@ export async function restoreLiveSession(): Promise<LiveActivity | null> {
         totalDistanceKm,
       };
     } catch {
-      trackPersistenceUnavailable = true;
+      if (trackDb === null) {
+        trackPersistenceUnavailable = true;
+      } else {
+        throw new Error(
+          "No se pudo recuperar el track local. Reintenta para continuar el backfill.",
+        );
+      }
     }
     return restored;
   }
