@@ -4,8 +4,10 @@ import * as Location from "expo-location";
 import { ArrowLeft, X } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
-import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
-import { appStorage } from "../../../infrastructure/persistence/storage";
+import {
+  useActivityStore,
+  restoreLiveSession,
+} from "../../../infrastructure/persistence/useActivityStore";
 import type { LiveActivity } from "../../../core/domain/activity";
 import {
   isFreeRecording,
@@ -59,20 +61,15 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
 
     // Si ya existe una sesión de grabación activa o recuperable en almacenamiento local
     // (solo de plan HU-07; las libres viven en FreeRecordView).
+    // ETAPA 3 — restauración adelgazada: cabecera + ventana desde SQLite.
     const live = useActivityStore.getState().live;
     if (isResumableLive(live) && !isFreeRecording(live)) {
       setStep("recording");
     } else {
-      appStorage.getItem("trekking_activity_autosave").then((raw) => {
-        if (!raw) return;
-        try {
-          const parsed = JSON.parse(raw) as LiveActivity;
-          if (isResumableLive(parsed) && !isFreeRecording(parsed)) {
-            useActivityStore.setState({ live: parsed });
-            setStep("recording");
-          }
-        } catch {
-          // ignore corrupted data
+      restoreLiveSession().then((restored) => {
+        if (restored && !isFreeRecording(restored)) {
+          useActivityStore.setState({ live: restored });
+          setStep("recording");
         }
       });
     }
@@ -173,11 +170,17 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
       updatedAt: now,
     };
 
-    await appStorage.setItem(
-      "trekking_activity_autosave",
-      JSON.stringify(liveActivity),
-    );
-    useActivityStore.setState({ live: liveActivity });
+    // ETAPA 2 — cabecera SQLite + cursor + total=0 (falla cerrado si no hay DB).
+    const okInit = await useActivityStore
+      .getState()
+      .initTrackPersistence(liveActivity);
+    if (!okInit) {
+      Alert.alert(
+        "Sin almacenamiento local",
+        "No se pudo preparar la grabación. Inténtalo de nuevo.",
+      );
+      return;
+    }
     await useActivityStore.getState().startWatch({
       accuracy: Location.Accuracy.High,
       distanceInterval: 5,

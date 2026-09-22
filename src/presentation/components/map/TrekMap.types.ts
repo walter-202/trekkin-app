@@ -34,6 +34,13 @@ export interface TrekMapProps {
   pointsOfInterest?: MapMarker[];
   markers?: MapMarker[];
   initialRegion?: MapRegion;
+  /**
+   * Fase 1 cámara libre (HU-08): si es `false`, el mapa hace el encuadre
+   * inicial una sola vez y luego solo actualiza datos sin mover la cámara.
+   * Default `true` (= `undefined`): conserva el `fitBounds` en cada apply
+   * para los flujos guiados (HU-06/plan).
+   */
+  followUser?: boolean;
   height?: number;
   style?: StyleProp<ViewStyle>;
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;

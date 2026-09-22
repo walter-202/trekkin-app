@@ -62,6 +62,9 @@ export function buildTrekMapHtml(): string {
       });
       var ready = false;
       var pending = null;
+      // Fase 1 cámara libre: recuerda si ya se hizo el primer encuadre útil
+      // en ESTA carga del mapa (no es global entre remontajes).
+      var firstFitDone = false;
 
       function post(msg) {
         try {
@@ -206,9 +209,18 @@ export function buildTrekMapHtml(): string {
           map.scrollZoom.disable();
           map.touchZoomRotate.disable();
         }
-        if (scene.bounds) {
+        // Fase 1 cámara libre: fitBounds solo en el primer apply útil
+        // (con bounds) de esta carga, y solo si followUser !== false.
+        // Sin bounds no se marca como realizado: el siguiente apply con
+        // bounds válidos aún puede hacer el encuadre inicial.
+        if (scene.bounds && scene.followUser !== false) {
           try {
             map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+          } catch (e) {}
+        } else if (scene.bounds && !firstFitDone) {
+          try {
+            map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+            firstFitDone = true;
           } catch (e) {}
         }
       }

@@ -37,7 +37,8 @@
           "locationAlwaysAndWhenInUsePermission": "Permitir a Trekking Bolivia rastrear tu posición GPS en expedición."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sqlite"
     ],
     "extra": {
       "eas": {

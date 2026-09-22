@@ -54,6 +54,12 @@ export interface LiveActivity {
   /** Tiempo activo acumulado, excluyendo pausas. */
   accumulatedActiveMs: number;
   recordedPoints: Coordinates[];
+  /**
+   * ETAPA 2 SQLite — distancia total (km) mantenida incrementalmente.
+   * Permite ventana en memoria: el historial completo vive en SQLite.
+   * Ausente en autosaves previos (se recalcula una vez como fallback).
+   */
+  totalDistanceKm?: number;
   completedCheckpoints: string[];
   /** Paradas agregadas en vivo por el usuario durante la actividad (HU-08). */
   newCheckpoints?: Checkpoint[];

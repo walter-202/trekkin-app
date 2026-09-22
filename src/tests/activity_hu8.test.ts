@@ -7,11 +7,16 @@ import {
 } from "../core/domain/activity";
 import type { LiveActivity } from "../core/domain/activity";
 import { StartActivityUseCase } from "../core/application/activity/StartActivity.usecase";
-import { StartFreeRecordingUseCase } from "../core/application/activity/StartFreeRecording.usecase";
+import {
+  StartFreeRecordingUseCase,
+  seedQualityCheck,
+  SEED_MAX_AGE_MS,
+} from "../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { RecordPointUseCase } from "../core/application/activity/RecordPoint.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
+import { accumulatedDistanceKm } from "../core/domain/calculations";
 import type { RouteModel } from "../core/domain/types";
 
 interface TestResult {
@@ -144,7 +149,13 @@ async function runActivityHu8Tests(): Promise<TestResult[]> {
   );
 
   const freeReady = StartFreeRecordingUseCase({
-    position: { lat: -16.5, lng: -68.1, altitude: 3640 },
+    position: {
+      lat: -16.5,
+      lng: -68.1,
+      altitude: 3640,
+      accuracy: 8,
+      fixTimestamp: Date.now(),
+    },
     userId: "user-123",
     userName: "Tester",
   });
@@ -272,6 +283,144 @@ async function runActivityHu8Tests(): Promise<TestResult[]> {
       isFreeSavedActivity(freeSaved) === true &&
       isFreeSavedActivity(routeSaved) === false,
     `free=${isFreeSavedActivity(freeSaved)} route=${isFreeSavedActivity(routeSaved)}`,
+  );
+
+  const nowSeed = Date.now();
+  const goodSeed = StartFreeRecordingUseCase({
+    position: {
+      lat: -16.5,
+      lng: -68.1,
+      altitude: 3640,
+      accuracy: 8,
+      fixTimestamp: nowSeed,
+    },
+    userId: "user-123",
+    userName: "Tester",
+  });
+  const seedPt = goodSeed.recordedPoints[0] as {
+    timestamp?: number;
+    accuracy?: number;
+  };
+  recordTest(
+    "Fix válido → semilla con timestamp real y accuracy conservada",
+    goodSeed.recordedPoints.length === 1 &&
+      seedPt.timestamp === nowSeed &&
+      seedPt.accuracy === 8,
+    `ts=${seedPt.timestamp} acc=${seedPt.accuracy}`,
+  );
+
+  const badAcc = StartFreeRecordingUseCase({
+    position: { lat: -16.5, lng: -68.1, accuracy: 40, fixTimestamp: nowSeed },
+    userId: "user-123",
+    userName: "Tester",
+  });
+  recordTest(
+    "Fix con accuracy >25 → sin semilla (fallback)",
+    badAcc.recordedPoints.length === 0,
+    `pts=${badAcc.recordedPoints.length}`,
+  );
+
+  const stale = StartFreeRecordingUseCase({
+    position: {
+      lat: -16.5,
+      lng: -68.1,
+      accuracy: 8,
+      fixTimestamp: nowSeed - SEED_MAX_AGE_MS - 1000,
+    },
+    userId: "user-123",
+    userName: "Tester",
+  });
+  recordTest(
+    "Fix demasiado viejo → sin semilla (fallback)",
+    stale.recordedPoints.length === 0,
+    `pts=${stale.recordedPoints.length}`,
+  );
+
+  const attempts = [45, 60, 80].map((acc) =>
+    StartFreeRecordingUseCase({
+      position: {
+        lat: -16.5,
+        lng: -68.1,
+        accuracy: acc,
+        fixTimestamp: nowSeed,
+      },
+      userId: "user-123",
+      userName: "Tester",
+    }),
+  );
+  recordTest(
+    "Varios intentos sin fix válido → fallback sin semilla",
+    attempts.every((a) => a.recordedPoints.length === 0),
+    `intentos=${attempts.length} todos sin semilla`,
+  );
+
+  const seedlessReady = StartFreeRecordingUseCase({
+    position: { lat: -16.5, lng: -68.1, accuracy: 60, fixTimestamp: nowSeed },
+    userId: "user-123",
+    userName: "Tester",
+  });
+  let seedlessLive = await BeginTrackingUseCase(seedlessReady);
+  seedlessLive = await RecordPointUseCase(seedlessLive, {
+    lat: -16.5001,
+    lng: -68.1,
+    timestamp: nowSeed + 3000,
+    accuracy: 8,
+  });
+  recordTest(
+    "Primer punto en fallback → distancia 0, sin salto artificial",
+    seedlessLive.recordedPoints.length === 1 &&
+      accumulatedDistanceKm(seedlessLive.recordedPoints) === 0,
+    `pts=${seedlessLive.recordedPoints.length}`,
+  );
+
+  const secondOk = await RecordPointUseCase(seedlessLive, {
+    lat: -16.5002,
+    lng: -68.1,
+    timestamp: nowSeed + 6000,
+    accuracy: 8,
+  });
+  const secondJitter = await RecordPointUseCase(seedlessLive, {
+    lat: -16.5001001,
+    lng: -68.1,
+    timestamp: nowSeed + 6000,
+    accuracy: 8,
+  });
+  recordTest(
+    "Puntos posteriores mantienen validación (acepta/distancia, jitter no)",
+    secondOk.recordedPoints.length === 2 &&
+      secondJitter.recordedPoints.length === 1,
+    `ok=${secondOk.recordedPoints.length} jitter=${secondJitter.recordedPoints.length}`,
+  );
+
+  const qualityMatrix: Array<[string, boolean]> = [
+    [
+      "fresco+bueno",
+      seedQualityCheck(
+        { lat: 0, lng: 0, accuracy: 8, fixTimestamp: nowSeed },
+        nowSeed,
+      ).ok === true,
+    ],
+    [
+      "sin accuracy",
+      seedQualityCheck({ lat: 0, lng: 0, fixTimestamp: nowSeed }, nowSeed)
+        .ok === false,
+    ],
+    [
+      "sin timestamp",
+      seedQualityCheck({ lat: 0, lng: 0, accuracy: 8 }, nowSeed).ok === false,
+    ],
+    [
+      "futuro",
+      seedQualityCheck(
+        { lat: 0, lng: 0, accuracy: 8, fixTimestamp: nowSeed + 60000 },
+        nowSeed,
+      ).ok === false,
+    ],
+  ];
+  recordTest(
+    "seedQualityCheck: matriz fresco/accuracy/timestamp",
+    qualityMatrix.every(([, ok]) => ok),
+    qualityMatrix.map(([n]) => n).join(","),
   );
 
   return results;

@@ -48,7 +48,10 @@ function loadMapLibre(): Promise<any> {
 const emptyLine = {
   type: "Feature" as const,
   properties: {},
-  geometry: { type: "LineString" as const, coordinates: [] as [number, number][] },
+  geometry: {
+    type: "LineString" as const,
+    coordinates: [] as [number, number][],
+  },
 };
 
 function lineData(coords: [number, number][]) {
@@ -98,7 +101,10 @@ function ensureLayers(map: any): void {
     });
   }
   if (!map.getSource("trekkin-markers")) {
-    map.addSource("trekkin-markers", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addSource("trekkin-markers", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+    });
     map.addLayer({
       id: "trekkin-markers-circle",
       type: "circle",
@@ -137,8 +143,13 @@ function applyScene(map: any, scene: TrekMapScene): void {
     map.scrollZoom.enable();
     map.touchZoomRotate.enable();
   }
-  if (scene.bounds) {
+  // Fase 1 cámara libre: fitBounds solo en el primer apply útil (con bounds)
+  // de esta instancia, y solo si followUser !== false. Sin bounds no se marca.
+  if (scene.bounds && scene.followUser !== false) {
     map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+  } else if (scene.bounds && !map.__trekkinFirstFitDone) {
+    map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+    map.__trekkinFirstFitDone = true;
   }
 }
 
@@ -186,52 +197,53 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
           applyScene(map, sceneRef.current);
         });
         let popup: any = null;
-        map.on("click", (e: {
-          lngLat: { lat: number; lng: number };
-          point: { x: number; y: number };
-        }) => {
-          const pad = 18;
-          let hits: any[] = [];
-          try {
-            hits = map.queryRenderedFeatures(
-              [
-                [e.point.x - pad, e.point.y - pad],
-                [e.point.x + pad, e.point.y + pad],
-              ],
-              { layers: ["trekkin-markers-circle"] },
-            );
-          } catch {
-            hits = [];
-          }
-          if (hits.length) {
-            const feature = hits[0];
-            const geom = feature.geometry as {
-              type?: string;
-              coordinates?: [number, number];
-            };
-            if (geom.type !== "Point" || !geom.coordinates) return;
-            const props = feature.properties ?? {};
-            popup?.remove?.();
-            popup = new maplibregl.Popup({
-              closeButton: true,
-              closeOnClick: true,
-              offset: 14,
-              className: "trekkin-popup",
-              maxWidth: "240px",
-            })
-              .setLngLat(geom.coordinates)
-              .setHTML(
-                buildCalloutHtml(props.kind, props.label, props.notes),
-              )
-              .addTo(map);
-            return;
-          }
-          const current = pressRef.current;
-          if (!current.interactive) return;
-          const point = { lat: e.lngLat.lat, lng: e.lngLat.lng };
-          current.onPress?.(point);
-          current.onPressCoordinate?.(point);
-        });
+        map.on(
+          "click",
+          (e: {
+            lngLat: { lat: number; lng: number };
+            point: { x: number; y: number };
+          }) => {
+            const pad = 18;
+            let hits: any[] = [];
+            try {
+              hits = map.queryRenderedFeatures(
+                [
+                  [e.point.x - pad, e.point.y - pad],
+                  [e.point.x + pad, e.point.y + pad],
+                ],
+                { layers: ["trekkin-markers-circle"] },
+              );
+            } catch {
+              hits = [];
+            }
+            if (hits.length) {
+              const feature = hits[0];
+              const geom = feature.geometry as {
+                type?: string;
+                coordinates?: [number, number];
+              };
+              if (geom.type !== "Point" || !geom.coordinates) return;
+              const props = feature.properties ?? {};
+              popup?.remove?.();
+              popup = new maplibregl.Popup({
+                closeButton: true,
+                closeOnClick: true,
+                offset: 14,
+                className: "trekkin-popup",
+                maxWidth: "240px",
+              })
+                .setLngLat(geom.coordinates)
+                .setHTML(buildCalloutHtml(props.kind, props.label, props.notes))
+                .addTo(map);
+              return;
+            }
+            const current = pressRef.current;
+            if (!current.interactive) return;
+            const point = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+            current.onPress?.(point);
+            current.onPressCoordinate?.(point);
+          },
+        );
       } catch {
         // El contenedor se queda con el fondo andino si el CDN no carga.
       }

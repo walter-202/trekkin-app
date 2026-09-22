@@ -15,6 +15,10 @@ import {
   isResumableLive,
 } from "../../../core/domain/activity";
 import {
+  seedQualityCheck,
+  type FreeRecordingPosition,
+} from "../../../core/application/activity/StartFreeRecording.usecase";
+import {
   locationService,
   RECORDING_WATCH_OPTIONS,
 } from "../../../infrastructure/location/locationService";
@@ -43,15 +47,36 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
+  // Intentos limitados de fix con calidad antes de degradar a inicio
+  // sin semilla. Sin bucles infinitos: cada fix High tarda segundos.
+  const MAX_SEED_ATTEMPTS = 3;
+
   const requestFixAndStart = async () => {
     if (!currentUser || locating) return;
     setLocating(true);
     setLocError(null);
     try {
-      const pos = await locationService.getCurrentPosition({
-        accuracy: Location.Accuracy.High,
-      });
-      if (!pos) {
+      let candidate: FreeRecordingPosition | null = null;
+      for (let attempt = 0; attempt < MAX_SEED_ATTEMPTS; attempt++) {
+        const pos = await locationService.getCurrentPosition({
+          accuracy: Location.Accuracy.High,
+        });
+        if (!pos) {
+          setLocError(
+            "No se pudo obtener tu ubicación. Concede el permiso de ubicación e inténtalo de nuevo.",
+          );
+          return;
+        }
+        candidate = {
+          lat: pos.latitude,
+          lng: pos.longitude,
+          altitude: pos.altitude,
+          accuracy: pos.accuracy ?? null,
+          fixTimestamp: pos.timestamp ?? null,
+        };
+        if (seedQualityCheck(candidate).ok) break;
+      }
+      if (!candidate) {
         setLocError(
           "No se pudo obtener tu ubicación. Concede el permiso de ubicación e inténtalo de nuevo.",
         );
@@ -60,7 +85,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
       const ok = await useActivityStore
         .getState()
         .startFreeRecording(
-          { lat: pos.latitude, lng: pos.longitude, altitude: pos.altitude },
+          candidate,
           currentUser.uid,
           currentUser.displayName,
         );

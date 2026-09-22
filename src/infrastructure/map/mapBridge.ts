@@ -23,6 +23,11 @@ export interface TrekMapScene {
   bounds: [LngLat, LngLat] | null;
   interactive: boolean;
   styleUrl: string;
+  /**
+   * Fase 1 cámara libre: `false` = encuadre inicial único, luego solo datos.
+   * Ausente/`true` = `fitBounds` en cada apply (comportamiento histórico).
+   */
+  followUser?: boolean;
 }
 
 export type MapToHostEvent =

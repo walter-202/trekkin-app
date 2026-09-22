@@ -63,6 +63,9 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const live = useActivityStore((s) => s.live);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
+  // DIAG-TEMP — telemetría GPS temporal (solo lectura).
+  const gpsStats = useActivityStore((s) => s.gpsStats);
+  const gpsEvents = useActivityStore((s) => s.gpsEvents);
 
   const [, tick] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -97,10 +100,14 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       ? { lat: startTwice.lat, lng: startTwice.lng, name: "Tu posición" }
       : undefined;
 
-  const distanceKm = accumulatedDistanceKm(live.recordedPoints, {
-    minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-    maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-  });
+  // ETAPA 2 — distancia incremental (la memoria guarda ventana, el total
+  // vive en `live.totalDistanceKm`; fallback para autosaves previos).
+  const distanceKm =
+    live.totalDistanceKm ??
+    accumulatedDistanceKm(live.recordedPoints, {
+      minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+      maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+    });
   const routePolyline = [
     ...live.route.waypoints,
     { lat: live.route.endPoint.lat, lng: live.route.endPoint.lng },
@@ -179,17 +186,20 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             : undefined
         }
         end={
-          live.route
-            ? {
-                lat: live.route.endPoint.lat,
-                lng: live.route.endPoint.lng,
-                name: "Final",
-              }
-            : undefined
+          mode === "free"
+            ? undefined
+            : live.route
+              ? {
+                  lat: live.route.endPoint.lat,
+                  lng: live.route.endPoint.lng,
+                  name: "Final",
+                }
+              : undefined
         }
         currentLocation={currentLocation}
         fitTo={routePolyline}
         height={300}
+        followUser={mode === "free" ? false : undefined}
       />
 
       <View style={styles.hud}>
@@ -207,6 +217,22 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             <Text style={styles.hudValue}>{remainingKm.toFixed(2)} km</Text>
           </View>
         )}
+      </View>
+
+      {/* DIAG-TEMP — bloque diagnóstico temporal (retirar tras la prueba) */}
+      <View style={styles.diagBox}>
+        <Text style={styles.diagText}>
+          GPS recibidos: {gpsStats.received} | aceptados: {gpsStats.accepted} |
+          accuracy: {gpsStats.discardedAccuracy} | near:{" "}
+          {gpsStats.discardedTooClose} | far: {gpsStats.discardedTooFar} |
+          invalid: {gpsStats.discardedInvalid}
+        </Text>
+        <Text style={styles.diagText}>
+          últ: {gpsStats.lastReason ?? "—"}
+          {gpsEvents.length > 0
+            ? ` · ${gpsEvents[gpsEvents.length - 1].t} ${gpsEvents[gpsEvents.length - 1].type}`
+            : ""}
+        </Text>
       </View>
 
       {mode === "guide" && (
@@ -566,4 +592,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.6,
   },
+  // DIAG-TEMP — estilos del bloque diagnóstico temporal.
+  diagBox: {
+    backgroundColor: "#0A241C",
+    borderWidth: 1,
+    borderColor: "#1A4537",
+    borderRadius: 12,
+    padding: 10,
+    gap: 4,
+  },
+  diagText: { color: "#9CA3AF", fontSize: 10 },
 });
