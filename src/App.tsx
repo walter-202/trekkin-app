@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+// Registers the Expo TaskManager callback at bundle load for headless launches.
+import "./infrastructure/location/backgroundLocationTask";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";

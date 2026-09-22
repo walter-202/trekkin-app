@@ -694,6 +694,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   startWatch: async (options) => {
     get().stopWatch();
+    // Await the previous native task teardown before registering a new one;
+    // otherwise an in-flight stop could tear down the just-resumed session.
+    if (typeof locationService.stopBackgroundWatching === "function") {
+      await locationService.stopBackgroundWatching();
+    }
     const generation = watchGeneration;
     const sub = await locationService.startWatching((p) => {
       get().recordPoint(p);
@@ -703,6 +708,17 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       return false;
     }
     set({ watch: sub });
+    if (typeof locationService.startBackgroundWatching === "function") {
+      const backgroundStarted = await locationService.startBackgroundWatching(options);
+      if (generation !== watchGeneration || get().live?.phase !== "in_progress") {
+        if (backgroundStarted) {
+          void locationService.stopBackgroundWatching();
+        }
+        if (sub) locationService.stopWatching(sub);
+        set({ watch: null });
+        return false;
+      }
+    }
     return sub != null;
   },
 
@@ -710,6 +726,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     watchGeneration += 1;
     const { watch } = get();
     if (watch) locationService.stopWatching(watch);
+    if (typeof locationService.stopBackgroundWatching === "function") {
+      void locationService.stopBackgroundWatching();
+    }
     set({ watch: null });
   },
 

@@ -12,7 +12,10 @@
       "bundleIdentifier": "com.walter202.trekkingapp",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Trekking Bolivia necesita acceso a tu ubicación GPS para el registro de rutas topográficas en montaña.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Trekking Bolivia registra tus coordenadas y altitud durante expediciones activas."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Trekking Bolivia registra tus coordenadas y altitud durante expediciones activas.",
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -23,7 +26,10 @@
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -34,7 +40,10 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Permitir a Trekking Bolivia rastrear tu posición GPS en expedición."
+          "locationAlwaysAndWhenInUsePermission": "Permitir a Trekking Bolivia rastrear tu posición GPS en expedición.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-asset"

@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
-    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts && npx tsx src/tests/user_management_hu10.test.ts && npx tsx src/tests/share_hu5.test.ts && npx tsx src/tests/plan_hu7.test.ts && npx tsx src/tests/map_service_hu3.test.ts && npx tsx src/tests/track_formats_hu7_hu8.test.ts && npx tsx src/tests/map_pack_formats.test.ts && npx tsx src/tests/offline_hu4.test.ts && npx tsx src/tests/activity_hu6.test.ts && npx tsx src/tests/activity_hu8.test.ts && npx tsx src/tests/activity_track_db.test.ts && npx tsx src/tests/activity_record_sqlite.test.ts && npx tsx src/tests/activity_autosave_slim.test.ts && npx tsx src/tests/activity_gpx_storage.test.ts",
+    "test": "npx tsx src/tests/auth_hu1_hu2.test.ts && npx tsx src/tests/user_management_hu10.test.ts && npx tsx src/tests/share_hu5.test.ts && npx tsx src/tests/plan_hu7.test.ts && npx tsx src/tests/map_service_hu3.test.ts && npx tsx src/tests/track_formats_hu7_hu8.test.ts && npx tsx src/tests/map_pack_formats.test.ts && npx tsx src/tests/offline_hu4.test.ts && npx tsx src/tests/activity_hu6.test.ts && npx tsx src/tests/activity_hu8.test.ts && npx tsx src/tests/activity_track_db.test.ts && npx tsx src/tests/activity_record_sqlite.test.ts && npx tsx src/tests/activity_autosave_slim.test.ts && npx tsx src/tests/activity_gpx_storage.test.ts && npx tsx src/tests/background_location.test.ts",
     "seed:test": "node scripts/seed-firestore.mjs",
     "seed:routes": "node scripts/seed-routes-propuesta.mjs"
   },
@@ -25,6 +25,7 @@
     "expo-sharing": "~57.0.21",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
+    "expo-task-manager": "~57.0.19",
     "firebase": "^12.18.0",
     "lucide-react-native": "^1.46.0",
     "maplibre-gl": "5.6.1",
