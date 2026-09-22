@@ -68,4 +68,3 @@ TaskManager.defineTask<BackgroundLocationTaskData>(
     return processNativeBatch(data.locations);
   },
 );
-

@@ -24,4 +24,3 @@ not claim uninterrupted hours/days capture without a device endurance test.
 Native permission/config changes in `app.json` require a rebuild; an OTA update
 cannot add the location background modes or Android foreground-service
 permissions.
-
