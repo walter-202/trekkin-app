@@ -71,6 +71,8 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const live = useActivityStore((s) => s.live);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
+  const gpsStats = useActivityStore((s) => s.gpsStats);
+  const gpsEvents = useActivityStore((s) => s.gpsEvents);
 
   const [, tick] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -95,7 +97,9 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     };
   }, [watchOptions]);
 
-  const [compassHeading, setCompassHeading] = useState<number | undefined>(undefined);
+  const [compassHeading, setCompassHeading] = useState<number | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let watch: { remove: () => void } | null = null;
@@ -137,10 +141,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         }
       : undefined;
 
-  const distanceKm = live.totalDistanceKm ?? accumulatedDistanceKm(live.recordedPoints, {
-    minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-    maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-  });
+  const distanceKm =
+    live.totalDistanceKm ??
+    accumulatedDistanceKm(live.recordedPoints, {
+      minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+      maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+    });
   const routePolyline = [
     ...live.route.waypoints,
     { lat: live.route.endPoint.lat, lng: live.route.endPoint.lng },
@@ -151,7 +157,9 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const elapsedSeconds = Math.round(activeElapsedMs(live) / 1000);
 
   // Soporte de mapa offline (PMTiles) si la ruta fue descargada previamente
-  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(undefined);
+  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(
+    undefined,
+  );
   useEffect(() => {
     const routeId = live?.route?.routeId;
     if (!routeId) return;
@@ -181,7 +189,9 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const handleResume = async () => {
     const ok = await useActivityStore.getState().resumeActivity();
     if (ok) {
-      const watchOk = await useActivityStore.getState().startWatch(watchOptions);
+      const watchOk = await useActivityStore
+        .getState()
+        .startWatch(watchOptions);
       setGpsWarning(!watchOk);
     }
   };
@@ -198,7 +208,8 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     notes?: string;
   }) => {
     const point =
-      live.recordedPoints[live.recordedPoints.length - 1] ?? live.route.startPoint;
+      live.recordedPoints[live.recordedPoints.length - 1] ??
+      live.route.startPoint;
     if (!point) return false;
     return useActivityStore.getState().addCheckpoint({
       name: input.name,
@@ -221,8 +232,22 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       {gpsWarning && (
         <View style={styles.warningBanner}>
           <Text style={styles.warningText}>
-            La aplicación necesita permiso para acceder a tu ubicación.
+            No se pudo activar el GPS (permiso denegado o servicio
+            indisponible). Revísalo y reintenta.
           </Text>
+          <Pressable
+            onPress={async () => {
+              const ok = await useActivityStore
+                .getState()
+                .startWatch(watchOptions);
+              setGpsWarning(!ok);
+            }}
+            style={styles.warningRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Reintentar activación del GPS"
+          >
+            <Text style={styles.warningRetryText}>REINTENTAR GPS</Text>
+          </Pressable>
         </View>
       )}
 
@@ -296,6 +321,22 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         )}
       </View>
 
+      {/* Diagnóstico GPS (P0-3): visibilidad de por qué entra/sale cada fix. */}
+      <View style={styles.diagBox}>
+        <Text style={styles.diagText}>
+          GPS recibidos: {gpsStats.received} | aceptados: {gpsStats.accepted} |
+          accuracy: {gpsStats.discardedAccuracy} | near:{" "}
+          {gpsStats.discardedTooClose} | far: {gpsStats.discardedTooFar} |
+          invalid: {gpsStats.discardedInvalid}
+        </Text>
+        <Text style={styles.diagText}>
+          últ: {gpsStats.lastReason ?? "—"}
+          {gpsEvents.length > 0
+            ? ` · ${gpsEvents[gpsEvents.length - 1].t} ${gpsEvents[gpsEvents.length - 1].type}`
+            : ""}
+        </Text>
+      </View>
+
       {mode === "guide" && deviation.isOffRoute && (
         <View style={styles.offRouteBanner}>
           <AlertTriangle size={15} color={AndeanTheme.colors.amber} />
@@ -347,7 +388,10 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
               return (
                 <View key={cp.id} style={styles.checkpointRow}>
                   {visited ? (
-                    <CheckCircle2 size={16} color={AndeanTheme.colors.primary} />
+                    <CheckCircle2
+                      size={16}
+                      color={AndeanTheme.colors.primary}
+                    />
                   ) : (
                     <Circle size={16} color={AndeanTheme.colors.fieldIcon} />
                   )}
@@ -377,7 +421,10 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       <Pressable
         onPress={() => setShowCheckpoint(true)}
         disabled={live.phase === "finished"}
-        style={({ pressed }) => [styles.checkpointBtn, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.checkpointBtn,
+          pressed && styles.pressed,
+        ]}
         accessibilityRole="button"
         accessibilityLabel="Agregar parada en la posición actual"
       >
@@ -512,7 +559,41 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  warningText: { color: AndeanTheme.colors.amber, fontSize: 11, lineHeight: 15 },
+  warningText: {
+    color: AndeanTheme.colors.amber,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  warningRetry: {
+    marginTop: 6,
+    alignSelf: "flex-start",
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  warningRetryText: {
+    color: AndeanTheme.colors.ink,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  diagBox: {
+    backgroundColor: AndeanTheme.colors.field,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 12,
+    padding: 10,
+    gap: 4,
+  },
+  diagText: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 10,
+    lineHeight: 14,
+    fontVariant: ["tabular-nums"],
+  },
   hud: {
     flexDirection: "row",
     backgroundColor: AndeanTheme.colors.sheet,
@@ -550,9 +631,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   checkpointRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  checkpointName: { flex: 1, color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
+  checkpointName: {
+    flex: 1,
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 12,
+  },
   checkpointNameVisited: { color: AndeanTheme.colors.ink },
-  checkpointState: { color: AndeanTheme.colors.fieldHint, fontSize: 10, fontWeight: "800" },
+  checkpointState: {
+    color: AndeanTheme.colors.fieldHint,
+    fontSize: 10,
+    fontWeight: "800",
+  },
   checkpointStateVisited: { color: AndeanTheme.colors.primaryDark },
   pausedBanner: {
     backgroundColor: "rgba(245,158,11,0.12)",
@@ -574,7 +663,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  errorText: { color: AndeanTheme.colors.errorText, fontSize: 11, lineHeight: 15 },
+  errorText: {
+    color: AndeanTheme.colors.errorText,
+    fontSize: 11,
+    lineHeight: 15,
+  },
   actions: { flexDirection: "row", gap: 10 },
   secondaryBtn: {
     flex: 1,
@@ -643,8 +736,16 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 10,
   },
-  modalTitle: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
-  modalText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
+  modalTitle: {
+    color: AndeanTheme.colors.ink,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  modalText: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
   modalCancel: {
     flex: 1,
@@ -655,7 +756,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
   },
-  modalCancelText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "800" },
+  modalCancelText: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+  },
   modalConfirm: {
     flex: 1,
     alignItems: "center",
@@ -663,7 +768,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
   },
-  modalConfirmText: { color: AndeanTheme.colors.white, fontSize: 11, fontWeight: "800" },
+  modalConfirmText: {
+    color: AndeanTheme.colors.white,
+    fontSize: 11,
+    fontWeight: "800",
+  },
   pressed: { opacity: 0.8 },
   muted: { color: AndeanTheme.colors.fieldHint, fontSize: 11 },
   checkpointBtn: {

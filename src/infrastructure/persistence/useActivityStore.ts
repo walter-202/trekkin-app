@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
-import type { ActivityGpxMetadata, TrekkinActivity, RouteModel } from "../../core/domain/types";
+import type {
+  ActivityGpxMetadata,
+  TrekkinActivity,
+  RouteModel,
+} from "../../core/domain/types";
 import type { RoutePlan } from "../../core/domain/plan";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createSerialQueue } from "./serialQueue";
@@ -19,7 +23,10 @@ import {
   type FreeRecordingPosition,
 } from "../../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../../core/application/activity/BeginTracking.usecase";
-import { RecordPointUseCase } from "../../core/application/activity/RecordPoint.usecase";
+import {
+  RecordPointUseCase,
+  classifyPointDiscard,
+} from "../../core/application/activity/RecordPoint.usecase";
 import { PauseActivityUseCase } from "../../core/application/activity/PauseActivity.usecase";
 import { ResumeActivityUseCase } from "../../core/application/activity/ResumeActivity.usecase";
 import {
@@ -40,7 +47,10 @@ import {
   slimLiveForAutosave,
   TRACK_WINDOW_SIZE,
 } from "../../core/application/activity/TrackWindow";
-import { accumulatedDistanceKm, haversineKm } from "../../core/domain/calculations";
+import {
+  accumulatedDistanceKm,
+  haversineKm,
+} from "../../core/domain/calculations";
 import { ACTIVITY_CONFIG } from "../../core/domain/activity";
 import { ExportTrackFileUseCase } from "../../core/application/activity/ExportTrackFile.usecase";
 import {
@@ -216,13 +226,12 @@ export async function restoreLiveSession(): Promise<LiveActivity | null> {
   if (restored.recordedPoints.length > 0) {
     try {
       ensureTrackReady(restored);
-      const totalDistanceKm = restored.totalDistanceKm ?? accumulatedDistanceKm(
-        restored.recordedPoints,
-        {
+      const totalDistanceKm =
+        restored.totalDistanceKm ??
+        accumulatedDistanceKm(restored.recordedPoints, {
           minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
           maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-        },
-      );
+        });
       return {
         ...restored,
         recordedPoints: sliceWindow(restored.recordedPoints),
@@ -242,14 +251,16 @@ export async function restoreLiveSession(): Promise<LiveActivity | null> {
   try {
     const db = getTrackDb();
     const rows = getLastTrackPoints(db, restored.id, TRACK_WINDOW_SIZE);
-    return restoreLiveFromHeader(restored, () => rows.map((row) => ({
-      lat: row.lat,
-      lng: row.lng,
-      altitude: row.altitude ?? undefined,
-      accuracy: row.accuracy ?? undefined,
-      speed: row.speed ?? undefined,
-      timestamp: row.timestamp,
-    })));
+    return restoreLiveFromHeader(restored, () =>
+      rows.map((row) => ({
+        lat: row.lat,
+        lng: row.lng,
+        altitude: row.altitude ?? undefined,
+        accuracy: row.accuracy ?? undefined,
+        speed: row.speed ?? undefined,
+        timestamp: row.timestamp,
+      })),
+    );
   } catch {
     trackPersistenceUnavailable = true;
     return restored;
@@ -281,15 +292,57 @@ function pendingGpxMetadata(activity: TrekkinActivity): ActivityGpxMetadata {
   };
 }
 
-async function syncFinishedActivity(activity: TrekkinActivity): Promise<TrekkinActivity> {
-  if (!activity.recordedPoints || activity.recordedPoints.length === 0) return activity;
+/** Diagnóstico GPS en vivo (P0-3): por qué se acepta/descarta cada fix. */
+export interface GpsStats {
+  received: number;
+  accepted: number;
+  discardedAccuracy: number;
+  discardedTooClose: number;
+  discardedTooFar: number;
+  discardedInvalid: number;
+  lastReason: string | null;
+}
+
+export interface GpsEvent {
+  t: string;
+  type: string;
+}
+
+export const EMPTY_GPS_STATS: GpsStats = {
+  received: 0,
+  accepted: 0,
+  discardedAccuracy: 0,
+  discardedTooClose: 0,
+  discardedTooFar: 0,
+  discardedInvalid: 0,
+  lastReason: null,
+};
+
+function diagTime(): string {
+  return new Date().toLocaleTimeString("es-BO", { hour12: false });
+}
+
+function pushDiagEvent(prev: GpsEvent[], type: string): GpsEvent[] {
+  return [...prev.slice(-19), { t: diagTime(), type }];
+}
+
+async function syncFinishedActivity(
+  activity: TrekkinActivity,
+): Promise<TrekkinActivity> {
+  if (!activity.recordedPoints || activity.recordedPoints.length === 0)
+    return activity;
   if (gpxSyncInFlight.has(activity.id)) return activity;
   gpxSyncInFlight.add(activity.id);
   const pending = activity.gpx ?? pendingGpxMetadata(activity);
   try {
     // Lazy import keeps pure/unit test consumers independent of Firebase SDK initialization.
-    const { activityGpxService } = await import("../database/activityGpxService");
-    await activityService.createActivity({ ...activity, isSynced: false, gpx: pending });
+    const { activityGpxService } =
+      await import("../database/activityGpxService");
+    await activityService.createActivity({
+      ...activity,
+      isSynced: false,
+      gpx: pending,
+    });
     const file = ExportTrackFileUseCase(activity);
     const synced = await SyncActivityGpxUseCase(
       {
@@ -302,11 +355,15 @@ async function syncFinishedActivity(activity: TrekkinActivity): Promise<TrekkinA
       {
         ...activityGpxService,
         save: async (metadata) => {
-          await activityService.updateActivityGpxMetadata(activity.id, metadata);
+          await activityService.updateActivityGpxMetadata(
+            activity.id,
+            metadata,
+          );
         },
       },
     );
-    if (synced.error) return { ...activity, isSynced: false, gpx: synced.metadata };
+    if (synced.error)
+      return { ...activity, isSynced: false, gpx: synced.metadata };
     const completed = { ...activity, isSynced: true, gpx: synced.metadata };
     await activityService.updateActivity(activity.id, {
       isSynced: true,
@@ -336,6 +393,8 @@ interface ActivityState {
   finishing: boolean;
   error: string | null;
   watch: LocationWatch | null;
+  gpsStats: GpsStats;
+  gpsEvents: GpsEvent[];
 
   loadCatalog: () => Promise<void>;
   startRoute: (
@@ -378,20 +437,30 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   finishing: false,
   error: null,
   watch: null,
+  gpsStats: { ...EMPTY_GPS_STATS },
+  gpsEvents: [],
 
-  restoreLiveSession: () => enqueue(async () => {
-    if (get().live) return get().live!.phase === "in_progress" || get().live!.phase === "paused";
-    const restored = await restoreLiveSession();
-    if (restored) {
-      const resumable =
-        restored.phase === "in_progress" || restored.phase === "paused";
-      if (resumable) {
-        set({ live: restored });
-        return true;
+  restoreLiveSession: () =>
+    enqueue(async () => {
+      if (get().live)
+        return (
+          get().live!.phase === "in_progress" || get().live!.phase === "paused"
+        );
+      const restored = await restoreLiveSession();
+      if (restored) {
+        const resumable =
+          restored.phase === "in_progress" || restored.phase === "paused";
+        if (resumable) {
+          set({
+            live: restored,
+            gpsStats: { ...EMPTY_GPS_STATS },
+            gpsEvents: [],
+          });
+          return true;
+        }
       }
-    }
-    return false;
-  }),
+      return false;
+    }),
 
   loadCatalog: async () => {
     set({ isLoading: true, error: null });
@@ -414,106 +483,124 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  startRoute: (uid, userName, routeId) => enqueue(async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const live = await StartActivityUseCase(
-        { routeId, userId: uid, userName },
-        {
-          getRoute: (id) => routeService.getRoute(id),
-        },
-      );
-      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
-      else await saveLive(live);
-      set({ live, isLoading: false });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo cargar la ruta seleccionada.",
-        isLoading: false,
-      });
-      return false;
-    }
-  }),
+  startRoute: (uid, userName, routeId) =>
+    enqueue(async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const live = await StartActivityUseCase(
+          { routeId, userId: uid, userName },
+          {
+            getRoute: (id) => routeService.getRoute(id),
+          },
+        );
+        if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+        else await saveLive(live);
+        set({
+          live,
+          isLoading: false,
+          gpsStats: { ...EMPTY_GPS_STATS },
+          gpsEvents: [],
+        });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar la ruta seleccionada.",
+          isLoading: false,
+        });
+        return false;
+      }
+    }),
 
-  startFromPlan: (plan, uid, userName) => enqueue(async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const prepared = StartRecordingFromPlanUseCase({
-        plan,
-        userId: uid,
-        userName,
-      });
-      const live = await BeginTrackingUseCase(prepared);
-      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
-      else await saveLive(live);
-      set({ live, isLoading: false });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo iniciar la grabación GPS.",
-        isLoading: false,
-      });
-      return false;
-    }
-  }),
+  startFromPlan: (plan, uid, userName) =>
+    enqueue(async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const prepared = StartRecordingFromPlanUseCase({
+          plan,
+          userId: uid,
+          userName,
+        });
+        const live = await BeginTrackingUseCase(prepared);
+        if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+        else await saveLive(live);
+        set({
+          live,
+          isLoading: false,
+          gpsStats: { ...EMPTY_GPS_STATS },
+          gpsEvents: [],
+        });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo iniciar la grabación GPS.",
+          isLoading: false,
+        });
+        return false;
+      }
+    }),
 
-  startFreeRecording: (position, uid, userName) => enqueue(async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const prepared = StartFreeRecordingUseCase({
-        position,
-        userId: uid,
-        userName,
-      });
-      const live = await BeginTrackingUseCase(prepared);
-      if (initializeTrackPersistence(live)) await saveLiveHeader(live);
-      else await saveLive(live);
-      set({ live, isLoading: false });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo iniciar la grabación GPS.",
-        isLoading: false,
-      });
-      return false;
-    }
-  }),
+  startFreeRecording: (position, uid, userName) =>
+    enqueue(async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const prepared = StartFreeRecordingUseCase({
+          position,
+          userId: uid,
+          userName,
+        });
+        const live = await BeginTrackingUseCase(prepared);
+        if (initializeTrackPersistence(live)) await saveLiveHeader(live);
+        else await saveLive(live);
+        set({
+          live,
+          isLoading: false,
+          gpsStats: { ...EMPTY_GPS_STATS },
+          gpsEvents: [],
+        });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo iniciar la grabación GPS.",
+          isLoading: false,
+        });
+        return false;
+      }
+    }),
 
-  beginTracking: () => enqueue(async () => {
-    const live = get().live;
-    if (!live) return false;
-    set({ error: null });
-    try {
-      const updated = await BeginTrackingUseCase(live);
-      if (initializeTrackPersistence(updated)) await saveLiveHeader(updated);
-      else await saveLive(updated);
-      set({ live: updated });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo iniciar la actividad",
-      });
-      return false;
-    }
-  }),
+  beginTracking: () =>
+    enqueue(async () => {
+      const live = get().live;
+      if (!live) return false;
+      set({ error: null });
+      try {
+        const updated = await BeginTrackingUseCase(live);
+        if (initializeTrackPersistence(updated)) await saveLiveHeader(updated);
+        else await saveLive(updated);
+        set({ live: updated });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo iniciar la actividad",
+        });
+        return false;
+      }
+    }),
 
-  recordPoint: (p) => enqueue(async () => {
-    const live = get().live;
-    if (!live || live.phase !== "in_progress") return;
-    try {
+  recordPoint: (p) =>
+    enqueue(async () => {
+      const live = get().live;
       const point = {
         lat: p.latitude,
         lng: p.longitude,
@@ -522,176 +609,233 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         altitude: p.altitude,
         speed: p.speed,
       };
-      const persistence = resolvePointPersistence(live, point);
-      const updated = await RecordPointUseCase(live, point);
-      if (persistence.action === "insert") {
-        if (trackPersistenceUnavailable) {
-          await saveLive(updated);
-          set({ live: updated });
-          return;
-        }
-        const db = getTrackDb();
-        const seq = ensureTrackReady(live);
-        insertTrackPoint(db, live.id, seq, toNewTrackPoint(point));
-        if (trackCursor) trackCursor.nextSeq = seq + 1;
-        const previous = live.recordedPoints[live.recordedPoints.length - 1];
-        const distance = live.totalDistanceKm ?? accumulatedDistanceKm(live.recordedPoints, {
-          minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-          maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-        });
-        const tracked: LiveActivity = {
-          ...updated,
-          recordedPoints: sliceWindow(updated.recordedPoints),
-          totalDistanceKm: previous ? distance + haversineKm(previous, point) : distance,
-        };
-        await saveLiveHeader(tracked);
-        set({ live: tracked });
-      } else {
-        // Rejected fixes can still update checkpoint/updatedAt state, but do not
-        // create a SQLite row or inflate the in-memory window.
-        await saveLiveForPersistence(updated);
-        set({ live: updated });
-      }
-    } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : "No se pudo guardar el punto GPS." });
-    }
-  }),
-
-  pauseActivity: () => enqueue(async () => {
-    const live = get().live;
-    if (!live) return false;
-    set({ error: null });
-    try {
-      const updated = await PauseActivityUseCase(live);
-      get().stopWatch();
-      await saveLiveForPersistence(updated);
-      if (trackDb) updateActivityHeader(trackDb, updated.id, {
-        status: updated.phase,
-        updatedAt: updated.updatedAt,
-      });
-      set({ live: updated });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error ? err.message : "No se pudo pausar la actividad",
-      });
-      return false;
-    }
-  }),
-
-  resumeActivity: () => enqueue(async () => {
-    const live = get().live;
-    if (!live) return false;
-    set({ error: null });
-    try {
-      const updated = await ResumeActivityUseCase(live);
-      await saveLiveForPersistence(updated);
-      if (trackDb) updateActivityHeader(trackDb, updated.id, {
-        status: updated.phase,
-        updatedAt: updated.updatedAt,
-      });
-      set({ live: updated });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo reanudar la actividad",
-      });
-      return false;
-    }
-  }),
-
-  addCheckpoint: (input: AddCheckpointInput) => enqueue(async () => {
-    const live = get().live;
-    if (!live) return false;
-    try {
-      const { activity } = AddCheckpointUseCase(live, input);
-      await saveLiveForPersistence(activity);
-      set({ live: activity });
-      return true;
-    } catch (err: unknown) {
-      set({
-        error:
-          err instanceof Error
-            ? err.message
-            : "No se pudo registrar la parada",
-      });
-      return false;
-    }
-  }),
-
-  finishActivity: () => enqueue(async () => {
-    const live = get().live;
-    if (!live || live.phase === "finished") return null;
-    set({ finishing: true, error: null });
-    get().stopWatch();
-    try {
-      // The in-memory value is a bounded recovery window. Rehydrate the full
-      // SQLite track before GPX generation and local-first completion.
-      const fullLive = loadFullTrack(live);
-      let localHistory = (await loadUnsynced()) ?? [];
-      const finished = await FinishActivityUseCase(fullLive, {
-        // The durable local archive is the completion boundary, not the network.
-        saveActivity: async (saved) => {
-          localHistory = [...localHistory.filter((a) => a.id !== saved.id), { ...saved, isSynced: false }];
-          await saveUnsynced(localHistory);
-        },
-        saveLocalActivity: saveLive,
-      });
-      const savedWithGpx = {
-        ...finished.saved,
-        isSynced: false,
-        gpx: pendingGpxMetadata(finished.saved),
+      // Diagnóstico P0-3: se cuenta SIEMPRE el fix recibido, aunque la fase
+      // o el filtro lo descarten — el panel muestra por qué no avanza el GPS.
+      const verdict = live
+        ? classifyPointDiscard(live, point)
+        : "invalid_phase";
+      const state = get();
+      const stats: GpsStats = {
+        ...state.gpsStats,
+        received: state.gpsStats.received + 1,
+        lastReason: verdict.toUpperCase(),
       };
-      localHistory = [
-        ...localHistory.filter((a) => a.id !== savedWithGpx.id),
-        savedWithGpx,
-      ];
-      await saveUnsynced(localHistory);
-      const result = { ...finished, saved: savedWithGpx };
-      set({
-        live: result.activity,
-        lastResult: result.saved,
-        unsynced: localHistory.filter((a) => !a.isSynced),
-        finishing: false,
-      });
+      if (verdict === "accepted") stats.accepted += 1;
+      else if (verdict === "low_accuracy") stats.discardedAccuracy += 1;
+      else if (verdict === "jitter") stats.discardedTooClose += 1;
+      else if (verdict === "jump") stats.discardedTooFar += 1;
+      else stats.discardedInvalid += 1;
+      set({ gpsStats: stats });
+      if (!live || live.phase !== "in_progress") return;
       try {
-        const db = getTrackDb();
-        updateActivityHeader(db, result.saved.id, {
-          status: "finished",
-          finishedAt: result.activity.finishedAt ?? Date.now(),
-          distanceKm: result.saved.distanceCoveredKm,
-          durationSec: result.saved.durationSeconds,
-          updatedAt: Date.now(),
-        });
-      } catch {
-        // SQLite is an optimization for recovery; the local archive is already durable.
-      }
-      void syncFinishedActivity(result.saved).then((synced) => enqueue(async () => {
-        const history = ((await loadUnsynced()) ?? []).map((a) =>
-          a.id === synced.id ? synced : a);
-        await saveUnsynced(history);
-        set({
-          unsynced: history.filter((a) => !a.isSynced),
-          activities: get().activities.map((a) => a.id === synced.id ? synced : a),
-          lastResult: get().lastResult?.id === synced.id ? synced : get().lastResult,
-        });
-        if (trackDb && synced.isSynced) {
-          updateActivityHeader(trackDb, synced.id, { synced: 1, updatedAt: Date.now() });
+        const persistence = resolvePointPersistence(live, point);
+        const updated = await RecordPointUseCase(live, point);
+        if (persistence.action === "insert") {
+          if (trackPersistenceUnavailable) {
+            await saveLive(updated);
+            set({ live: updated });
+            return;
+          }
+          const db = getTrackDb();
+          const seq = ensureTrackReady(live);
+          insertTrackPoint(db, live.id, seq, toNewTrackPoint(point));
+          if (trackCursor) trackCursor.nextSeq = seq + 1;
+          const previous = live.recordedPoints[live.recordedPoints.length - 1];
+          const distance =
+            live.totalDistanceKm ??
+            accumulatedDistanceKm(live.recordedPoints, {
+              minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+              maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+            });
+          const tracked: LiveActivity = {
+            ...updated,
+            recordedPoints: sliceWindow(updated.recordedPoints),
+            totalDistanceKm: previous
+              ? distance + haversineKm(previous, point)
+              : distance,
+          };
+          await saveLiveHeader(tracked);
+          set({ live: tracked });
+        } else {
+          // Rejected fixes can still update checkpoint/updatedAt state, but do not
+          // create a SQLite row or inflate the in-memory window.
+          await saveLiveForPersistence(updated);
+          set({ live: updated });
         }
-      }));
-      return result;
-    } catch (err: unknown) {
-      set({
-        finishing: false,
-        error: err instanceof Error ? err.message : "No se pudo guardar la actividad en el dispositivo.",
-      });
-      return null;
-    }
-  }),
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo guardar el punto GPS.",
+        });
+      }
+    }),
+
+  pauseActivity: () =>
+    enqueue(async () => {
+      const live = get().live;
+      if (!live) return false;
+      set({ error: null });
+      try {
+        const updated = await PauseActivityUseCase(live);
+        get().stopWatch();
+        await saveLiveForPersistence(updated);
+        if (trackDb)
+          updateActivityHeader(trackDb, updated.id, {
+            status: updated.phase,
+            updatedAt: updated.updatedAt,
+          });
+        set({
+          live: updated,
+          gpsEvents: pushDiagEvent(get().gpsEvents, "paused"),
+        });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo pausar la actividad",
+        });
+        return false;
+      }
+    }),
+
+  resumeActivity: () =>
+    enqueue(async () => {
+      const live = get().live;
+      if (!live) return false;
+      set({ error: null });
+      try {
+        const updated = await ResumeActivityUseCase(live);
+        await saveLiveForPersistence(updated);
+        if (trackDb)
+          updateActivityHeader(trackDb, updated.id, {
+            status: updated.phase,
+            updatedAt: updated.updatedAt,
+          });
+        set({
+          live: updated,
+          gpsEvents: pushDiagEvent(get().gpsEvents, "resumed"),
+        });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo reanudar la actividad",
+        });
+        return false;
+      }
+    }),
+
+  addCheckpoint: (input: AddCheckpointInput) =>
+    enqueue(async () => {
+      const live = get().live;
+      if (!live) return false;
+      try {
+        const { activity } = AddCheckpointUseCase(live, input);
+        await saveLiveForPersistence(activity);
+        set({ live: activity });
+        return true;
+      } catch (err: unknown) {
+        set({
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo registrar la parada",
+        });
+        return false;
+      }
+    }),
+
+  finishActivity: () =>
+    enqueue(async () => {
+      const live = get().live;
+      if (!live || live.phase === "finished") return null;
+      set({ finishing: true, error: null });
+      get().stopWatch();
+      try {
+        // The in-memory value is a bounded recovery window. Rehydrate the full
+        // SQLite track before GPX generation and local-first completion.
+        const fullLive = loadFullTrack(live);
+        let localHistory = (await loadUnsynced()) ?? [];
+        const finished = await FinishActivityUseCase(fullLive, {
+          // The durable local archive is the completion boundary, not the network.
+          saveActivity: async (saved) => {
+            localHistory = [
+              ...localHistory.filter((a) => a.id !== saved.id),
+              { ...saved, isSynced: false },
+            ];
+            await saveUnsynced(localHistory);
+          },
+          saveLocalActivity: saveLive,
+        });
+        const savedWithGpx = {
+          ...finished.saved,
+          isSynced: false,
+          gpx: pendingGpxMetadata(finished.saved),
+        };
+        localHistory = [
+          ...localHistory.filter((a) => a.id !== savedWithGpx.id),
+          savedWithGpx,
+        ];
+        await saveUnsynced(localHistory);
+        const result = { ...finished, saved: savedWithGpx };
+        set({
+          live: result.activity,
+          lastResult: result.saved,
+          unsynced: localHistory.filter((a) => !a.isSynced),
+          finishing: false,
+        });
+        try {
+          const db = getTrackDb();
+          updateActivityHeader(db, result.saved.id, {
+            status: "finished",
+            finishedAt: result.activity.finishedAt ?? Date.now(),
+            distanceKm: result.saved.distanceCoveredKm,
+            durationSec: result.saved.durationSeconds,
+            updatedAt: Date.now(),
+          });
+        } catch {
+          // SQLite is an optimization for recovery; the local archive is already durable.
+        }
+        void syncFinishedActivity(result.saved).then((synced) =>
+          enqueue(async () => {
+            const history = ((await loadUnsynced()) ?? []).map((a) =>
+              a.id === synced.id ? synced : a,
+            );
+            await saveUnsynced(history);
+            set({
+              unsynced: history.filter((a) => !a.isSynced),
+              activities: get().activities.map((a) =>
+                a.id === synced.id ? synced : a,
+              ),
+              lastResult:
+                get().lastResult?.id === synced.id ? synced : get().lastResult,
+            });
+            if (trackDb && synced.isSynced) {
+              updateActivityHeader(trackDb, synced.id, {
+                synced: 1,
+                updatedAt: Date.now(),
+              });
+            }
+          }),
+        );
+        return result;
+      } catch (err: unknown) {
+        set({
+          finishing: false,
+          error:
+            err instanceof Error
+              ? err.message
+              : "No se pudo guardar la actividad en el dispositivo.",
+        });
+        return null;
+      }
+    }),
 
   startWatch: async (options) => {
     get().stopWatch();
@@ -710,8 +854,12 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
     set({ watch: sub });
     if (typeof locationService.startBackgroundWatching === "function") {
-      const backgroundStarted = await locationService.startBackgroundWatching(options);
-      if (generation !== watchGeneration || get().live?.phase !== "in_progress") {
+      const backgroundStarted =
+        await locationService.startBackgroundWatching(options);
+      if (
+        generation !== watchGeneration ||
+        get().live?.phase !== "in_progress"
+      ) {
         if (backgroundStarted) {
           void locationService.stopBackgroundWatching();
         }
@@ -736,25 +884,39 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   listActivities: async (uid) => {
     set({ activities: [], isLoading: true, error: null });
     try {
-      let joined = ((await loadUnsynced()) ?? []).filter((a) => a.userId === uid);
+      let joined = ((await loadUnsynced()) ?? []).filter(
+        (a) => a.userId === uid,
+      );
       // Retry pending/failed GPX syncs when history is opened. The archive is
       // updated only after an idempotent owner-scoped Storage/Firestore write.
-      const retryable = joined.filter((a) => !a.isSynced && a.recordedPoints.length > 0);
+      const retryable = joined.filter(
+        (a) => !a.isSynced && a.recordedPoints.length > 0,
+      );
       if (retryable.length > 0) {
-        void Promise.all(retryable.map(syncFinishedActivity)).then((retried) =>
-          enqueue(async () => {
-            const byId = new Map(retried.map((a) => [a.id, a]));
-            const all = (await loadUnsynced()) ?? [];
-            await saveUnsynced(all.map((a) => byId.get(a.id) ?? a));
-            const current = get().activities;
-            set({
-              activities: current.map((a) => byId.get(a.id) ?? a),
-              unsynced: (await loadUnsynced() ?? []).filter((a) => !a.isSynced),
-            });
-          }),
-        ).catch(() => { /* local history remains available for a later retry */ });
+        void Promise.all(retryable.map(syncFinishedActivity))
+          .then((retried) =>
+            enqueue(async () => {
+              const byId = new Map(retried.map((a) => [a.id, a]));
+              const all = (await loadUnsynced()) ?? [];
+              await saveUnsynced(all.map((a) => byId.get(a.id) ?? a));
+              const current = get().activities;
+              set({
+                activities: current.map((a) => byId.get(a.id) ?? a),
+                unsynced: ((await loadUnsynced()) ?? []).filter(
+                  (a) => !a.isSynced,
+                ),
+              });
+            }),
+          )
+          .catch(() => {
+            /* local history remains available for a later retry */
+          });
       }
-      set({ activities: joined, unsynced: joined.filter((a) => !a.isSynced), isLoading: false });
+      set({
+        activities: joined,
+        unsynced: joined.filter((a) => !a.isSynced),
+        isLoading: false,
+      });
       const remote = await ListActivitiesUseCase(uid, {
         listByUser: activityService.listUserActivities,
       });
@@ -776,7 +938,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
 
   loadActivity: async (id, uid) => {
     set({ error: null });
-    const local = ((await loadUnsynced()) ?? []).find((a) => a.id === id && a.userId === uid);
+    const local = ((await loadUnsynced()) ?? []).find(
+      (a) => a.id === id && a.userId === uid,
+    );
     if (local) return local;
     try {
       return await GetActivityUseCase(
@@ -794,19 +958,26 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
   },
 
-  clearLive: () => enqueue(async () => {
-    get().stopWatch();
-    const activityId = get().live?.id;
-    await AsyncStorage.removeItem(AUTOSAVE_KEY);
-    if (activityId && trackDb) {
-      try {
-        deleteTrackDbActivity(trackDb, activityId);
-      } finally {
-        if (trackCursor?.activityId === activityId) trackCursor = null;
+  clearLive: () =>
+    enqueue(async () => {
+      get().stopWatch();
+      const activityId = get().live?.id;
+      await AsyncStorage.removeItem(AUTOSAVE_KEY);
+      if (activityId && trackDb) {
+        try {
+          deleteTrackDbActivity(trackDb, activityId);
+        } finally {
+          if (trackCursor?.activityId === activityId) trackCursor = null;
+        }
       }
-    }
-    set({ live: null, lastResult: null, error: null });
-  }),
+      set({
+        live: null,
+        lastResult: null,
+        error: null,
+        gpsStats: { ...EMPTY_GPS_STATS },
+        gpsEvents: [],
+      });
+    }),
 
   clearError: () => set({ error: null }),
 }));
