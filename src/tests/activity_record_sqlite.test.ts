@@ -172,6 +172,13 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     `action=${okPlan.action}`,
   );
 
+  // For rejection tests, need a live with at least one recorded point
+  const liveWithPoint = {
+    ...live,
+    recordedPoints: [
+      { lat: -16.5, lng: -68.1, timestamp: 1720000000000, accuracy: 8 },
+    ],
+  };
   const reasons = [
     [{ lat: -16.5001, lng: -68.1, timestamp: 1, accuracy: 40 }, "low_accuracy"],
     [{ lat: -16.5, lng: -68.1, timestamp: 1, accuracy: 8 }, "jitter"],
@@ -179,7 +186,7 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     [{ lat: 95, lng: -68.1, timestamp: 1 }, "invalid_schema"],
   ] as const;
   const skips = reasons.map(([pt, expected]) => {
-    const plan = resolvePointPersistence(live, { ...pt });
+    const plan = resolvePointPersistence(liveWithPoint, { ...pt });
     return plan.action === "skip" && plan.reason === expected;
   });
   recordTest(
@@ -204,15 +211,26 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     createdAt: live.createdAt,
     updatedAt: live.createdAt,
   });
-  const seed = live.recordedPoints[0];
+  // NEW BEHAVIOR: recordedPoints starts empty. Simulate first watcher fix (P1).
+  const firstPoint = {
+    lat: -16.5,
+    lng: -68.1,
+    timestamp: 1720000000000,
+    accuracy: 8,
+    altitude: 3640,
+  };
+  const plan = resolvePointPersistence(live, firstPoint);
+  if (plan.action !== "insert")
+    throw new Error("se esperaba insert para primer fix");
+  const updated = await RecordPointUseCase(live, firstPoint);
   insertTrackPoint(
     db,
     live.id,
     1,
-    toNew({ ...seed, timestamp: seed.timestamp ?? 1, accuracy: 8 }),
+    toNew({ ...firstPoint, timestamp: firstPoint.timestamp ?? 1, accuracy: 8 }),
   );
   let seq = nextSeqAfterMax(getMaxSeq(db, live.id));
-  let mem: LiveActivity = { ...live, totalDistanceKm: 0 };
+  let mem: LiveActivity = { ...updated, totalDistanceKm: 0 };
   let total = 0;
   for (let i = 1; i <= 3; i++) {
     const pt = {
@@ -315,23 +333,34 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
   );
 
   const seededDb = createMemoryDb();
-  const seededLive = StartFreeRecordingUseCase({
+  const seededLivePrepared = StartFreeRecordingUseCase({
     position: { lat: -16.5, lng: -68.1, accuracy: 8, fixTimestamp: Date.now() },
     userId: "user-123",
     userName: "Tester",
   });
-  seededLive.recordedPoints.forEach((pt, i) => {
+  const seededLive = await BeginTrackingUseCase(seededLivePrepared);
+  // NEW BEHAVIOR: recordedPoints is always empty, no seed
+  // Simulate first watcher fix for seeded case (now in_progress)
+  const seededFirstFix = {
+    lat: -16.5,
+    lng: -68.1,
+    timestamp: Date.now(),
+    accuracy: 8,
+    altitude: 3640,
+  };
+  const seededPlan = resolvePointPersistence(seededLive, seededFirstFix);
+  if (seededPlan.action === "insert") {
     insertTrackPoint(
       seededDb,
       seededLive.id,
-      i + 1,
+      1,
       toNew({
-        ...pt,
-        timestamp: pt.timestamp ?? 1,
+        ...seededFirstFix,
+        timestamp: seededFirstFix.timestamp ?? 1,
         accuracy: 8,
       }),
     );
-  });
+  }
   const seedlessDb = createMemoryDb();
   const seedlessLive = StartFreeRecordingUseCase({
     position: {
@@ -356,9 +385,9 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     }),
   );
   recordTest(
-    "SQLite consistente: con semilla arranca en seq 1; sin semilla el primer fix es seq 1",
-    getMaxSeq(seededDb, seededLive.id) === seededLive.recordedPoints.length &&
-      seededLive.recordedPoints.length === 1 &&
+    "SQLite consistente: sin semilla, primer fix es seq 1 en ambos casos",
+    getMaxSeq(seededDb, seededLive.id) === 1 &&
+      seededLive.recordedPoints.length === 0 &&
       getMaxSeq(seedlessDb, seedlessLive.id) === 1 &&
       seedlessLive.recordedPoints.length === 0,
     `seedMax=${getMaxSeq(seededDb, seededLive.id)} seedlessMax=${getMaxSeq(seedlessDb, seedlessLive.id)}`,

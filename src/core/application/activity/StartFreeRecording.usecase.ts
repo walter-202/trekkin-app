@@ -116,7 +116,7 @@ export function StartFreeRecordingUseCase(
         },
       ]
     : [];
-  const recordedPoints: LiveActivity["recordedPoints"] = seeded;
+  const recordedPoints: LiveActivity["recordedPoints"] = [];
 
   return {
     id: makeActivityId(),

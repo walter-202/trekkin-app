@@ -164,7 +164,7 @@ async function runActivityHu8Tests(): Promise<TestResult[]> {
     freeReady.phase === "ready" &&
       freeReady.origin === "free" &&
       freeReady.route.distanceKm === 0 &&
-      freeReady.recordedPoints.length === 1,
+      freeReady.recordedPoints.length === 0,
     `phase=${freeReady.phase} origin=${freeReady.origin}`,
   );
 
@@ -211,10 +211,10 @@ async function runActivityHu8Tests(): Promise<TestResult[]> {
   const freeGpx = ExportTrackFileUseCase(freeFinished.saved);
   const freeTrkpts = (freeGpx.content.match(/<trkpt/g) ?? []).length;
   recordTest(
-    "Flujo libre acumula 10 puntos y exporta GPX 1.1 multipunto",
+    "Flujo libre acumula 9 puntos y exporta GPX 1.1 multipunto",
     freeFinished.saved.status === "completed" &&
-      freeFinished.saved.recordedPoints.length === 10 &&
-      freeTrkpts === 10,
+      freeFinished.saved.recordedPoints.length === 9 &&
+      freeTrkpts === 9,
     `status=${freeFinished.saved.status} pts=${freeFinished.saved.recordedPoints.length} trkpts=${freeTrkpts}`,
   );
 
@@ -297,16 +297,14 @@ async function runActivityHu8Tests(): Promise<TestResult[]> {
     userId: "user-123",
     userName: "Tester",
   });
-  const seedPt = goodSeed.recordedPoints[0] as {
-    timestamp?: number;
-    accuracy?: number;
-  };
   recordTest(
-    "Fix válido → semilla con timestamp real y accuracy conservada",
-    goodSeed.recordedPoints.length === 1 &&
-      seedPt.timestamp === nowSeed &&
-      seedPt.accuracy === 8,
-    `ts=${seedPt.timestamp} acc=${seedPt.accuracy}`,
+    "Fix válido → recordedPoints vacío, route.startPoint/endPoint conservan posición inicial",
+    goodSeed.recordedPoints.length === 0 &&
+      goodSeed.route.startPoint.lat === -16.5 &&
+      goodSeed.route.startPoint.lng === -68.1 &&
+      goodSeed.route.endPoint.lat === -16.5 &&
+      goodSeed.route.endPoint.lng === -68.1,
+    `pts=${goodSeed.recordedPoints.length} start=(${goodSeed.route.startPoint.lat},${goodSeed.route.startPoint.lng}) end=(${goodSeed.route.endPoint.lat},${goodSeed.route.endPoint.lng})`,
   );
 
   const badAcc = StartFreeRecordingUseCase({
