@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
-import { Compass, Search } from "lucide-react-native";
+import { Search } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import type { RouteModel, RouteDifficulty } from "../../../core/domain/types";
 import {
@@ -18,7 +18,7 @@ import {
 import { SearchRoutesUseCase } from "../../../core/application/explore/SearchRoutes.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
 import { AndeanTheme } from "../../theme";
-import { Banner } from "../../components/ui";
+import { Banner, Button } from "../../components/ui";
 import { RouteCard } from "./RouteCard";
 import { RouteDetailView } from "./RouteDetailView";
 
@@ -41,6 +41,7 @@ const CATALOG_PAGE_SIZE = 20;
  * Guest libre: catálogo y detalle visibles sin sesión;
  * GPS/offline exigen `isAuthenticated` / `hasRole(['admin'])`.
  * Sin `firebase/*` aquí: solo usecases + `routeService` como puerto.
+ * Capas duales (DESIGN_RULES): shell oscuro + hoja blanca con controles y lista.
  */
 export const ExploreView: React.FC<ExploreViewProps> = ({
   onBack,
@@ -163,110 +164,131 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <View style={styles.badgeDot} />
-          <Text style={styles.badgeText}>CATÁLOGO</Text>
-        </View>
-        {onBack ? (
-          <Pressable onPress={onBack} accessibilityLabel="Volver al inicio">
-            <Text style={styles.link}>Inicio</Text>
-          </Pressable>
-        ) : null}
-      </View>
-      <Text style={styles.title}>Catálogo de rutas públicas</Text>
-      <Text style={styles.session}>Sesión: {sessionLabel}</Text>
-      {loadError ?? filterError ? <Banner tone="error" message={loadError ?? filterError ?? ""} /> : null}
-
-      <View style={styles.searchRow}>
-        <Search size={14} color={AndeanTheme.colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          value={texto}
-          onChangeText={setTexto}
-          onSubmitEditing={onSearchSubmit}
-          placeholder="Buscar por nombre, región, inicio…"
-          placeholderTextColor={AndeanTheme.colors.textMuted}
-          returnKeyType="search"
-          accessibilityLabel="Buscar rutas"
-        />
-      </View>
-
-      <View style={styles.chips}>
-        {DIFFICULTY_FILTERS.map((d) => (
-          <Pressable
-            key={d}
-            onPress={() => setDificultad(d)}
-            style={[styles.chip, dificultad === d && styles.chipActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`Filtrar por ${d}`}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                dificultad === d && styles.chipTextActive,
-              ]}
+    <View style={styles.screen}>
+      {/* Shell oscuro: badge de sección + título */}
+      <View style={styles.darkZone}>
+        <View style={styles.topBar}>
+          <View style={styles.badge}>
+            <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>CATÁLOGO</Text>
+          </View>
+          {onBack ? (
+            <Pressable
+              onPress={onBack}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Volver al inicio"
             >
-              {d === "todas" ? "Todas" : d}
-            </Text>
-          </Pressable>
-        ))}
+              <Text style={styles.link}>Inicio</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.title}>Catálogo de rutas públicas</Text>
+          <Text style={styles.session}>Sesión: {sessionLabel}</Text>
+        </View>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-          <Text style={styles.muted}>Cargando rutas publicadas…</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredRoutes}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <Text style={styles.muted}>
-              Sin rutas que coincidan con los criterios.
-            </Text>
-          }
-          renderItem={({ item }) => (
-            <RouteCard route={item} onPress={() => setSelectedId(item.id)} />
-          )}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.4}
-          ListFooterComponent={
-            loadingMore ? (
-              <View style={styles.loadMore}>
-                <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-                <Text style={styles.muted}>Cargando más rutas…</Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
+      {/* Hoja blanca: buscador, filtros y lista */}
+      <View style={styles.sheet}>
+        <View style={styles.sheetControls}>
+          {loadError ?? filterError ? (
+            <Banner tone="error" message={loadError ?? filterError ?? ""} />
+          ) : null}
 
-      {!isAuthenticated ? (
-        <Pressable
-          onPress={exitGuest}
-          style={styles.authBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Iniciar sesión o crear cuenta"
-        >
-          <Text style={styles.authBtnText}>Iniciar sesión / Crear cuenta</Text>
-        </Pressable>
-      ) : null}
+          <View style={styles.searchRow}>
+            <Search size={16} color={AndeanTheme.colors.fieldIcon} />
+            <TextInput
+              style={styles.searchInput}
+              value={texto}
+              onChangeText={setTexto}
+              onSubmitEditing={onSearchSubmit}
+              placeholder="Buscar por nombre, región, inicio…"
+              placeholderTextColor={AndeanTheme.colors.fieldHint}
+              returnKeyType="search"
+              accessibilityLabel="Buscar rutas"
+            />
+          </View>
+
+          <View style={styles.chips}>
+            {DIFFICULTY_FILTERS.map((d) => (
+              <Pressable
+                key={d}
+                onPress={() => setDificultad(d)}
+                style={[styles.chip, dificultad === d && styles.chipActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Filtrar por ${d}`}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    dificultad === d && styles.chipTextActive,
+                  ]}
+                >
+                  {d === "todas" ? "Todas" : d}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
+            <Text style={styles.muted}>Cargando rutas publicadas…</Text>
+          </View>
+        ) : (
+          <FlatList
+            style={styles.list}
+            data={filteredRoutes}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <Text style={styles.muted}>
+                Sin rutas que coincidan con los criterios.
+              </Text>
+            }
+            renderItem={({ item }) => (
+              <RouteCard route={item} onPress={() => setSelectedId(item.id)} />
+            )}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={
+              <View style={styles.footer}>
+                {loadingMore ? (
+                  <View style={styles.loadMore}>
+                    <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
+                    <Text style={styles.muted}>Cargando más rutas…</Text>
+                  </View>
+                ) : null}
+                {!isAuthenticated ? (
+                  <Button
+                    title="Iniciar sesión / Crear cuenta"
+                    onPress={exitGuest}
+                    accessibilityLabel="Iniciar sesión o crear cuenta"
+                  />
+                ) : null}
+              </View>
+            }
+          />
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
     backgroundColor: AndeanTheme.colors.background,
-    padding: 16,
-    gap: 10,
   },
-  header: {
+  darkZone: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 28,
+    gap: 20,
+  },
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -276,12 +298,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
+    borderColor: "rgba(16, 185, 129, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
   },
   badgeDot: {
     width: 6,
@@ -292,66 +314,113 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 1,
-    color: AndeanTheme.colors.textSecondary,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: AndeanTheme.colors.primaryLight,
   },
   link: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.primaryLight,
     fontSize: 12,
     fontWeight: "800",
   },
-  title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
+  titleBlock: {
+    gap: 6,
+  },
+  title: {
+    color: AndeanTheme.colors.white,
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+  },
   session: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },
+  sheet: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+  },
+  sheetControls: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    gap: 12,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.card,
+    gap: 12,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 16,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  searchInput: { flex: 1, color: AndeanTheme.colors.text, fontSize: 13 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  searchInput: {
+    flex: 1,
+    color: AndeanTheme.colors.ink,
+    fontSize: 15,
+    padding: 0,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   chip: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
   chipActive: {
-    backgroundColor: AndeanTheme.colors.cardElevated,
-    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: AndeanTheme.colors.successBg,
+    borderColor: AndeanTheme.colors.successBorder,
   },
   chipText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
     fontWeight: "700",
+    textTransform: "capitalize",
   },
-  chipTextActive: { color: AndeanTheme.colors.text },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  list: { gap: 10, paddingBottom: 16 },
-  loadMore: { alignItems: "center", gap: 6, paddingVertical: 12 },
-  authBtn: {
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    backgroundColor: AndeanTheme.colors.card,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  authBtnText: {
-    color: AndeanTheme.colors.text,
-    fontSize: 12,
+  chipTextActive: {
+    color: AndeanTheme.colors.primaryDark,
     fontWeight: "800",
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 24,
+  },
+  muted: {
+    color: AndeanTheme.colors.fieldHint,
+    fontSize: 12,
+  },
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+    gap: 10,
+    flexGrow: 1,
+  },
+  footer: {
+    gap: 16,
+    paddingTop: 8,
+  },
+  loadMore: {
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 12,
   },
 });

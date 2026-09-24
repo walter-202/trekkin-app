@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { AndeanTheme } from '../../theme';
+import { ScreenShell, sheetStyles } from '../../components/layout';
 
 /**
  * Plantilla oficial para crear una vista nueva de cualquier HU (HU-03…HU-10).
@@ -17,29 +18,66 @@ import { AndeanTheme } from '../../theme';
  * 9. Registra la vista en `src/App.tsx` y documenta la HU en `docs/USER_STORIES.md`.
  *
  * Reglas de diseño: ver `docs/DESIGN_RULES.md` y `AndeanTheme` en `src/presentation/theme.ts`.
+ * Capas duales (DESIGN_RULES): cabecera en shell oscuro (`ScreenShell` header) +
+ * contenido en la hoja blanca (CTAs simples → `Button` variant "primary" de `components/ui`).
  */
 export const ModuleTemplateView: React.FC<{ title?: string }> = ({
   title = 'Nuevo módulo (plantilla)',
 }) => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.body}>
+    <ScreenShell
+      body="scroll"
+      header={
+        <View style={styles.headerBlock}>
+          <View style={styles.badge}>
+            <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>Plantilla</Text>
+          </View>
+          <Text style={styles.title}>{title}</Text>
+        </View>
+      }
+    >
+      <Text style={sheetStyles.inkSecondary}>
         Reemplaza este archivo siguiendo los 9 pasos del encabezado. No agregues lógica de
         Firebase directamente en la vista.
       </Text>
-    </View>
+    </ScreenShell>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: AndeanTheme.colors.background,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerBlock: {
+    gap: 20,
   },
-  title: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: '800', marginBottom: 8 },
-  body: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: 'center', maxWidth: 300 },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: AndeanTheme.borderRadius.full,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: AndeanTheme.colors.primaryLight,
+  },
+  title: {
+    color: AndeanTheme.colors.white,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
 });

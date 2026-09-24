@@ -11,6 +11,9 @@ export const AndeanTheme = {
     primaryDark: "#059669",
     amber: "#D97706",
     amberLight: "#F59E0B",
+    warningSoft: "#FDE68A",
+    errorSoft: "#FCA5A5",
+    difficultyHard: "#F97316",
     trackOrange: "#FB923C",
     accentWarning: "#F59E0B",
     accentInfo: "#3B82F6",
@@ -20,6 +23,7 @@ export const AndeanTheme = {
     textSecondary: "#9CA3AF",
     textMuted: "#6B7280",
     white: "#FFFFFF",
+    black: "#000000",
     overlay: "rgba(15, 20, 18, 0.85)",
     // Hoja clara Figma (auth/perfil): única fuente para light sheets.
     sheet: "#FFFFFF",

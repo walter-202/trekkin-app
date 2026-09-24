@@ -12,6 +12,7 @@ const roleLabel: Record<UserProfile["role"], string> = {
 /**
  * HU-10 C2 — Tarjeta resumen de un usuario (nombre, @alias, correo, rol y estado).
  * Colocalizada en `views/profile/` (un solo uso); sin lógica de negocio.
+ * Hoja clara: fondo sheet, bordes fieldBorder, pills de estado.
  */
 export const UserCard: React.FC<{
   user: UserProfile;
@@ -28,7 +29,7 @@ export const UserCard: React.FC<{
       accessibilityLabel={`Ver detalle de ${user.displayName}`}
     >
       <View style={styles.avatar}>
-        <User size={16} color={AndeanTheme.colors.textSecondary} />
+        <User size={16} color={AndeanTheme.colors.fieldIcon} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
@@ -60,9 +61,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.lg,
     padding: AndeanTheme.spacing.md,
   },
@@ -71,49 +72,49 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: AndeanTheme.borderRadius.full,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     alignItems: "center",
     justifyContent: "center",
   },
   body: { flex: 1 },
-  name: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: "800" },
-  handle: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
-  email: { color: AndeanTheme.colors.textMuted, fontSize: 10 },
+  name: { color: AndeanTheme.colors.ink, fontSize: 14, fontWeight: "800" },
+  handle: { color: AndeanTheme.colors.inkSecondary, fontSize: 11 },
+  email: { color: AndeanTheme.colors.fieldHint, fontSize: 10 },
   tags: { alignItems: "flex-end", gap: 6 },
   roleBadge: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   roleText: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.amber,
     fontSize: 10,
     fontWeight: "800",
   },
   statePill: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderColor: AndeanTheme.colors.successBorder,
+    backgroundColor: AndeanTheme.colors.successBg,
     borderRadius: AndeanTheme.borderRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   statePillBlocked: {
-    borderColor: "rgba(239,68,68,0.4)",
-    backgroundColor: "rgba(239,68,68,0.15)",
+    borderColor: AndeanTheme.colors.errorBorder,
+    backgroundColor: AndeanTheme.colors.errorBg,
   },
   stateText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.successText,
     fontSize: 10,
     fontWeight: "800",
   },
   stateTextBlocked: {
-    color: AndeanTheme.colors.danger,
+    color: AndeanTheme.colors.errorText,
     fontSize: 10,
     fontWeight: "800",
   },

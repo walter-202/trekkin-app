@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { ShieldCheck, Lock, LockOpen, ArrowLeft } from "lucide-react-native";
 import type {
@@ -22,6 +21,7 @@ import { accountLogService } from "../../../infrastructure/database/accountLogSe
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
+import { ScreenShell, sheetStyles } from "../../components/layout";
 import { ConfirmActionModal } from "./ConfirmActionModal";
 
 interface UserDetailViewProps {
@@ -49,6 +49,7 @@ const successMessageFor = (action: PendingAction, name: string): string => {
  * HU-10 C3-C10/T2 + T3 + T4 + T5 — Detalle de usuario con acciones
  * Bloquear / Desbloquear / Asignar rol, todas con confirmación previa.
  * Solo alcanzable por admin (Gate + hasRole(['admin'])).
+ * Capas duales: identidad en shell oscuro, datos/acciones en hoja blanca.
  */
 export const UserDetailView: React.FC<UserDetailViewProps> = ({
   userId,
@@ -143,8 +144,8 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-        <Text style={styles.muted}>Cargando información del usuario…</Text>
+        <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
+        <Text style={sheetStyles.muted}>Cargando información del usuario…</Text>
       </View>
     );
   }
@@ -157,6 +158,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
           onPress={onBack}
           style={styles.backBtn}
           accessibilityRole="button"
+          accessibilityLabel="Volver a la lista de usuarios"
         >
           <Text style={styles.backBtnText}>Volver a la lista</Text>
         </Pressable>
@@ -167,39 +169,44 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
   const handle = user.username ?? user.email.split("@")[0];
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
+    <ScreenShell
+      header={
+        <>
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={onBack}
+              hitSlop={8}
+              style={styles.link}
+              accessibilityRole="button"
+              accessibilityLabel="Volver a la lista de usuarios"
+            >
+              <ArrowLeft size={16} color={AndeanTheme.colors.primaryLight} />
+              <Text style={styles.linkText}>Usuarios</Text>
+            </Pressable>
+            <View style={styles.badge}>
+              <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
+              <Text style={styles.badgeText}>ADMINISTRACIÓN</Text>
+            </View>
+          </View>
+          <View style={styles.identity}>
+            <Text style={styles.title}>{user.displayName}</Text>
+            <Text style={styles.handle}>@{handle}</Text>
+          </View>
+        </>
+      }
     >
-      <View style={styles.header}>
-        <Pressable
-          onPress={onBack}
-          style={styles.link}
-          accessibilityRole="button"
-          accessibilityLabel="Volver a la lista de usuarios"
-        >
-          <ArrowLeft size={16} color={AndeanTheme.colors.text} />
-          <Text style={styles.linkText}>Usuarios</Text>
-        </Pressable>
-        <View style={styles.badge}>
-          <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
-          <Text style={styles.badgeText}>ADMINISTRACIÓN</Text>
-        </View>
-      </View>
-
       {error ? <Banner tone="error" message={error} /> : null}
       {success ? <Banner tone="success" message={success} /> : null}
 
-      <Text style={styles.title}>{user.displayName}</Text>
-      <Text style={styles.handle}>@{handle}</Text>
-
-      <View style={styles.card}>
-        <Text style={styles.microLabel}>INFORMACIÓN DE LA CUENTA</Text>
+      <Text style={sheetStyles.sectionTitle}>Información de la cuenta</Text>
+      <View style={sheetStyles.card}>
         <InfoRow label="Correo electrónico" value={user.email} />
+        <View style={sheetStyles.divider} />
         <InfoRow
           label="Rol actual"
           value={user.role === "admin" ? "Administrador" : "Usuario"}
         />
+        <View style={sheetStyles.divider} />
         <InfoRow
           label="Estado de la cuenta"
           value={user.isBlocked ? "Bloqueada" : "Activa"}
@@ -215,7 +222,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
         </View>
       ) : (
         <>
-          <Text style={styles.microLabel}>ASIGNAR ROL</Text>
+          <Text style={sheetStyles.sectionTitle}>Asignar rol</Text>
           <View style={styles.chips}>
             {ROLE_OPTIONS.map((opt) => {
               const active = user.role === opt.role;
@@ -239,28 +246,30 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
             })}
           </View>
 
-          <Pressable
-            onPress={() =>
-              setConfirm({ type: user.isBlocked ? "unblock" : "block" })
-            }
-            style={[
-              styles.actionBtn,
-              user.isBlocked ? styles.unblockBtn : styles.blockBtn,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={
-              user.isBlocked ? "Desbloquear cuenta" : "Bloquear cuenta"
-            }
-          >
-            {user.isBlocked ? (
-              <LockOpen size={16} color={AndeanTheme.colors.white} />
-            ) : (
-              <Lock size={16} color={AndeanTheme.colors.white} />
-            )}
-            <Text style={styles.actionBtnText}>
-              {user.isBlocked ? "Desbloquear cuenta" : "Bloquear cuenta"}
-            </Text>
-          </Pressable>
+          <View style={sheetStyles.actions}>
+            <Pressable
+              onPress={() =>
+                setConfirm({ type: user.isBlocked ? "unblock" : "block" })
+              }
+              style={[
+                styles.actionBtn,
+                user.isBlocked ? styles.unblockBtn : styles.blockBtn,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                user.isBlocked ? "Desbloquear cuenta" : "Bloquear cuenta"
+              }
+            >
+              {user.isBlocked ? (
+                <LockOpen size={16} color={AndeanTheme.colors.white} />
+              ) : (
+                <Lock size={16} color={AndeanTheme.colors.white} />
+              )}
+              <Text style={styles.actionBtnText}>
+                {user.isBlocked ? "Desbloquear cuenta" : "Bloquear cuenta"}
+              </Text>
+            </Pressable>
+          </View>
         </>
       )}
 
@@ -282,7 +291,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({
           if (!acting) setConfirm(null);
         }}
       />
-    </ScrollView>
+    </ScreenShell>
   );
 };
 
@@ -299,17 +308,23 @@ const InfoRow: React.FC<{ label: string; value: string }> = ({
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
-  scrollContent: { padding: 16, gap: 10, paddingBottom: 32 },
-  header: {
+  center: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 16,
+  },
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 24,
   },
   link: { flexDirection: "row", alignItems: "center", gap: 6 },
   linkText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.primaryLight,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -320,65 +335,64 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
     borderColor: "rgba(245, 158, 11, 0.3)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: AndeanTheme.borderRadius.full,
   },
   badgeText: {
     color: AndeanTheme.colors.amberLight,
     fontSize: 10,
     fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
-  title: { color: AndeanTheme.colors.text, fontSize: 22, fontWeight: "900" },
+  identity: { gap: 4 },
+  title: {
+    color: AndeanTheme.colors.white,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
   handle: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 13,
-    marginBottom: 4,
+    fontWeight: "700",
   },
-  card: {
-    backgroundColor: AndeanTheme.colors.card,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: AndeanTheme.borderRadius.lg,
-    padding: 16,
-    gap: 10,
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  microLabel: {
-    color: AndeanTheme.colors.textMuted,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-    textTransform: "uppercase",
-    marginTop: 6,
-  },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
-  infoLabel: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  infoLabel: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   infoValue: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 12,
     fontWeight: "700",
     flexShrink: 1,
+    textAlign: "right",
   },
   chips: { flexDirection: "row", gap: 8 },
   chip: {
     flex: 1,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 12,
     alignItems: "center",
   },
   chipActive: {
-    backgroundColor: AndeanTheme.colors.cardElevated,
-    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: AndeanTheme.colors.successBg,
+    borderColor: AndeanTheme.colors.successBorder,
   },
   chipText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
-  chipTextActive: { color: AndeanTheme.colors.text },
+  chipTextActive: { color: AndeanTheme.colors.primaryDark },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -395,36 +409,27 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   selfNote: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.md,
     padding: 14,
   },
   selfNoteText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
-  center: {
-    flex: 1,
-    backgroundColor: AndeanTheme.colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 16,
-  },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   backBtn: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    backgroundColor: AndeanTheme.colors.card,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 12,
     paddingHorizontal: 20,
   },
   backBtnText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 12,
     fontWeight: "800",
   },

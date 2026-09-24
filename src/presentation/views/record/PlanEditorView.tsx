@@ -6,10 +6,10 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
 import { Save, CheckCircle2, ChevronRight, Pin } from 'lucide-react-native';
 import { PlanPointPicker } from '../../components/plan/PlanPointPicker';
+import { Button } from '../../components/ui';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import type { RouteDifficulty } from '../../../core/domain/types';
@@ -24,9 +24,9 @@ interface PlanEditorViewProps {
 }
 
 const DIFFICULTIES: { value: RouteDifficulty; label: string; color: string }[] = [
-  { value: 'facil', label: 'Fácil', color: AndeanTheme.colors.primaryLight },
-  { value: 'moderado', label: 'Moderado', color: AndeanTheme.colors.accentWarning },
-  { value: 'dificil', label: 'Difícil', color: '#F97316' },
+  { value: 'facil', label: 'Fácil', color: AndeanTheme.colors.primaryDark },
+  { value: 'moderado', label: 'Moderado', color: AndeanTheme.colors.amber },
+  { value: 'dificil', label: 'Difícil', color: AndeanTheme.colors.difficultyHard },
   { value: 'experto', label: 'Experto', color: AndeanTheme.colors.danger },
 ];
 
@@ -63,27 +63,24 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.fieldGroup}>
-        <Text style={styles.microLabel}>NOMBRE PROVISIONAL DE LA RUTA</Text>
+        <Text style={styles.label}>NOMBRE PROVISIONAL DE LA RUTA</Text>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
           placeholder="Ej. Circo del Valle de la Luna"
-          placeholderTextColor={AndeanTheme.colors.textMuted}
+          placeholderTextColor={AndeanTheme.colors.fieldHint}
         />
       </View>
 
       <View style={styles.fieldGroup}>
-        <Text style={styles.microLabel}>DIFICULTAD ESTIMADA</Text>
+        <Text style={styles.label}>DIFICULTAD ESTIMADA</Text>
         <View style={styles.chips}>
           {DIFFICULTIES.map((d) => (
             <Pressable
               key={d.value}
               onPress={() => setDifficulty(d.value)}
-              style={[
-                styles.chip,
-                difficulty === d.value && { borderColor: d.color, backgroundColor: AndeanTheme.colors.cardElevated },
-              ]}
+              style={[styles.chip, difficulty === d.value && styles.chipActive]}
             >
               <Text style={[styles.chipText, difficulty === d.value && { color: d.color }]}>
                 {d.label}
@@ -93,11 +90,11 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
         </View>
       </View>
 
-      <Text style={styles.microLabel}>PUNTOS DE LA RUTA</Text>
+      <Text style={styles.sectionTitle}>PUNTOS DE LA RUTA</Text>
       <PlanPointPicker start={start} end={end} onStartChange={setStart} onEndChange={setEnd} height={260} />
 
       <View style={styles.confirmBadge}>
-        <Pin size={14} color={plan?.startPointConfirmed ? AndeanTheme.colors.primary : AndeanTheme.colors.textSecondary} />
+        <Pin size={14} color={plan?.startPointConfirmed ? AndeanTheme.colors.primaryDark : AndeanTheme.colors.fieldIcon} />
         <Text style={[styles.confirmText, plan?.startPointConfirmed && styles.confirmTextOn]}>
           {plan?.startPointConfirmed
             ? 'Punto inicial real confirmado'
@@ -108,38 +105,25 @@ export const PlanEditorView: React.FC<PlanEditorViewProps> = ({ onContinue }) =>
       {localError && <Text style={styles.error}>{localError}</Text>}
       {savedOk && (
         <View style={styles.successBanner}>
-          <CheckCircle2 size={14} color={AndeanTheme.colors.primary} />
+          <CheckCircle2 size={14} color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.successText}>Cambios guardados correctamente.</Text>
         </View>
       )}
 
-      <Pressable
+      <Button
+        title="GUARDAR CAMBIOS"
         onPress={handleSave}
-        disabled={saving}
-        style={({ pressed }) => [styles.saveBtn, pressed && styles.pressed]}
-      >
-        {saving ? (
-          <ActivityIndicator color="#064E3B" size="small" />
-        ) : (
-          <>
-            <Save size={15} color="#064E3B" />
-            <Text style={styles.saveBtnText}>GUARDAR CAMBIOS</Text>
-          </>
-        )}
-      </Pressable>
+        loading={saving}
+        icon={<Save size={15} color={AndeanTheme.colors.white} />}
+      />
 
-      <Pressable
+      <Button
+        title="CONTINUAR: CONFIRMAR PUNTO DE INICIO"
+        variant="outline-green"
         onPress={onContinue}
         disabled={!canContinue}
-        style={({ pressed }) => [
-          styles.continueBtn,
-          pressed && styles.pressed,
-          !canContinue && styles.continueBtnDisabled,
-        ]}
-      >
-        <Text style={styles.continueBtnText}>CONTINUAR: CONFIRMAR PUNTO DE INICIO</Text>
-        <ChevronRight size={15} color={AndeanTheme.colors.text} />
-      </Pressable>
+        icon={<ChevronRight size={15} color={AndeanTheme.colors.primaryDark} />}
+      />
     </ScrollView>
   );
 };
@@ -148,79 +132,70 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   fieldGroup: { marginBottom: 2 },
-  microLabel: {
-    fontSize: 10,
+  label: {
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: AndeanTheme.colors.textMuted,
+    textTransform: 'uppercase',
+    color: AndeanTheme.colors.fieldLabel,
     marginBottom: 6,
+    paddingLeft: 4,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: AndeanTheme.colors.fieldHint,
+    marginBottom: 6,
+    paddingLeft: 4,
   },
   input: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 13,
   },
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  chipText: { fontSize: 11, fontWeight: '700', color: AndeanTheme.colors.textSecondary },
+  chipActive: {
+    backgroundColor: AndeanTheme.colors.successBg,
+    borderColor: AndeanTheme.colors.successBorder,
+  },
+  chipText: { fontSize: 11, fontWeight: '700', color: AndeanTheme.colors.inkSecondary },
   confirmBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 10,
   },
-  confirmText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: '700' },
-  confirmTextOn: { color: AndeanTheme.colors.text },
-  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
+  confirmText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: '700' },
+  confirmTextOn: { color: AndeanTheme.colors.ink },
+  error: { color: AndeanTheme.colors.errorText, fontSize: 11 },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    backgroundColor: AndeanTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.successBorder,
     borderRadius: 12,
     padding: 10,
   },
-  successText: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
-  continueBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.cardElevated,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  continueBtnDisabled: { opacity: 0.4 },
-  continueBtnText: { fontSize: 12, fontWeight: '800', color: AndeanTheme.colors.text },
-  pressed: { opacity: 0.8 },
+  successText: { color: AndeanTheme.colors.successText, fontSize: 11 },
 });

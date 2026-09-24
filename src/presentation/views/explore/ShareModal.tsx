@@ -108,7 +108,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
               accessibilityLabel="Cerrar menú de compartir"
               hitSlop={8}
             >
-              <X size={18} color={AndeanTheme.colors.textSecondary} />
+              <X size={18} color={AndeanTheme.colors.inkSecondary} />
             </Pressable>
           </View>
 
@@ -130,7 +130,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
               ) : null}
 
               <View style={styles.linkBox}>
-                <Link2 size={14} color={AndeanTheme.colors.primaryLight} />
+                <Link2 size={14} color={AndeanTheme.colors.primaryDark} />
                 <Text style={styles.linkText} numberOfLines={2}>
                   {payload.url}
                 </Text>
@@ -150,13 +150,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
                   <>
                     <CheckCircle2
                       size={16}
-                      color={AndeanTheme.colors.primaryLight}
+                      color={AndeanTheme.colors.primaryDark}
                     />
                     <Text style={styles.actionBtnTextOn}>Enlace copiado</Text>
                   </>
                 ) : (
                   <>
-                    <Copy size={16} color={AndeanTheme.colors.text} />
+                    <Copy size={16} color={AndeanTheme.colors.ink} />
                     <Text style={styles.actionBtnText}>Copiar enlace</Text>
                   </>
                 )}
@@ -173,14 +173,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
                   accessibilityRole="button"
                   accessibilityLabel="Compartir mediante el dispositivo"
                 >
-                  <ShareIcon size={16} color="#FFFFFF" />
+                  <ShareIcon size={16} color={AndeanTheme.colors.white} />
                   <Text style={styles.actionBtnPrimaryText}>Compartir…</Text>
                 </Pressable>
               ) : null}
 
               {shared ? (
                 <View style={styles.successBlock}>
-                  <CheckCircle2 size={16} color={AndeanTheme.colors.primary} />
+                  <CheckCircle2 size={16} color={AndeanTheme.colors.primaryDark} />
                   <Text style={styles.successText}>
                     Ruta compartida exitosamente.
                   </Text>
@@ -207,11 +207,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderTopLeftRadius: AndeanTheme.borderRadius.xl,
     borderTopRightRadius: AndeanTheme.borderRadius.xl,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     padding: AndeanTheme.spacing.lg,
     gap: AndeanTheme.spacing.sm,
   },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 16,
     fontWeight: "900",
     letterSpacing: 0.3,
@@ -232,22 +232,23 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
   center: {
     alignItems: "center",
     gap: 8,
     paddingVertical: 24,
   },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  muted: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   routeTitle: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 14,
     fontWeight: "800",
   },
   routeRegion: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
@@ -256,16 +257,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.md,
     paddingHorizontal: AndeanTheme.spacing.sm,
     paddingVertical: 10,
   },
   linkText: {
     flex: 1,
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 12,
   },
   actionBtn: {
@@ -273,32 +274,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.md,
     paddingVertical: 13,
     minHeight: 48,
   },
   actionBtnOn: {
-    borderColor: AndeanTheme.colors.primary,
+    borderColor: AndeanTheme.colors.primaryDark,
   },
   actionBtnPrimary: {
-    backgroundColor: AndeanTheme.colors.primaryDark,
+    backgroundColor: AndeanTheme.colors.cta,
   },
   pressed: { opacity: 0.8 },
   actionBtnText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 13,
     fontWeight: "800",
   },
   actionBtnTextOn: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 13,
     fontWeight: "800",
   },
   actionBtnPrimaryText: {
-    color: "#FFFFFF",
+    color: AndeanTheme.colors.white,
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -307,15 +308,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
+    backgroundColor: AndeanTheme.colors.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.4)",
+    borderColor: AndeanTheme.colors.errorBorder,
     borderRadius: AndeanTheme.borderRadius.md,
     padding: 10,
   },
   errorText: {
     flex: 1,
-    color: "#FCA5A5",
+    color: AndeanTheme.colors.errorText,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -323,20 +324,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: AndeanTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.successBorder,
     borderRadius: AndeanTheme.borderRadius.md,
     padding: 10,
   },
   successText: {
     flex: 1,
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.successText,
     fontSize: 12,
     fontWeight: "700",
   },
   footnote: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     textAlign: "center",
   },

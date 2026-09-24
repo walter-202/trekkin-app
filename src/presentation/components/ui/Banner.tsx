@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { AlertCircle, CheckCircle2 } from "lucide-react-native";
+import { AndeanTheme } from "../../theme";
 
 /**
  * Banner de estado (hoja clara): error rosado / éxito esmeralda.
@@ -19,9 +20,9 @@ export const Banner: React.FC<BannerProps> = ({ tone, message }) => {
       accessibilityRole="alert"
     >
       {isError ? (
-        <AlertCircle size={16} color="#e11d48" />
+        <AlertCircle size={16} color={AndeanTheme.colors.danger} />
       ) : (
-        <CheckCircle2 size={16} color="#059669" />
+        <CheckCircle2 size={16} color={AndeanTheme.colors.primaryDark} />
       )}
       <Text
         style={[styles.text, isError ? styles.errorText : styles.successText]}
@@ -44,12 +45,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   error: {
-    backgroundColor: "#fff1f2",
-    borderColor: "#fecdd3",
+    backgroundColor: AndeanTheme.colors.errorBg,
+    borderColor: AndeanTheme.colors.errorBorder,
   },
   success: {
-    backgroundColor: "#ecfdf5",
-    borderColor: "#a7f3d0",
+    backgroundColor: AndeanTheme.colors.successBg,
+    borderColor: AndeanTheme.colors.successBorder,
   },
   text: {
     fontSize: 13,
@@ -57,11 +58,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   errorText: {
-    color: "#be123c",
+    color: AndeanTheme.colors.errorText,
     fontWeight: "500",
   },
   successText: {
-    color: "#047857",
+    color: AndeanTheme.colors.successText,
     fontWeight: "600",
   },
 });

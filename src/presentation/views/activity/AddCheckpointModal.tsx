@@ -105,7 +105,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
             value={name}
             onChangeText={setName}
             placeholder="Vertiente, mirador…"
-            placeholderTextColor={AndeanTheme.colors.textMuted}
+            placeholderTextColor={AndeanTheme.colors.fieldHint}
             style={styles.input}
             maxLength={100}
             accessibilityLabel="Nombre de la parada"
@@ -136,7 +136,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
             value={notes}
             onChangeText={setNotes}
             placeholder="Agua filtrable, viento fuerte…"
-            placeholderTextColor={AndeanTheme.colors.textMuted}
+            placeholderTextColor={AndeanTheme.colors.fieldHint}
             style={[styles.input, styles.notes]}
             maxLength={1000}
             multiline
@@ -181,63 +181,63 @@ const styles = StyleSheet.create({
   },
   card: {
     maxHeight: "90%",
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 20,
   },
   cardContent: { padding: 20, gap: 8 },
-  title: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
-  hint: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17, marginBottom: 4 },
+  title: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
+  hint: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17, marginBottom: 4 },
   label: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldLabel,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
     marginTop: 6,
   },
   input: {
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 13,
   },
   notes: { minHeight: 72, textAlignVertical: "top" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  chipActive: { borderColor: AndeanTheme.colors.primary, backgroundColor: "rgba(16, 185, 129, 0.15)" },
-  chipText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: "700" },
-  chipTextActive: { color: AndeanTheme.colors.text },
-  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
+  chipActive: { borderColor: AndeanTheme.colors.successBorder, backgroundColor: AndeanTheme.colors.successBg },
+  chipText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "700" },
+  chipTextActive: { color: AndeanTheme.colors.primaryDark },
+  error: { color: AndeanTheme.colors.errorText, fontSize: 11 },
   actions: { flexDirection: "row", gap: 10, marginTop: 10 },
   cancelBtn: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 12,
   },
-  cancelText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: "800" },
+  cancelText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "800" },
   saveBtn: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: AndeanTheme.colors.primary,
+    backgroundColor: AndeanTheme.colors.cta,
     borderRadius: 14,
     paddingVertical: 12,
   },
   saveDisabled: { opacity: 0.4 },
-  saveText: { color: "#064E3B", fontSize: 11, fontWeight: "800" },
+  saveText: { color: AndeanTheme.colors.white, fontSize: 11, fontWeight: "800" },
 });

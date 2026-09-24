@@ -43,7 +43,7 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
           onPress={() => setActiveTab('start')}
           style={[styles.tab, activeTab === 'start' && styles.tabActive]}
         >
-          <MapPin size={14} color={activeTab === 'start' ? AndeanTheme.colors.primary : AndeanTheme.colors.textSecondary} />
+          <MapPin size={14} color={activeTab === 'start' ? AndeanTheme.colors.primaryDark : AndeanTheme.colors.inkSecondary} />
           <Text style={[styles.tabText, activeTab === 'start' && styles.tabTextActive]}>
             1. PUNTO INICIAL
           </Text>
@@ -52,7 +52,7 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
           onPress={() => setActiveTab('end')}
           style={[styles.tab, activeTab === 'end' && styles.tabActive]}
         >
-          <Flag size={14} color={activeTab === 'end' ? AndeanTheme.colors.accentWarning : AndeanTheme.colors.textSecondary} />
+          <Flag size={14} color={activeTab === 'end' ? AndeanTheme.colors.amber : AndeanTheme.colors.inkSecondary} />
           <Text style={[styles.tabText, activeTab === 'end' && styles.tabTextActive]}>
             2. DESTINO
           </Text>
@@ -68,14 +68,14 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
-          <MapPin size={14} color={AndeanTheme.colors.primary} />
+          <MapPin size={14} color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.statusLabel}>Punto inicial (provisional)</Text>
           <Text style={styles.statusValue}>
             {start ? `${start.lat.toFixed(5)}, ${start.lng.toFixed(5)}` : 'Toca el mapa para fijarlo'}
           </Text>
         </View>
         <View style={styles.statusRow}>
-          <Flag size={14} color={AndeanTheme.colors.accentWarning} />
+          <Flag size={14} color={AndeanTheme.colors.amber} />
           <Text style={styles.statusLabel}>Destino (provisional)</Text>
           <Text style={styles.statusValue}>
             {end ? `${end.lat.toFixed(5)}, ${end.lng.toFixed(5)}` : 'Toca el mapa para fijarlo'}
@@ -94,25 +94,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingVertical: 10,
   },
-  tabActive: { borderColor: AndeanTheme.colors.primary, backgroundColor: AndeanTheme.colors.cardElevated },
-  tabText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: AndeanTheme.colors.textSecondary },
-  tabTextActive: { color: AndeanTheme.colors.text },
+  tabActive: {
+    borderColor: AndeanTheme.colors.successBorder,
+    backgroundColor: AndeanTheme.colors.successBg,
+  },
+  tabText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: AndeanTheme.colors.inkSecondary },
+  tabTextActive: { color: AndeanTheme.colors.primaryDark },
   statusCard: {
     marginTop: 10,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusLabel: { fontSize: 11, color: AndeanTheme.colors.text, fontWeight: '700', flex: 1.2 },
-  statusValue: { fontSize: 11, color: AndeanTheme.colors.textSecondary, flex: 2, textAlign: 'right' },
+  statusLabel: { fontSize: 11, color: AndeanTheme.colors.ink, fontWeight: '700', flex: 1.2 },
+  statusValue: { fontSize: 11, color: AndeanTheme.colors.inkSecondary, flex: 2, textAlign: 'right' },
 });

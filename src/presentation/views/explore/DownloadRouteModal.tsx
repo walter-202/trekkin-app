@@ -143,7 +143,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
         <View style={styles.sheet}>
           <View style={styles.sheetHeader}>
             <View style={styles.sheetTitleRow}>
-              <Download size={16} color={AndeanTheme.colors.primaryLight} />
+              <Download size={16} color={AndeanTheme.colors.primaryDark} />
               <Text style={styles.sheetTitle}>Descargar ruta</Text>
             </View>
             <Pressable
@@ -152,7 +152,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               accessibilityLabel="Cerrar"
               accessibilityRole="button"
             >
-              <X size={18} color={AndeanTheme.colors.textSecondary} />
+              <X size={18} color={AndeanTheme.colors.inkSecondary} />
             </Pressable>
           </View>
 
@@ -171,21 +171,21 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               </View>
               {estimate ? <View style={styles.breakdown}>
                 <View style={styles.breakRow}>
-                  <MapPinned size={13} color={AndeanTheme.colors.primaryLight} />
+                  <MapPinned size={13} color={AndeanTheme.colors.primaryDark} />
                   <Text style={styles.breakLabel}>Paquete de mapa (PMTiles)</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.mapBytes)}
                   </Text>
                 </View>
                 <View style={styles.breakRow}>
-                  <Route size={13} color={AndeanTheme.colors.primaryLight} />
+                  <Route size={13} color={AndeanTheme.colors.primaryDark} />
                   <Text style={styles.breakLabel}>GPX y trazado</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.trailBytes)}
                   </Text>
                 </View>
                 <View style={styles.breakRow}>
-                  <Info size={13} color={AndeanTheme.colors.primaryLight} />
+                  <Info size={13} color={AndeanTheme.colors.primaryDark} />
                   <Text style={styles.breakLabel}>Manifiesto offline</Text>
                   <Text style={styles.breakValue}>
                     {formatBytes(estimate.infoBytes)}
@@ -199,7 +199,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar descarga de la ruta"
               >
-                <Download size={15} color="#FFFFFF" />
+                <Download size={15} color={AndeanTheme.colors.white} />
                 <Text style={styles.confirmText}>Confirmar descarga</Text>
               </Pressable>
               <Pressable
@@ -214,7 +214,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
 
           {flow === "downloading" ? (
             <View style={styles.progressBox}>
-              <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+              <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
               <Text style={styles.progressLabel}>{stageLabel}</Text>
               <Text style={styles.progressHint}>
                 Descargando mapa, GPX y manifiesto…
@@ -225,7 +225,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
           {flow === "done" && doneRecord ? (
             <>
               <View style={styles.doneBox}>
-                <CheckCircle2 size={28} color={AndeanTheme.colors.primaryLight} />
+                <CheckCircle2 size={28} color={AndeanTheme.colors.primaryDark} />
                 <Text style={styles.doneTitle}>¡Ruta descargada!</Text>
                 <Text style={styles.doneHint}>
                   Disponible sin conexión en Descargas ·{" "}
@@ -233,7 +233,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
                 </Text>
               </View>
               <View style={styles.doneMeta}>
-                <HardDrive size={12} color={AndeanTheme.colors.textMuted} />
+                <HardDrive size={12} color={AndeanTheme.colors.fieldIcon} />
                 <Text style={styles.doneMetaText}>
                   PMTiles + GPX + manifiesto guardados en el dispositivo.
                 </Text>
@@ -287,9 +287,9 @@ const styles = StyleSheet.create({
   sheet: {
     width: "100%",
     maxWidth: 420,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 20,
     padding: 18,
     gap: 12,
@@ -300,37 +300,37 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   sheetTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sheetTitle: { color: AndeanTheme.colors.text, fontSize: 15, fontWeight: "900" },
-  routeName: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  sheetTitle: { color: AndeanTheme.colors.ink, fontSize: 15, fontWeight: "900" },
+  routeName: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   section: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldLabel,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
   sizeBox: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 14,
     alignItems: "center",
     gap: 4,
   },
-  sizeTotal: { color: AndeanTheme.colors.primaryLight, fontSize: 24, fontWeight: "900" },
-  sizeHint: { color: AndeanTheme.colors.textSecondary, fontSize: 11, textAlign: "center" },
+  sizeTotal: { color: AndeanTheme.colors.primaryDark, fontSize: 24, fontWeight: "900" },
+  sizeHint: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, textAlign: "center" },
   breakdown: { gap: 6 },
   breakRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  breakLabel: { flex: 1, color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  breakValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "800" },
+  breakLabel: { flex: 1, color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
+  breakValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "800" },
   confirmBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -340,39 +340,40 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
   },
-  confirmText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  confirmText: { color: AndeanTheme.colors.white, fontSize: 13, fontWeight: "800" },
   cancelBtn: {
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
-  cancelText: { color: AndeanTheme.colors.textSecondary, fontSize: 12, fontWeight: "800" },
+  cancelText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, fontWeight: "800" },
   progressBox: { alignItems: "center", gap: 10, paddingVertical: 18 },
-  progressLabel: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: "800" },
-  progressHint: { color: AndeanTheme.colors.textMuted, fontSize: 11 },
+  progressLabel: { color: AndeanTheme.colors.ink, fontSize: 14, fontWeight: "800" },
+  progressHint: { color: AndeanTheme.colors.fieldHint, fontSize: 11 },
   doneBox: { alignItems: "center", gap: 8, paddingVertical: 10 },
-  doneTitle: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
-  doneHint: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: "center" },
+  doneTitle: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
+  doneHint: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, textAlign: "center" },
   doneMeta: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: 10,
     padding: 10,
   },
-  doneMetaText: { flex: 1, color: AndeanTheme.colors.textMuted, fontSize: 11 },
+  doneMetaText: { flex: 1, color: AndeanTheme.colors.fieldHint, fontSize: 11 },
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.errorBg,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.danger,
+    borderColor: AndeanTheme.colors.errorBorder,
     borderRadius: 10,
     padding: 10,
   },
-  errorText: { flex: 1, color: AndeanTheme.colors.text, fontSize: 12 },
+  errorText: { flex: 1, color: AndeanTheme.colors.errorText, fontSize: 12 },
 });

@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   },
   primary: {
     backgroundColor: AndeanTheme.colors.cta,
-    shadowColor: "#064e3b",
+    shadowColor: AndeanTheme.colors.cta,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

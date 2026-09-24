@@ -24,6 +24,7 @@ import { useActivityStore } from "../../../infrastructure/persistence/useActivit
 import { routeService } from "../../../infrastructure/database/routeService";
 import type { TrekkinActivity } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
+import { Banner, Button } from "../../components/ui";
 
 /**
  * HU-06 — Resumen de la actividad finalizada (COMPLETA / INCOMPLETA),
@@ -111,7 +112,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         {completed ? (
-          <Trophy size={28} color={AndeanTheme.colors.accentWarning} />
+          <Trophy size={28} color={AndeanTheme.colors.amber} />
         ) : (
           <MapIcon size={28} color={AndeanTheme.colors.primary} />
         )}
@@ -140,7 +141,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
 
       {saved.isSynced ? (
         <View style={styles.syncSuccessBanner}>
-          <CheckCircle2 size={15} color={AndeanTheme.colors.primary} />
+          <CheckCircle2 size={15} color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.syncSuccessText}>
             Recorrido guardado y sincronizado en la nube
           </Text>
@@ -234,9 +235,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </View>
       </View>
 
-      {exportError ? (
-        <Text style={styles.exportError}>{exportError}</Text>
-      ) : null}
+      {exportError ? <Banner tone="error" message={exportError} /> : null}
 
       {canUpdatePlan ? (
         <Pressable
@@ -251,9 +250,9 @@ export const ResultView: React.FC<ResultViewProps> = ({
           accessibilityLabel="Guardar trazado en mi ruta planificada"
         >
           {savedPlanSuccess ? (
-            <CheckCircle2 size={16} color={AndeanTheme.colors.primary} />
+            <CheckCircle2 size={16} color={AndeanTheme.colors.primaryDark} />
           ) : (
-            <Save size={16} color={AndeanTheme.colors.text} />
+            <Save size={16} color={AndeanTheme.colors.inkSecondary} />
           )}
           <Text style={styles.planBtnText}>
             {savingPlan
@@ -265,18 +264,14 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </Pressable>
       ) : null}
 
-      <Pressable
+      <Button
+        title={exporting ? "EXPORTANDO…" : "EXPORTAR GPX"}
         onPress={handleExportGpx}
-        disabled={exporting || saved.recordedPoints.length === 0}
-        style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-        accessibilityRole="button"
+        loading={exporting}
+        disabled={saved.recordedPoints.length === 0}
+        icon={<Share2 size={16} color={AndeanTheme.colors.white} />}
         accessibilityLabel="Exportar recorrido GPX"
-      >
-        <Share2 size={16} color="#064E3B" />
-        <Text style={styles.primaryText}>
-          {exporting ? "EXPORTANDO…" : "EXPORTAR GPX"}
-        </Text>
-      </Pressable>
+      />
 
       <Pressable
         onPress={onViewTrack}
@@ -287,7 +282,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Ver recorrido en detalle"
       >
-        <MapIcon size={16} color={AndeanTheme.colors.textSecondary} />
+        <MapIcon size={16} color={AndeanTheme.colors.inkSecondary} />
         <Text style={styles.secondaryText}>VER RECORRIDO</Text>
       </Pressable>
 
@@ -301,7 +296,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
           accessibilityRole="button"
           accessibilityLabel="Ir al historial"
         >
-          <History size={16} color={AndeanTheme.colors.textSecondary} />
+          <History size={16} color={AndeanTheme.colors.inkSecondary} />
           <Text style={styles.secondaryText}>IR AL HISTORIAL</Text>
         </Pressable>
       ) : null}
@@ -311,7 +306,7 @@ export const ResultView: React.FC<ResultViewProps> = ({
         style={styles.linkBtn}
         accessibilityRole="button"
       >
-        <ChevronLeft size={14} color={AndeanTheme.colors.textSecondary} />
+        <ChevronLeft size={14} color={AndeanTheme.colors.inkSecondary} />
         <Text style={styles.linkText}>Volver al inicio</Text>
       </Pressable>
     </ScrollView>
@@ -323,15 +318,15 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   hero: {
     alignItems: "center",
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     paddingVertical: 20,
     gap: 6,
   },
-  heroTitle: { color: AndeanTheme.colors.text, fontSize: 18, fontWeight: "900" },
-  heroSubtitle: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  heroTitle: { color: AndeanTheme.colors.ink, fontSize: 18, fontWeight: "900" },
+  heroSubtitle: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   statusChip: {
     marginTop: 4,
     borderWidth: 1,
@@ -344,12 +339,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   statusIncomplete: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: AndeanTheme.colors.field,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
   statusText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.8 },
-  statusTextCompleted: { color: AndeanTheme.colors.accentWarning },
-  statusTextIncomplete: { color: AndeanTheme.colors.textSecondary },
+  statusTextCompleted: { color: AndeanTheme.colors.amber },
+  statusTextIncomplete: { color: AndeanTheme.colors.inkSecondary },
   syncBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
@@ -357,72 +352,56 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  syncText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
+  syncText: { color: AndeanTheme.colors.amber, fontSize: 11, lineHeight: 15 },
   syncSuccessBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    backgroundColor: AndeanTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.35)",
+    borderColor: AndeanTheme.colors.successBorder,
     borderRadius: 12,
     padding: 10,
   },
   syncSuccessText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.successText,
     fontSize: 11,
     fontWeight: "700",
   },
   metricsCard: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 14,
     gap: 8,
   },
   metricsLabel: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 2,
   },
   metricRow: { flexDirection: "row", alignItems: "center" },
-  metricKey: { color: AndeanTheme.colors.textSecondary, fontSize: 12, flex: 1 },
-  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "800" },
-  exportError: { color: AndeanTheme.colors.danger, fontSize: 11, textAlign: "center" },
+  metricKey: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, flex: 1 },
+  metricValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "800" },
   planBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 14,
   },
   planBtnSuccess: {
-    borderColor: AndeanTheme.colors.primary,
+    borderColor: AndeanTheme.colors.primaryDark,
   },
   planBtnText: {
-    color: AndeanTheme.colors.text,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-  },
-  primaryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  primaryText: {
-    color: "#064E3B",
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -432,14 +411,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 14,
   },
   secondaryText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -451,6 +430,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
   },
-  linkText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  linkText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   pressed: { opacity: 0.8 },
 });

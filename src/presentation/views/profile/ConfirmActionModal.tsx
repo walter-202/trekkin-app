@@ -85,7 +85,7 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
               accessibilityState={{ disabled: loading, busy: loading }}
             >
               {loading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
+                <ActivityIndicator color={AndeanTheme.colors.white} size="small" />
               ) : (
                 <Text style={styles.confirmText}>{confirmLabel}</Text>
               )}
@@ -108,9 +108,9 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 360,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.xl,
     padding: 20,
     alignItems: "center",
@@ -131,13 +131,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(239,68,68,0.4)",
   },
   title: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 16,
     fontWeight: "900",
     textAlign: "center",
   },
   message: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     textAlign: "center",
     lineHeight: 18,
@@ -153,12 +153,13 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: AndeanTheme.borderRadius.md,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
     alignItems: "center",
     justifyContent: "center",
   },
   cancelText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: AndeanTheme.borderRadius.md,
-    backgroundColor: AndeanTheme.colors.primaryDark,
+    backgroundColor: AndeanTheme.colors.cta,
     alignItems: "center",
     justifyContent: "center",
   },

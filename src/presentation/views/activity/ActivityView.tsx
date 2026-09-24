@@ -135,6 +135,8 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
         <View style={styles.navBtn} />
       </View>
 
+      {/* Hoja blanca: catálogo y todos los pasos viven sobre la hoja clara. */}
+      <View style={styles.sheet}>
       {step === "boot" &&
         (isLoading && catalogRoutes.length === 0 ? (
           <View style={styles.center}>
@@ -224,6 +226,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
             onBack={() => handleBack()}
           />
         ) : null)}
+      </View>
     </View>
   );
 };
@@ -234,7 +237,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingTop: 14,
+    paddingBottom: 12,
     gap: 8,
   },
   navBtn: { width: 32, alignItems: "center", justifyContent: "center" },
@@ -257,6 +261,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
+  sheet: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+  },
   center: {
     flex: 1,
     alignItems: "center",
@@ -266,16 +276,20 @@ const styles = StyleSheet.create({
   },
   listContent: { padding: 16, paddingBottom: 32, gap: 10 },
   listHeader: { gap: 8, marginBottom: 4 },
-  listTitle: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
+  listTitle: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
   demoBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(250,204,21,0.35)",
+    borderColor: "rgba(217, 119, 6, 0.35)",
     borderRadius: 12,
     padding: 10,
   },
-  demoText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: "center" },
+  demoText: { color: AndeanTheme.colors.amber, fontSize: 11, lineHeight: 15 },
+  muted: {
+    color: AndeanTheme.colors.fieldHint,
+    fontSize: 12,
+    textAlign: "center",
+  },
   errorText: {
     color: AndeanTheme.colors.danger,
     fontSize: 14,
@@ -284,19 +298,19 @@ const styles = StyleSheet.create({
   },
   retryBtn: {
     marginTop: 6,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
   retryText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
   },
   linkBtn: { paddingVertical: 10 },
-  linkText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  linkText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
 });

@@ -20,6 +20,7 @@ import { userProfileService } from "../../../infrastructure/database/userProfile
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
+import { ScreenShell, sheetStyles } from "../../components/layout";
 import { UserCard } from "./UserCard";
 import { UserDetailView } from "./UserDetailView";
 
@@ -46,6 +47,7 @@ const ROLE_FILTERS: Array<{ key: RoleFilter; label: string }> = [
  * HU-10 C1-C2/T1 + T8 + T13 + T14 — Módulo "Gestión de usuarios" (solo admin).
  * Lista registrada + barra de búsqueda y filtros por estado/rol.
  * Sin `firebase/*` aquí: el case de uso filtra sobre el puerto del servicio.
+ * Capas duales: cabecera en shell oscuro, controles y lista en hoja blanca.
  */
 export const UserManagementView: React.FC<UserManagementViewProps> = ({
   onBack,
@@ -134,9 +136,9 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   // T13: guard defensivo. La entrada real la protege el Gate (tab solo admin).
   if (!currentUser || !isAdmin) {
     return (
-      <View style={styles.center}>
+      <View style={styles.guard}>
         <ShieldCheck size={26} color={AndeanTheme.colors.danger} />
-        <Text style={styles.muted}>
+        <Text style={styles.guardText}>
           Sin acceso: este módulo es exclusivo del rol Administrador (T13).
         </Text>
       </View>
@@ -156,99 +158,119 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
-          <Text style={styles.badgeText}>GESTIÓN DE USUARIOS</Text>
-        </View>
-        {onBack ? (
-          <Pressable
-            onPress={onBack}
-            accessibilityRole="button"
-            accessibilityLabel="Volver al inicio"
-          >
-            <ArrowLeft size={16} color={AndeanTheme.colors.text} />
-          </Pressable>
+    <ScreenShell
+      body="none"
+      header={
+        <>
+          <View style={styles.topBar}>
+            <View style={styles.badge}>
+              <ShieldCheck size={12} color={AndeanTheme.colors.amberLight} />
+              <Text style={styles.badgeText}>GESTIÓN DE USUARIOS</Text>
+            </View>
+            {onBack ? (
+              <Pressable
+                onPress={onBack}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Volver al inicio"
+              >
+                <ArrowLeft size={18} color={AndeanTheme.colors.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
+          <View style={styles.titleBlock}>
+            <Text style={styles.title}>Usuarios registrados</Text>
+            <Text style={styles.subtitle}>
+              {users.length} usuario{users.length === 1 ? "" : "s"} · la
+              operación se confirma antes de ejecutarse
+            </Text>
+          </View>
+        </>
+      }
+      contentContainerStyle={styles.sheetBody}
+    >
+      <View style={styles.controls}>
+        {error ? (
+          <View style={styles.errorRow}>
+            <Banner tone="error" message={error} />
+            <Pressable
+              onPress={retryPage}
+              accessibilityRole="button"
+              accessibilityLabel="Reintentar carga de usuarios"
+            >
+              <Text style={styles.actionText}>Reintentar</Text>
+            </Pressable>
+          </View>
         ) : null}
-      </View>
 
-      <Text style={styles.title}>Usuarios registrados</Text>
-      <Text style={styles.subtitle}>
-        {users.length} usuario{users.length === 1 ? "" : "s"} · la operación se
-        confirma antes de ejecutarse
-      </Text>
-
-      {error ? (
-        <View style={styles.errorRow}>
-          <Banner tone="error" message={error} />
-          <Pressable onPress={retryPage} accessibilityRole="button" accessibilityLabel="Reintentar carga de usuarios">
-            <Text style={styles.actionText}>Reintentar</Text>
-          </Pressable>
+        <View style={sheetStyles.searchRow}>
+          <Search size={16} color={AndeanTheme.colors.fieldIcon} />
+          <TextInput
+            style={sheetStyles.searchInput}
+            value={texto}
+            onChangeText={setTexto}
+            placeholder="Buscar por nombre, alias o correo…"
+            placeholderTextColor={AndeanTheme.colors.fieldHint}
+            returnKeyType="search"
+            accessibilityLabel="Buscar usuarios"
+          />
         </View>
-      ) : null}
 
-      <View style={styles.searchRow}>
-        <Search size={14} color={AndeanTheme.colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          value={texto}
-          onChangeText={setTexto}
-          placeholder="Buscar por nombre, alias o correo…"
-          placeholderTextColor={AndeanTheme.colors.textMuted}
-          returnKeyType="search"
-          accessibilityLabel="Buscar usuarios"
-        />
-      </View>
-
-      <View style={styles.chips}>
-        {STATE_FILTERS.map((f) => (
-          <Pressable
-            key={f.key}
-            onPress={() => setStateFilter(f.key)}
-            style={[styles.chip, stateFilter === f.key && styles.chipActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`Filtrar por estado: ${f.label}`}
-            accessibilityState={{ selected: stateFilter === f.key }}
-          >
-            <Text
+        <View style={sheetStyles.chips}>
+          {STATE_FILTERS.map((f) => (
+            <Pressable
+              key={f.key}
+              onPress={() => setStateFilter(f.key)}
               style={[
-                styles.chipText,
-                stateFilter === f.key && styles.chipTextActive,
+                sheetStyles.chip,
+                stateFilter === f.key && sheetStyles.chipActive,
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Filtrar por estado: ${f.label}`}
+              accessibilityState={{ selected: stateFilter === f.key }}
             >
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+              <Text
+                style={[
+                  sheetStyles.chipText,
+                  stateFilter === f.key && sheetStyles.chipTextActive,
+                ]}
+              >
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
-      <View style={styles.chips}>
-        {ROLE_FILTERS.map((f) => (
-          <Pressable
-            key={f.key}
-            onPress={() => setRoleFilter(f.key)}
-            style={[styles.chip, roleFilter === f.key && styles.chipActive]}
-            accessibilityRole="button"
-            accessibilityLabel={`Filtrar por rol: ${f.label}`}
-            accessibilityState={{ selected: roleFilter === f.key }}
-          >
-            <Text
+        <View style={sheetStyles.chips}>
+          {ROLE_FILTERS.map((f) => (
+            <Pressable
+              key={f.key}
+              onPress={() => setRoleFilter(f.key)}
               style={[
-                styles.chipText,
-                roleFilter === f.key && styles.chipTextActive,
+                sheetStyles.chip,
+                roleFilter === f.key && sheetStyles.chipActive,
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Filtrar por rol: ${f.label}`}
+              accessibilityState={{ selected: roleFilter === f.key }}
             >
-              {f.label}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                style={[
+                  sheetStyles.chipText,
+                  roleFilter === f.key && sheetStyles.chipTextActive,
+                ]}
+              >
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-          <Text style={styles.muted}>Cargando usuarios registrados…</Text>
+          <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
+          <Text style={sheetStyles.muted}>Cargando usuarios registrados…</Text>
         </View>
       ) : (
         <FlatList
@@ -257,61 +279,103 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.muted}>
+              <Text style={sheetStyles.muted}>
                 Sin usuarios que coincidan con los criterios.
               </Text>
               {hasMore ? (
                 loadingMore ? (
-                  <View style={styles.loadingMore} accessible accessibilityLabel="Buscando más usuarios">
-                    <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-                    <Text style={styles.muted}>Buscando más usuarios…</Text>
+                  <View
+                    style={styles.loadingMore}
+                    accessible
+                    accessibilityLabel="Buscando más usuarios"
+                  >
+                    <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
+                    <Text style={sheetStyles.muted}>
+                      Buscando más usuarios…
+                    </Text>
                   </View>
                 ) : (
-                  <Pressable onPress={loadNextPage} accessibilityRole="button" accessibilityLabel="Continuar buscando en más usuarios">
-                    <Text style={styles.actionText}>Continuar buscando en más usuarios</Text>
+                  <Pressable
+                    onPress={loadNextPage}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continuar buscando en más usuarios"
+                  >
+                    <Text style={styles.actionText}>
+                      Continuar buscando en más usuarios
+                    </Text>
                   </Pressable>
                 )
               ) : null}
             </View>
           }
-          ListFooterComponent={users.length > 0 ? (
-            <View style={styles.footer}>
-              {hasMore ? loadingMore ? (
-                <View style={styles.loadingMore} accessible accessibilityLabel="Cargando más usuarios">
-                  <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
-                  <Text style={styles.muted}>Cargando más usuarios…</Text>
-                </View>
-              ) : (
-                <Pressable onPress={loadNextPage} accessibilityRole="button" accessibilityLabel="Cargar más usuarios">
-                  <Text style={styles.actionText}>Cargar más usuarios</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.muted} accessibilityRole="text" accessibilityLabel="Fin de la lista de usuarios">
-                  Llegaste al final de la lista.
-                </Text>
-              )}
-            </View>
-          ) : null}
+          ListFooterComponent={
+            users.length > 0 ? (
+              <View style={styles.footer}>
+                {hasMore ? (
+                  loadingMore ? (
+                    <View
+                      style={styles.loadingMore}
+                      accessible
+                      accessibilityLabel="Cargando más usuarios"
+                    >
+                      <ActivityIndicator
+                        color={AndeanTheme.colors.primaryDark}
+                      />
+                      <Text style={sheetStyles.muted}>
+                        Cargando más usuarios…
+                      </Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={loadNextPage}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cargar más usuarios"
+                    >
+                      <Text style={styles.actionText}>
+                        Cargar más usuarios
+                      </Text>
+                    </Pressable>
+                  )
+                ) : (
+                  <Text
+                    style={sheetStyles.muted}
+                    accessibilityRole="text"
+                    accessibilityLabel="Fin de la lista de usuarios"
+                  >
+                    Llegaste al final de la lista.
+                  </Text>
+                )}
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => (
             <UserCard user={item} onPress={() => setSelectedId(item.uid)} />
           )}
         />
       )}
-    </View>
+    </ScreenShell>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  guard: {
     flex: 1,
     backgroundColor: AndeanTheme.colors.background,
-    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
+    padding: 24,
   },
-  header: {
+  guardText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    textAlign: "center",
+  },
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 24,
   },
   badge: {
     flexDirection: "row",
@@ -321,68 +385,53 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
     borderColor: "rgba(245, 158, 11, 0.3)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     borderRadius: AndeanTheme.borderRadius.full,
   },
   badgeText: {
     color: AndeanTheme.colors.amberLight,
     fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
-  title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
-  subtitle: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.card,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: AndeanTheme.borderRadius.md,
-    paddingHorizontal: 12,
-    height: 44,
+  titleBlock: { gap: 6 },
+  title: {
+    color: AndeanTheme.colors.white,
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.3,
   },
-  searchInput: { flex: 1, color: AndeanTheme.colors.text, fontSize: 13 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
-    borderRadius: AndeanTheme.borderRadius.full,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  chipActive: {
-    backgroundColor: AndeanTheme.colors.cardElevated,
-    borderColor: AndeanTheme.colors.borderLight,
-  },
-  chipText: {
+  subtitle: {
     color: AndeanTheme.colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
   },
-  chipTextActive: { color: AndeanTheme.colors.text },
+  sheetBody: {
+    paddingTop: 20,
+    gap: 12,
+  },
+  controls: {
+    gap: 12,
+  },
   center: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    padding: 24,
+    paddingVertical: 32,
   },
-  muted: {
-    color: AndeanTheme.colors.textSecondary,
-    fontSize: 12,
-    textAlign: "center",
+  list: {
+    gap: 10,
+    paddingBottom: 32,
+    flexGrow: 1,
   },
-  list: { gap: 10, paddingBottom: 16 },
-  empty: { paddingVertical: 32 },
+  empty: { paddingVertical: 32, gap: 8 },
   footer: { alignItems: "center", paddingVertical: 16 },
   loadingMore: { alignItems: "center", gap: 6 },
   errorRow: { gap: 8 },
   actionText: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",

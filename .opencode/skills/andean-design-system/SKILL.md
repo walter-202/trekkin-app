@@ -14,8 +14,8 @@ Fuente: `docs/DESIGN_RULES.md` + `src/presentation/theme.ts`. `AndeanTheme` es l
 
 ## Tokens
 
-- **Fondos:** `background #051712`, `backgroundSecondary`, `card #0E2E24`, `cardElevado`, `overlay rgba(5,23,18,0.85)`.
-- **Bordes:** `border #1A4537`, `borderLight`. 1px, sin sombras pesadas.
+- **Fondos:** `background #0F1412`, `backgroundSecondary`, `card #1C2420`, `cardElevado`, `overlay rgba(15,20,18,0.85)`.
+- **Bordes:** `border #2A3630`, `borderLight`. 1px, sin sombras pesadas.
 - **Acción:** CTA esmeralda profundo, acento vivo `primary #10B981` (En Vivo, activos), oro (logros), peligro `danger #EF4444` (SOS, salir).
 - **Texto (dark-only):** `text #F9FAFB`, `textSecondary #9CA3AF`, `textMuted #6B7280`.
 - **Tipo:** `System`; micro-labels de formulario 10px bold uppercase, siempre ARRIBA del campo.

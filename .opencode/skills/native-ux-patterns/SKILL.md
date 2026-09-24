@@ -32,7 +32,7 @@ Copy en español claro, con siguiente acción.
 ## 3. Touch + accesibilidad
 
 Targets ≥ 44pt, `SafeAreaView` siempre, dark-mode only. `accessibilityLabel` + `accessibilityRole`
-en toda acción; contraste AA sobre `#051712`; Dynamic Type sin truncar.
+en toda acción; contraste AA sobre `#0F1412`; Dynamic Type sin truncar.
 
 ## 4. Performance RN (aplica siempre)
 

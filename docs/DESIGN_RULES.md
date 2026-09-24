@@ -20,15 +20,15 @@ El sistema visual fusiona la estética técnica de montaña andina de alta preci
 | Capa | Rol | Tokens (`AndeanTheme.colors`) | Dónde |
 |------|-----|-------------------------------|-------|
 | **Shell oscuro** | Marca, navegación, identidad | `background`, `card`, `border*`, `text`, `primary*` | Cabecera, drawer, zona superior de perfil |
-| **Hoja clara** | Formularios, datos editables, CTAs | `sheet`, `field*`, `ink*`, `cta*` | Login, registro, edición y ficha de cuenta |
+| **Hoja clara** | Formularios, datos editables, CTAs, listas | `sheet`, `field*`, `ink*`, `cta*` | Login, registro, edición, ficha de cuenta y catálogo (HU-03) |
 
 El verde (`primary`, `primaryLight`, `primaryDark`) es **acento**, no fondo universal: iconos, pills, links, anillo de avatar, estados activos. Los formularios viven sobre **blanco + stone** (`sheet`, `field`, `fieldBorder`, `ink`).
 
 ### A. Tonos Oscuros Andinos (Shell / Drawer / Cabecera)
-* **Andean Pine**: `#051712` (`background`) — Fondo principal de pantallas y drawer.
-* **Deep Canopy**: `#06231B` (`backgroundSecondary`) — Variante de fondo secundario.
-* **Card Forest**: `#0E2E24` / `#153E32` (`card`, `cardElevated`) — Botones circulares, chips y avatar en zona oscura.
-* **Borde Táctico**: `#1A4537` / `#265D4B` (`border`, `borderLight`) — Contorno 1px, sin sombras pesadas.
+* **Andean Pine**: `#0F1412` (`background`) — Fondo principal de pantallas y drawer.
+* **Deep Canopy**: `#151B18` (`backgroundSecondary`) — Variante de fondo secundario.
+* **Card Forest**: `#1C2420` / `#242E29` (`card`, `cardElevated`) — Botones circulares, chips y avatar en zona oscura.
+* **Borde Táctico**: `#2A3630` / `#384740` (`border`, `borderLight`) — Contorno 1px, sin sombras pesadas.
 * **Texto sobre oscuro**: `#F9FAFB` / `#9CA3AF` (`text`, `textSecondary`).
 
 ### B. Láminas Claras de Alto Contraste (Light Sheets — HU-01/02)
@@ -43,7 +43,10 @@ El verde (`primary`, `primaryLight`, `primaryDark`) es **acento**, no fondo univ
 * **Vibrant Active Green**: `#10B981` / `#059669` (`primary`, `primaryDark`) — Links, iconos en shell, pill de versión, punto online.
 * **Andean Gold**: `#D97706` / `#F59E0B` (`amber`, `amberLight`) — Badge `ADMINISTRADOR`, logros (no senderista estándar).
 * **Alpine Alert**: `#EF4444` / `#DC2626` (`danger*`) — Cerrar sesión, errores, grabación SOS.
-* **Feedback**: `successBg/Border/Text` y `errorBg/Border/Text` — Banners de confirmación y validación.
+* **Feedback**: `warningSoft` (`#FDE68A`) y `errorSoft` (`#FCA5A5`) — Textos de aviso/sincronización; `successBg/Border/Text` y `errorBg/Border/Text` — Banners de confirmación y validación.
+* **Dificultad**: `difficultyHard` (`#F97316`) — Chip de dificultad "Difícil".
+
+> **Excepción:** los colores CSS embebidos dentro de documentos de mapa (`TrekMap.web.tsx`, `rekMapDocument.ts`) son paint de renderer MapLibre, no tokens de UI; no aplican la regla de hex.
 
 ---
 
@@ -87,7 +90,34 @@ Mismo patrón dual que auth:
 - **Acciones:** `EDITAR PERFIL` → `Button primary`; `Cerrar Sesión` → `outline-danger` (rojo, no verde).
 - **Fuera de alcance HU-02:** métricas de montaña, toggle de tema, cambio de contraseña visible — no añadir sin criterio de HU.
 
-### C. Sidebar Drawer en Modo Oscuro
+### C. HU-03 — Catálogo (referencia implementada)
+
+Vistas canónicas: `ExploreView.tsx`, `RouteCard.tsx`.
+
+Mismo patrón dual que auth/perfil:
+
+- **Zona oscura:** badge `CATÁLOGO` (pill verde `primary*`), título blanco `28/900`, línea de sesión `textSecondary`.
+- **Hoja clara** (`sheet`, `borderTopRadius: 36`): buscador estilo `Field` (`field`/`fieldBorder`/`ink`), chips de dificultad (inactivo `field`, activo `successBg` + `primaryDark`), `Banner` de error y lista de `RouteCard`.
+- **RouteCard:** fondo `sheet`, borde `fieldBorder`, título `ink`, meta `inkSecondary`/`fieldIcon`; badge de dificultad con color de acento (`primaryDark`/`amber`/`difficultyHard`/`danger`).
+- **CTA sesión (guest):** `Button primary` (`cta`).
+
+### D. Capas duales en todas las vistas (`ScreenShell`)
+
+Vista canónica del layout: [`ScreenShell`](../src/presentation/components/layout/ScreenShell.tsx) (exporta también los presets `sheetStyles`).
+
+Toda pantalla de la app sigue la misma estructura; no se reimplementa a mano:
+
+- **Pantallas completas** → `<ScreenShell header={...}>`: `header` vive en la zona oscura (`background`, títulos `white`, acentos `primaryLight`); `children` vive en la hoja clara (`sheet`, `borderTopRadius: 36`).
+  - `body="scroll"` (default): `ScreenShell` envuelve el contenido en `ScrollView`.
+  - `body="none"`: para contenido con `FlatList`/scroller propio (evita scroll anidado).
+- **Hubs con pasos** (`RecordView`, `ActivityView`, `FreeRecordView`) → shell oscuro propio (barra de título) + `<View style={styles.sheet}>` blanco; **los hijos de paso son contenido claro puro**: sin shell propio, fondo transparente y tokens `ink*`/`field*`.
+- **Modales** (`ShareModal`, `DownloadRouteModal`, `ConfirmActionModal`, `AddCheckpointModal`, modal de finalizar en `TrackingView`) → tarjeta clara: fondo `sheet`, borde `fieldBorder`, títulos `ink`, acciones secundarias `field`+`inkSecondary`, CTA `cta`/`danger` con texto blanco.
+- **Presets compartidos (`sheetStyles`):** `sectionTitle`, `fieldLabel`, `card`, `inset`, `row`, `divider`, `searchRow`, `chips`/`chip*`, `muted`, `ink`, `inkSecondary`, `actions`, `center`. Reutilizar antes de crear estilos nuevos (Regla de Tres).
+- **Mapas:** el mapa (`TrekMap`, `OfflineRouteMap`) va dentro de la hoja clara o del visual block; los HUD/leyendas sobre él usan tarjetas `sheet`/`field` + `fieldBorder`.
+
+Vistas de referencia ya migradas: auth, perfil, catálogo (§A–C), `HomeView`, `DownloadsView`, `UserManagementView`/`UserDetailView`, `RouteDetailView`/`OfflineRouteDetailView` y los hubs `RecordView`/`ActivityView`/`FreeRecordView` con todos sus pasos.
+
+### E. Sidebar Drawer en Modo Oscuro
 - **Ancho del Drawer**: **Al menos el 60% del ancho del dispositivo** (`w-[82vw] max-w-sm sm:w-[65vw]`).
 - **Encabezado**: Logo Trek-Bolivia Pro con icono de montañista en caja verde + `ANDEAN TOPO GUIDE` + botón cerrar `X`.
 - **Ficha de Usuario**:
@@ -117,13 +147,14 @@ Mismo patrón dual que auth:
 ## 4. Implementación Técnica (Expo SDK 57 — vigente)
 
 1. **Estilos:** `StyleSheet.create` + `AndeanTheme` en [`theme.ts`](../src/presentation/theme.ts). No Tailwind/NativeWind en producción.
-2. **Primitivas UI:** [`Button`](../src/presentation/components/ui/Button.tsx), [`Field`](../src/presentation/components/ui/Field.tsx), [`Banner`](../src/presentation/components/ui/Banner.tsx) — importar vía `components/ui`.
+2. **Primitivas UI:** [`Button`](../src/presentation/components/ui/Button.tsx), [`Field`](../src/presentation/components/ui/Field.tsx), [`Banner`](../src/presentation/components/ui/Banner.tsx) — importar vía `components/ui`. **Layout:** [`ScreenShell` + `sheetStyles`](../src/presentation/components/layout/ScreenShell.tsx) — importar vía `components/layout`.
 3. **Dominio (`/src/core/domain`):** TypeScript puro, sin RN/Expo/Firebase.
 4. **Firebase:** JS SDK + `@react-native-async-storage/async-storage` para persistencia de auth.
 5. **Mapas offline:** IndexedDB en web; destino nativo `expo-file-system` + SQLite (HU-04).
 
 ### Checklist anti-verde (code review)
 
+- [ ] ¿La pantalla nueva usa `ScreenShell` / `sheetStyles` en lugar de reimplementar el shell?
 - [ ] ¿La pantalla de formulario usa `sheet` + `field` + `ink`?
 - [ ] ¿El verde aparece solo en acentos (iconos, links, pills, CTA)?
 - [ ] ¿Los labels del formulario usan `fieldLabel`/`fieldHint`, no `primary`?

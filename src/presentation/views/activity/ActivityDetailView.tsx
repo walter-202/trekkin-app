@@ -66,7 +66,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   if (!activity) {
     return (
       <View style={styles.center}>
-        <CloudOff size={24} color={AndeanTheme.colors.textSecondary} />
+        <CloudOff size={24} color={AndeanTheme.colors.inkSecondary} />
         <Text style={styles.muted}>
           {error ?? "No se pudo cargar la actividad."}
         </Text>
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   head: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { flex: 1, color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
+  title: { flex: 1, color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
   badge: {
     borderWidth: 1,
     paddingHorizontal: 10,
@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(245,158,11,0.4)",
   },
   badgeIncomplete: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: AndeanTheme.colors.field,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
   badgeText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
-  badgeTextCompleted: { color: AndeanTheme.colors.accentWarning },
-  badgeTextIncomplete: { color: AndeanTheme.colors.textSecondary },
+  badgeTextCompleted: { color: AndeanTheme.colors.amber },
+  badgeTextIncomplete: { color: AndeanTheme.colors.inkSecondary },
   syncBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
@@ -202,25 +202,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  syncText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
+  syncText: { color: AndeanTheme.colors.amber, fontSize: 11, lineHeight: 15 },
   metricsCard: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 14,
     gap: 8,
   },
   metricsLabel: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 2,
   },
   metricRow: { flexDirection: "row", alignItems: "center" },
-  metricKey: { color: AndeanTheme.colors.textSecondary, fontSize: 12, flex: 1 },
-  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "800" },
+  metricKey: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, flex: 1 },
+  metricValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "800" },
   center: {
     flex: 1,
     alignItems: "center",
@@ -228,15 +228,15 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 24,
   },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: "center" },
+  muted: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, textAlign: "center" },
   retryBtn: {
     marginTop: 6,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 20,
   },
-  retryText: { color: AndeanTheme.colors.text, fontSize: 11, fontWeight: "800" },
+  retryText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "800" },
 });

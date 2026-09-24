@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { Save } from 'lucide-react-native';
 import { PlanPointPicker } from '../../components/plan/PlanPointPicker';
+import { Button } from '../../components/ui';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import { AndeanTheme } from '../../theme';
@@ -44,13 +45,13 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.fieldGroup}>
-        <Text style={styles.microLabel}>NOMBRE PROVISIONAL DE LA RUTA *</Text>
+        <Text style={styles.label}>NOMBRE PROVISIONAL DE LA RUTA *</Text>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
           placeholder="Ej. Ruta del Diablo / Camino de la Muerte"
-          placeholderTextColor={AndeanTheme.colors.textMuted}
+          placeholderTextColor={AndeanTheme.colors.fieldHint}
         />
       </View>
 
@@ -68,24 +69,13 @@ export const CreateRouteView: React.FC<CreateRouteViewProps> = ({ onSaved }) => 
 
       {localError && <Text style={styles.error}>{localError}</Text>}
 
-      <Pressable
+      <Button
+        title="GUARDAR BORRADOR"
         onPress={handleSave}
-        disabled={saving || !start || !end}
-        style={({ pressed }) => [
-          styles.saveBtn,
-          pressed && styles.pressed,
-          (!start || !end) && styles.saveBtnDisabled,
-        ]}
-      >
-        {saving ? (
-          <ActivityIndicator color="#064E3B" size="small" />
-        ) : (
-          <>
-            <Save size={15} color="#064E3B" />
-            <Text style={styles.saveBtnText}>GUARDAR BORRADOR</Text>
-          </>
-        )}
-      </Pressable>
+        loading={saving}
+        disabled={!start || !end}
+        icon={<Save size={15} color={AndeanTheme.colors.white} />}
+      />
 
       <Text style={styles.note}>
         Al guardar quedará en "Mis borradores" y podrás retomarlo sin perder la información.
@@ -98,38 +88,28 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
   fieldGroup: { marginBottom: 2 },
-  microLabel: {
-    fontSize: 10,
+  label: {
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
-    color: AndeanTheme.colors.textMuted,
+    textTransform: 'uppercase',
+    color: AndeanTheme.colors.fieldLabel,
     marginBottom: 6,
+    paddingLeft: 4,
   },
   input: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 13,
   },
-  help: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
-  helpStart: { color: AndeanTheme.colors.primary, fontWeight: '800' },
-  helpEnd: { color: AndeanTheme.colors.accentWarning, fontWeight: '800' },
-  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  saveBtnDisabled: { opacity: 0.5 },
-  pressed: { opacity: 0.8 },
-  saveBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8, color: '#064E3B' },
-  note: { color: AndeanTheme.colors.textMuted, fontSize: 11, textAlign: 'center' },
+  help: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
+  helpStart: { color: AndeanTheme.colors.primaryDark, fontWeight: '800' },
+  helpEnd: { color: AndeanTheme.colors.amber, fontWeight: '800' },
+  error: { color: AndeanTheme.colors.errorText, fontSize: 11 },
+  note: { color: AndeanTheme.colors.fieldHint, fontSize: 11, textAlign: 'center' },
 });
