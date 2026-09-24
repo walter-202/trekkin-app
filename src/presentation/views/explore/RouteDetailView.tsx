@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,14 @@ import {
 import { ChevronLeft, Share2, Download, CheckCircle2, Activity } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
-import { GetRouteDetailUseCase } from "../../../core/application/explore/GetRouteDetail.usecase";
+import { GetRouteDetailWithCacheUseCase } from "../../../core/application/explore/GetRouteDetailWithCache.usecase";
+import {
+  CheckRouteDownloadAvailabilityUseCase,
+  GetRoutePreviewPointsUseCase,
+} from "../../../core/application/explore/RouteDetailSupport.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
-import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
+import { routeDetailCache } from "../../../infrastructure/persistence/routeDetailCache";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
@@ -61,25 +65,50 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [shareOpen, setShareOpen] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
+  const [cacheMessage, setCacheMessage] = useState<string | null>(null);
+  const routeTrail = useMemo(
+    () => route ? GetRoutePreviewPointsUseCase(route) : [],
+    [route],
+  );
+  const downloadAvailability = useMemo(
+    () => route
+      ? CheckRouteDownloadAvailabilityUseCase(route, isAuthenticated)
+      : { available: false as const, reason: "route_not_published" as const },
+    [route, isAuthenticated],
+  );
 
   useEffect(() => {
     let alive = true;
     (async () => {
       setLoading(true);
       setError(null);
+      setDownloaded(false);
+      setDownloadOpen(false);
+      setDownloadMessage(null);
+      setCacheMessage(null);
       try {
-        const detail = await GetRouteDetailUseCase(routeId, {
-          getById: (id) => routeService.getRouteById(id),
-        });
-        if (alive) setRoute(detail);
+        await GetRouteDetailWithCacheUseCase(
+          routeId,
+          {
+            getCached: (id) => routeDetailCache.get(id),
+            getById: (id) => routeService.getRouteById(id),
+            saveCached: (detail) => routeDetailCache.save(detail),
+          },
+          (detail, source) => {
+            if (!alive) return;
+            setRoute(detail);
+            setLoading(false);
+            setError(null);
+            setCacheMessage(source === "cache" ? "Mostrando detalles guardados mientras se actualizan." : null);
+          },
+          () => {
+            if (alive) setCacheMessage("Se muestra una copia guardada; no se pudo actualizar. El mapa base puede necesitar conexión.");
+          },
+        );
       } catch (err: any) {
-        // Fallback demo: si Firestore falla o está vacío, resuelve desde seed
-        // para validar el flujo en Expo Go (no oculta errores reales).
-        const seed =
-          SEED_PUBLISHED_ROUTES.find((r) => r.id === routeId) ?? null;
         if (alive) {
-          if (seed) setRoute(seed);
-          else setError(err?.message ?? "No se pudo cargar la ruta.");
+          setError(err?.message ?? "No se pudo cargar la ruta.");
         }
       } finally {
         if (alive) setLoading(false);
@@ -92,6 +121,19 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       alive = false;
     };
   }, [routeId]);
+
+  const requestDownload = () => {
+    if (!downloadAvailability.available) {
+      if (downloadAvailability.reason === "authentication_required") {
+        (onRequireAuth ?? exitGuest)();
+        return;
+      }
+      setDownloadMessage("Esta ruta todavía no tiene un par GPX + PMTiles validado para descargar.");
+      return;
+    }
+    setDownloadMessage(null);
+    setDownloadOpen(true);
+  };
 
   if (loading) {
     return (
@@ -110,7 +152,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           style={styles.backBtn}
           accessibilityLabel="Volver al catálogo"
         >
-          <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+          <ChevronLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.backText}>Catálogo</Text>
         </Pressable>
         <Banner tone="error" message={error ?? "Ruta no disponible."} />
@@ -125,7 +167,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         style={styles.backBtn}
         accessibilityLabel="Volver al catálogo"
       >
-        <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+        <ChevronLeft size={16} color={AndeanTheme.colors.text} />
         <Text style={styles.backText}>Catálogo</Text>
       </Pressable>
 
@@ -148,7 +190,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             lng: route.endPoint.lng,
             name: route.endPoint.name,
           }}
-          trail={route.waypoints}
+          trail={routeTrail}
           pointsOfInterest={route.checkpoints}
           height={260}
           accessibilityLabel={`Mapa de ${route.title}`}
@@ -163,6 +205,16 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           </View>
         ) : null}
       </View>
+      {routeTrail.length < 2 ? (
+        <Text style={styles.downloadNotice} accessibilityRole="alert">
+          Esta ruta todavía no tiene una traza visible. Se muestran solo sus puntos de inicio y fin.
+        </Text>
+      ) : null}
+      {cacheMessage ? (
+        <Text style={styles.cacheNotice} accessibilityRole="alert">
+          {cacheMessage}
+        </Text>
+      ) : null}
 
       {/* 3. Título, región y dificultad */}
       <View>
@@ -182,7 +234,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         </Text>
       </View>
 
-      {/* 4. Acciones: Compartir (HU-05) y Descargar (HU-04 próximamente) */}
+      {/* 4. Acciones: compartir (HU-05) y descarga del paquete offline (HU-04) */}
       <View style={styles.actionsRow}>
         <Pressable
           onPress={() => setShareOpen(true)}
@@ -193,7 +245,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
         </Pressable>
         <Pressable
-          onPress={() => setDownloadOpen(true)}
+          onPress={requestDownload}
           style={styles.actionBtn}
           accessibilityRole="button"
           accessibilityLabel="Descargar ruta para uso offline"
@@ -208,6 +260,11 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           />
         </Pressable>
       </View>
+      {downloadMessage ? (
+        <Text style={styles.downloadNotice} accessibilityRole="alert">
+          {downloadMessage}
+        </Text>
+      ) : null}
 
       {/* 5. Tarjeta horizontal de métricas */}
       <View style={styles.metricsCard}>
@@ -310,7 +367,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setDownloadOpen(true)}
+            onPress={requestDownload}
             style={styles.downloadBtn}
             accessibilityRole="button"
             accessibilityLabel="Descargar ruta para consulta offline"
@@ -329,15 +386,17 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       ) : null}
 
       {/* 10. Modal de descarga offline (HU-04) */}
-      <DownloadRouteModal
-        route={route}
-        visible={downloadOpen}
-        onClose={() => setDownloadOpen(false)}
-        onCompleted={(record: OfflineRoute) => {
-          setDownloaded(true);
-          void record;
-        }}
-      />
+      {downloadOpen && downloadAvailability.available ? (
+        <DownloadRouteModal
+          route={route}
+          visible
+          onClose={() => setDownloadOpen(false)}
+          onCompleted={(record: OfflineRoute) => {
+            setDownloaded(true);
+            void record;
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 };
@@ -363,16 +422,16 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   backText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
   heroHeader: { alignItems: "center", gap: 2, marginTop: 2 },
   brand: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   heroTitle: {
     color: AndeanTheme.colors.text,
@@ -386,7 +445,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 10,
     bottom: 10,
-    backgroundColor: "rgba(5, 23, 18, 0.88)",
+    backgroundColor: "rgba(15, 20, 18, 0.88)",
     borderWidth: 1,
     borderColor: AndeanTheme.colors.border,
     borderRadius: 10,
@@ -405,9 +464,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
   },
-  maxPointUnit: { color: AndeanTheme.colors.primaryLight, fontSize: 11 },
+  maxPointUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
   region: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.8,
@@ -427,15 +486,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   diffBadge: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.primaryDark,
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   diffBadgeText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -484,7 +543,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "900",
   },
-  metricUnit: { color: AndeanTheme.colors.primaryLight, fontSize: 12 },
+  metricUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   metricValueAccent: {
     color: AndeanTheme.colors.amberLight,
     fontSize: 14,
@@ -529,6 +588,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  downloadNotice: {
+    color: AndeanTheme.colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  cacheNotice: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   guestBox: {
     backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
@@ -551,7 +620,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   guestBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },

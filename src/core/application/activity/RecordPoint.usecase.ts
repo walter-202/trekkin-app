@@ -13,11 +13,6 @@ import {
  * (errores GPS); los checkpoints cercanos se marcan como visitados.
  */
 
-/**
- * DIAG-TEMP — Motivo de descarte de un punto GPS (telemetría temporal HU-08).
- * `accepted` = el punto se acumula; el resto explica por qué se descartó.
- * NO altera los filtros: replica exactamente las condiciones de abajo.
- */
 export type PointDiscardReason =
   | "accepted"
   | "invalid_phase"
@@ -26,39 +21,23 @@ export type PointDiscardReason =
   | "jitter"
   | "jump";
 
-/**
- * DIAG-TEMP — Clasifica un punto con las mismas reglas que
- * `RecordPointUseCase` (pura, sin efectos). Solo lectura para telemetría.
- */
+/** Classifies the persistence outcome using the same rules as RecordPointUseCase. */
 export function classifyPointDiscard(
   activity: LiveActivity,
   rawPoint: RecordedPointInput,
 ): PointDiscardReason {
-  if (activity.phase !== "in_progress") {
-    return "invalid_phase";
-  }
+  if (activity.phase !== "in_progress") return "invalid_phase";
   const parsed = RecordedPointSchema.safeParse(rawPoint);
-  if (!parsed.success) {
-    return "invalid_schema";
-  }
+  if (!parsed.success) return "invalid_schema";
   const point = parsed.data;
-  if (
-    point.accuracy != null &&
-    point.accuracy > ACTIVITY_CONFIG.MAX_ACCURACY_M
-  ) {
+  if (point.accuracy != null && point.accuracy > ACTIVITY_CONFIG.MAX_ACCURACY_M) {
     return "low_accuracy";
   }
-  if (activity.recordedPoints.length === 0) {
-    return "accepted";
-  }
+  if (activity.recordedPoints.length === 0) return "accepted";
   const last = activity.recordedPoints[activity.recordedPoints.length - 1];
-  const d = distanceM(last, point);
-  if (d < ACTIVITY_CONFIG.MIN_GPS_DELTA_M) {
-    return "jitter";
-  }
-  if (d > ACTIVITY_CONFIG.MAX_GPS_JUMP_M) {
-    return "jump";
-  }
+  const distance = distanceM(last, point);
+  if (distance < ACTIVITY_CONFIG.MIN_GPS_DELTA_M) return "jitter";
+  if (distance > ACTIVITY_CONFIG.MAX_GPS_JUMP_M) return "jump";
   return "accepted";
 }
 

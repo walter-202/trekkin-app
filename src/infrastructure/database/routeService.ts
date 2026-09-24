@@ -5,19 +5,26 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  deleteField,
   deleteDoc,
   query,
   where,
   orderBy,
   limit,
   startAfter,
+  documentId,
+  type DocumentData,
+  type DocumentSnapshot,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import type { RouteModel } from "../../core/domain/types";
+import type { RoutePublicationArtifacts } from "../../core/domain/types";
+import { PublishRouteUseCase, ValidateRoutePublicationUseCase } from "../../core/application/route/PublishRoute.usecase";
+import { parseOptionalRoutePreview } from "../../core/domain/routeCatalog";
 import { handleFirestoreError, OperationType } from "./firestoreErrors";
 
 const ROUTES_COLLECTION = "routes";
-
 function cleanUpdates(
   updates: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -28,6 +35,44 @@ function cleanUpdates(
     },
     {},
   );
+}
+
+function toPublishedCatalogRoute(
+  snapshot: QueryDocumentSnapshot<DocumentData>,
+): RouteModel {
+  const data = snapshot.data();
+  const preview = parseOptionalRoutePreview(data.preview);
+
+  return {
+    ...(data as RouteModel),
+    id: snapshot.id,
+    preview,
+    // Catalog results discard legacy full geometry and detail-only checkpoints.
+    waypoints: [],
+    checkpoints: [],
+    photos: Array.isArray(data.photos) ? (data.photos as string[]) : [],
+  };
+}
+
+function assertPageSize(pageSize: number): void {
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) {
+    throw new Error("El tamaño de página debe ser un entero entre 1 y 100.");
+  }
+}
+
+function publishedCatalogConstraints(
+  pageSize: number,
+  lastDoc?: unknown,
+) {
+  return [
+    where("status", "==", "published"),
+    orderBy("createdAt", "desc"),
+    orderBy(documentId(), "asc"),
+    ...(lastDoc
+      ? [startAfter(lastDoc as QueryDocumentSnapshot<DocumentData>)]
+      : []),
+    limit(pageSize),
+  ];
 }
 
 /**
@@ -46,16 +91,13 @@ export const routeService = {
    */
   async listPublishedRoutes(limitCount: number = 20): Promise<RouteModel[]> {
     try {
+      assertPageSize(limitCount);
       const q = query(
         collection(db, ROUTES_COLLECTION),
-        where("status", "==", "published"),
-        limit(limitCount),
+        ...publishedCatalogConstraints(limitCount),
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((d) => ({
-        ...(d.data() as RouteModel),
-        id: d.id,
-      }));
+      return snapshot.docs.map(toPublishedCatalogRoute);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, ROUTES_COLLECTION);
     }
@@ -66,25 +108,23 @@ export const routeService = {
    */
   async listPublishedRoutesPaginated(
     pageSize: number = 20,
-    lastDoc?: any,
-  ): Promise<{ routes: RouteModel[]; lastVisible: any }> {
+    lastDoc?: unknown,
+  ): Promise<{ routes: RouteModel[]; lastVisible: unknown | null; hasMore: boolean }> {
     try {
-      const constraints: any[] = [
-        where("status", "==", "published"),
-        limit(pageSize),
-      ];
-      if (lastDoc) {
-        constraints.push(startAfter(lastDoc));
-      }
-      const q = query(collection(db, ROUTES_COLLECTION), ...constraints);
+      assertPageSize(pageSize);
+      const q = query(
+        collection(db, ROUTES_COLLECTION),
+        ...publishedCatalogConstraints(pageSize + 1, lastDoc),
+      );
       const snapshot = await getDocs(q);
-      const routes = snapshot.docs.map((d) => ({
-        ...(d.data() as RouteModel),
-        id: d.id,
-      }));
-      const lastVisible =
-        snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
-      return { routes, lastVisible };
+      const hasMore = snapshot.docs.length > pageSize;
+      const pageDocs = snapshot.docs.slice(0, pageSize);
+      const lastVisible = pageDocs.at(-1) ?? null;
+      return {
+        routes: pageDocs.map(toPublishedCatalogRoute),
+        lastVisible,
+        hasMore,
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, ROUTES_COLLECTION);
     }
@@ -95,7 +135,13 @@ export const routeService = {
     try {
       const snapshot = await getDoc(doc(db, ROUTES_COLLECTION, id));
       if (!snapshot.exists()) return null;
-      return { ...(snapshot.data() as RouteModel), id: snapshot.id };
+      const data = snapshot.data();
+      return {
+        ...(data as RouteModel),
+        id: snapshot.id,
+        preview: parseOptionalRoutePreview(data.preview),
+        waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, docPath);
     }
@@ -165,6 +211,45 @@ export const routeService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, docPath);
     }
+  },
+
+  /**
+   * Admin-only publication boundary. Only Firestore metadata is written;
+   * GPX/PMTiles bytes must already exist at their validated Storage paths.
+   */
+  async publishRoute(
+    id: string,
+    artifacts: RoutePublicationArtifacts,
+  ): Promise<void> {
+    const validated = ValidateRoutePublicationUseCase(id, artifacts);
+    const docPath = `${ROUTES_COLLECTION}/${id}`;
+    const routeRef = doc(db, ROUTES_COLLECTION, id);
+    let snapshot: DocumentSnapshot<DocumentData>;
+    try {
+      snapshot = await getDoc(routeRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, docPath);
+    }
+    if (!snapshot.exists()) throw new Error(`No existe la ruta ${id} para publicar.`);
+    const data = snapshot.data();
+    const route: RouteModel = {
+      ...(data as RouteModel),
+      id: snapshot.id,
+      preview: parseOptionalRoutePreview(data.preview),
+      waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
+    };
+    await PublishRouteUseCase(route, validated, {
+      publish: async (_routeId, updates) => {
+        try {
+          await updateDoc(routeRef, {
+            ...updates,
+            waypoints: deleteField(),
+          });
+        } catch (error) {
+          handleFirestoreError(error, OperationType.UPDATE, docPath);
+        }
+      },
+    });
   },
 
   /**

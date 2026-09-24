@@ -287,7 +287,7 @@ export const Drawer: React.FC<DrawerProps> = ({
               >
                 MI PERFIL
               </Text>
-              <Text style={styles.itemSub}>Mis datos, métricas y sesión</Text>
+              <Text style={styles.itemSub}>Mis datos y sesión</Text>
             </View>
           </Pressable>
         ) : (
@@ -381,19 +381,19 @@ const styles = StyleSheet.create({
     marginBottom: AndeanTheme.spacing.sm,
   },
   brand: {
-    color: AndeanTheme.colors.text,
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 1,
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.2,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: AndeanTheme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   userBox: {
     flexDirection: "row",
@@ -410,14 +410,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.primary,
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.white,
     fontSize: 16,
     fontWeight: "900",
   },
@@ -455,12 +455,12 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   itemActive: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
-    borderColor: AndeanTheme.colors.primary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderColor: AndeanTheme.colors.borderLight,
   },
   itemHighlight: {
-    borderColor: AndeanTheme.colors.primaryDark,
-    backgroundColor: "rgba(6, 78, 59, 0.2)",
+    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   itemTextWrap: { flex: 1 },
   itemTitle: {
@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-  itemTitleActive: { color: AndeanTheme.colors.primaryLight },
-  itemTitleHighlight: { color: AndeanTheme.colors.primaryLight },
+  itemTitleActive: { color: AndeanTheme.colors.text },
+  itemTitleHighlight: { color: AndeanTheme.colors.text },
   itemSub: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 10,

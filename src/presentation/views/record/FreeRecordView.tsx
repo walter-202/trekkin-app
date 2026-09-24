@@ -15,18 +15,19 @@ import {
   isResumableLive,
 } from "../../../core/domain/activity";
 import {
-  seedQualityCheck,
-  type FreeRecordingPosition,
-} from "../../../core/application/activity/StartFreeRecording.usecase";
-import {
   locationService,
   RECORDING_WATCH_OPTIONS,
 } from "../../../infrastructure/location/locationService";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
+import {
+  seedQualityCheck,
+  type FreeRecordingPosition,
+} from "../../../core/application/activity/StartFreeRecording.usecase";
 import type { TrekkinActivity } from "../../../core/domain/types";
 import { TrackingView } from "../activity/TrackingView";
 import { ResultView } from "../activity/ResultView";
 import { ActivityDetailView } from "../activity/ActivityDetailView";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-08 — Grabación libre: GRABAR RUTA sin plan, borrador ni destino.
@@ -47,17 +48,13 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
-  // Intentos limitados de fix con calidad antes de degradar a inicio
-  // sin semilla. Sin bucles infinitos: cada fix High tarda segundos.
-  const MAX_SEED_ATTEMPTS = 3;
-
   const requestFixAndStart = async () => {
     if (!currentUser || locating) return;
     setLocating(true);
     setLocError(null);
     try {
       let candidate: FreeRecordingPosition | null = null;
-      for (let attempt = 0; attempt < MAX_SEED_ATTEMPTS; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         const pos = await locationService.getCurrentPosition({
           accuracy: Location.Accuracy.High,
         });
@@ -143,7 +140,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
           style={styles.headerBtn}
           accessibilityLabel="Volver"
         >
-          <ArrowLeft size={18} color="#F9FAFB" />
+          <ArrowLeft size={18} color={AndeanTheme.colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>GRABAR RUTA</Text>
         {onClose ? (
@@ -152,7 +149,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
             style={styles.headerBtn}
             accessibilityLabel="Cerrar"
           >
-            <X size={18} color="#9CA3AF" />
+            <X size={18} color={AndeanTheme.colors.textSecondary} />
           </Pressable>
         ) : (
           <View style={styles.headerBtn} />
@@ -163,7 +160,10 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
         <View style={styles.center}>
           {locating ? (
             <>
-              <ActivityIndicator color="#10B981" size="large" />
+              <ActivityIndicator
+                color={AndeanTheme.colors.primary}
+                size="large"
+              />
               <Text style={styles.centerTitle}>
                 Obteniendo tu ubicación GPS…
               </Text>
@@ -173,7 +173,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
             </>
           ) : (
             <>
-              <Crosshair size={32} color="#10B981" />
+              <Crosshair size={32} color={AndeanTheme.colors.textSecondary} />
               <Text style={styles.centerTitle}>Graba desde donde estás</Text>
               <Text style={styles.centerText}>
                 Usaremos tu ubicación GPS actual como punto inicial. No
@@ -181,7 +181,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
               </Text>
               {locError && (
                 <View style={styles.errorBanner}>
-                  <AlertTriangle size={14} color="#FCA5A5" />
+                  <AlertTriangle size={14} color={AndeanTheme.colors.danger} />
                   <Text style={styles.errorText}>{locError}</Text>
                 </View>
               )}
@@ -229,7 +229,7 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#051712" },
+  container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -243,11 +243,16 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
   },
-  headerTitle: { flex: 1, color: "#F9FAFB", fontSize: 15, fontWeight: "900" },
+  headerTitle: {
+    flex: 1,
+    color: AndeanTheme.colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
   center: {
     flex: 1,
     alignItems: "center",
@@ -256,13 +261,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   centerTitle: {
-    color: "#F9FAFB",
+    color: AndeanTheme.colors.text,
     fontSize: 16,
     fontWeight: "900",
     textAlign: "center",
   },
   centerText: {
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     textAlign: "center",
     lineHeight: 17,
@@ -277,9 +282,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  errorText: { color: "#FCA5A5", fontSize: 11, flex: 1 },
+  errorText: { color: AndeanTheme.colors.danger, fontSize: 11, flex: 1 },
   startBtn: {
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 24,

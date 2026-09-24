@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Linking from "expo-linking";
 import type { SharePayload } from "../../core/domain/share.schemas";
 import type { ShareSheetResult } from "../../core/application/share/PublishShareLink.usecase";
+import { ShareGpxFileUseCase } from "../../core/application/share/ShareGpxFile.usecase";
 
 /**
  * HU-05 — Adaptador de plataforma para compartir (única capa con
@@ -53,10 +54,7 @@ export const shareService = {
         body?: { appendChild: (node: unknown) => void };
       };
       Blob?: new (parts: string[], opts: { type: string }) => Blob;
-      URL?: {
-        createObjectURL: (blob: Blob) => string;
-        revokeObjectURL: (url: string) => void;
-      };
+      URL?: { createObjectURL: (blob: Blob) => string; revokeObjectURL: (url: string) => void };
     };
     if (Platform.OS === "web" && g.document && g.Blob && g.URL) {
       const blob = new g.Blob([content], { type: "application/gpx+xml" });
@@ -70,9 +68,21 @@ export const shareService = {
       g.URL.revokeObjectURL(url);
       return;
     }
-    await Share.share({
-      title: fileName,
-      message: content,
+    const { File, Paths, Directory } = await import("expo-file-system");
+    const Sharing = await import("expo-sharing");
+    await ShareGpxFileUseCase({ fileName, content, mimeType: "application/gpx+xml" }, {
+      isAvailable: Sharing.isAvailableAsync,
+      writeFile: async (name, xml) => {
+        const directory = new Directory(Paths.cache, "gpx-exports");
+        directory.create({ idempotent: true, intermediates: true });
+        const file = new File(directory, name.replace(/[^a-zA-Z0-9_.-]/g, "_"));
+        file.create({ overwrite: true });
+        file.write(xml);
+        return file.uri;
+      },
+      shareFile: (uri, mimeType) => Sharing.shareAsync(uri, {
+        mimeType, UTI: "public.xml", dialogTitle: "Compartir GPX",
+      }),
     });
   },
 };

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { CheckpointCategory, ActivityStatus } from "./types";
+import type {
+  CheckpointCategory,
+  ActivityStatus,
+  ActivityGpxUploadStatus,
+} from "./types";
 
 /**
  * Clean Architecture — Dominio Validación de Actividades GPS (HU-06 + HU-08).
@@ -111,6 +115,29 @@ export const ActivityStatusSchema = z.enum(ACTIVITY_STATUS_VALUES, {
   error: "Estado de actividad inválido",
 });
 
+export const ActivityGpxUploadStatusSchema = z.enum([
+  "pending",
+  "uploading",
+  "uploaded",
+  "failed",
+] satisfies [ActivityGpxUploadStatus, ...ActivityGpxUploadStatus[]]);
+
+export const ActivityGpxMetadataSchema = z.object({
+  storagePath: z.string().min(1).max(512),
+  fileName: z.literal("activity.gpx"),
+  mimeType: z.literal("application/gpx+xml"),
+  byteSize: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(10 * 1024 * 1024)
+    .optional(),
+  sha256: z.string().max(128).optional(),
+  status: ActivityGpxUploadStatusSchema,
+  updatedAt: z.number().nonnegative(),
+  error: z.string().max(500).optional(),
+});
+
 /**
  * Esquema de validación para una actividad completa (TrekkinActivity).
  * Alineado con isValidActivity() de firestore.rules.
@@ -135,6 +162,7 @@ export const TrekkinActivitySchema = z.object({
   recordedPoints: z
     .array(RecordedPointSchema.or(CoordinatesSchema))
     .default([]),
+  gpx: ActivityGpxMetadataSchema.optional(),
   completedCheckpoints: z.array(z.string().trim().max(128)).default([]),
   isSynced: z.boolean().default(false),
   createdAt: z.number().min(0),

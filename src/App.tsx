@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+// Registers the Expo TaskManager callback at bundle load for headless launches.
+import "./infrastructure/location/backgroundLocationTask";
 import { StyleSheet, View, Text, Pressable } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -36,9 +38,8 @@ function Gate() {
   const [screen, setScreen] = useState<Screen>("explore");
   const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const [authRedirectScreen, setAuthRedirectScreen] = useState<Screen | null>(
-    null,
-  );
+  const [authRedirectScreen, setAuthRedirectScreen] =
+    useState<Screen | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [catalogKey, setCatalogKey] = useState(0);
 
@@ -152,7 +153,12 @@ function Gate() {
   }
 
   if (authOpen) {
-    return <AuthView onBack={cancelAuth} onSuccess={handleAuthSuccess} />;
+    return (
+      <AuthView
+        onBack={cancelAuth}
+        onSuccess={handleAuthSuccess}
+      />
+    );
   }
 
   // Vista activa principal
@@ -212,11 +218,11 @@ function Gate() {
           accessibilityLabel="Abrir menú de navegación"
           hitSlop={8}
         >
-          <Menu size={20} color={AndeanTheme.colors.primaryLight} />
+          <Menu size={20} color={AndeanTheme.colors.text} />
         </Pressable>
 
         <View style={styles.topBrand}>
-          <Mountain size={16} color={AndeanTheme.colors.primary} />
+          <Mountain size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.topTitle}>TREKKIN BOLIVIA</Text>
         </View>
 
@@ -227,7 +233,7 @@ function Gate() {
             accessibilityRole="button"
             accessibilityLabel="Ver mi perfil"
           >
-            <UserIcon size={14} color={AndeanTheme.colors.primaryLight} />
+            <UserIcon size={14} color={AndeanTheme.colors.textSecondary} />
             <Text style={styles.userBadgeText} numberOfLines={1}>
               {currentUser.displayName.split(" ")[0]}
             </Text>
@@ -242,7 +248,7 @@ function Gate() {
             accessibilityRole="button"
             accessibilityLabel="Iniciar sesión o registrarse"
           >
-            <LogIn size={13} color={AndeanTheme.colors.primaryLight} />
+            <LogIn size={13} color={AndeanTheme.colors.textSecondary} />
             <Text style={styles.loginBtnText}>Entrar</Text>
           </Pressable>
         )}
@@ -349,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: AndeanTheme.borderRadius.full,
   },
   loginBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 11,
     fontWeight: "800",
   },

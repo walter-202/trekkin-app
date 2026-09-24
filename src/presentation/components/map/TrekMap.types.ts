@@ -30,7 +30,7 @@ export interface TrekMapProps {
   track?: Coordinates[];
   start?: { lat: number; lng: number; name?: string } | null;
   end?: { lat: number; lng: number; name?: string } | null;
-  currentLocation?: { lat: number; lng: number } | null;
+  currentLocation?: { lat: number; lng: number; heading?: number } | null;
   pointsOfInterest?: MapMarker[];
   markers?: MapMarker[];
   initialRegion?: MapRegion;
@@ -45,12 +45,16 @@ export interface TrekMapProps {
   style?: StyleProp<ViewStyle>;
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;
   onPress?: (coords: { lat: number; lng: number }) => void;
+  /** Lifecycle hooks for views that need a truthful renderer fallback. */
+  /** True only after the configured local PMTiles style has loaded. */
+  onMapReady?: (offlinePackReady: boolean) => void;
+  onMapError?: (error: Error) => void;
   interactive?: boolean;
   accessibilityLabel?: string;
   showUserLocation?: boolean;
   /**
-   * Reservado HU-04: ruta a pack local (PMTiles/MBTiles).
-   * V1 online ignora este campo; no usar carpetas PNG.
+   * Pack de fondo HU-04: URI/URL `.pmtiles` (V1) o `.mbtiles` (detectado, no pintado en Expo Go).
+   * El GPX/trail se dibuja igual si el pack no carga.
    */
   offlinePackPath?: string;
   /** @deprecated V1 ya no usa UrlTile; se conserva por compatibilidad. */

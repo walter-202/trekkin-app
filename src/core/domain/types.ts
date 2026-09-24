@@ -12,6 +12,36 @@ export type RouteModality = "solo" | "acompañado";
 
 export type RouteStatus = "draft" | "in_review" | "published" | "rejected";
 
+/** Published route artifacts are metadata only; bytes live in Firebase Storage. */
+export type RouteArtifactKind = "gpx" | "pmtiles";
+
+export type RouteArtifactStatus =
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "failed";
+
+export interface RouteArtifactMetadata {
+  kind: RouteArtifactKind;
+  version: number;
+  storagePath: string;
+  fileName: "route.gpx" | "basemap.pmtiles";
+  mimeType: "application/gpx+xml" | "application/vnd.pmtiles";
+  byteSize: number;
+  /** Optional while an upload is pending; when present it is a SHA-256 digest. */
+  sha256?: string;
+  status: RouteArtifactStatus;
+  updatedAt: number;
+  error?: string;
+}
+
+/** A published bundle is complete only when both artifacts share one version. */
+export interface RoutePublicationArtifacts {
+  version: number;
+  gpx: RouteArtifactMetadata;
+  pmtiles: RouteArtifactMetadata;
+}
+
 export type CheckpointCategory =
   | "agua"
   | "camping"
@@ -24,6 +54,25 @@ export type CheckpointCategory =
 export type ActivityStatus =
   "in_progress" | "paused" | "completed" | "incomplete";
 
+/** Lifecycle of the private GPX artifact associated with a finished activity. */
+export type ActivityGpxUploadStatus =
+  | "pending"
+  | "uploading"
+  | "uploaded"
+  | "failed";
+
+/** Firestore metadata only; the GPX bytes live in owner-scoped Storage. */
+export interface ActivityGpxMetadata {
+  storagePath: string;
+  fileName: string;
+  mimeType: "application/gpx+xml";
+  byteSize?: number;
+  sha256?: string;
+  status: ActivityGpxUploadStatus;
+  updatedAt: number;
+  error?: string;
+}
+
 /** Origen de una actividad: libre (GRABAR RUTA), ruta (ACTIVIDAD GPS) o plan (HU-07). */
 export type LiveActivityOrigin = "free" | "route" | "plan";
 
@@ -32,6 +81,25 @@ export interface Coordinates {
   lng: number;
   altitude?: number;
   timestamp?: number;
+  /** Precisión GPS en metros (HU-08: se descarta si supera MAX_ACCURACY_M). */
+  accuracy?: number;
+}
+
+/** Exact geographic extent of the bounded geometry included in a published route. */
+export interface RoutePreviewBounds {
+  minLng: number;
+  minLat: number;
+  maxLng: number;
+  maxLat: number;
+}
+
+/** Compact, versioned online geometry. Full GPX remains a private Storage artifact. */
+export interface RoutePreview {
+  version: 1;
+  encoding: "polyline6";
+  polyline: string;
+  pointCount: number;
+  bbox: RoutePreviewBounds;
 }
 
 export interface Checkpoint {
@@ -69,6 +137,8 @@ export interface RouteModel {
   isPrivate: boolean;
   creatorId: string;
   creatorName: string;
+  /** Optional while legacy documents still expose waypoints during the HU-03 migration. */
+  preview?: RoutePreview;
   waypoints: Coordinates[];
   checkpoints: Checkpoint[];
   photos: string[];
@@ -80,6 +150,8 @@ export interface RouteModel {
   updatedAt: number;
   isOfflineCached?: boolean;
   estimatedOfflineSizeMB?: number;
+  /** Firestore metadata for the published GPX + PMTiles Storage bundle. */
+  artifacts?: RoutePublicationArtifacts;
 }
 
 export interface TrekkinActivity {
@@ -95,6 +167,8 @@ export interface TrekkinActivity {
   remainingDistanceKm: number;
   durationSeconds: number;
   recordedPoints: Coordinates[];
+  /** Optional Storage/Firestore metadata. Never contains GPS point arrays. */
+  gpx?: ActivityGpxMetadata;
   completedCheckpoints: string[];
   isSynced: boolean;
   createdAt: number;

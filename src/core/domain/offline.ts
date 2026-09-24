@@ -45,6 +45,9 @@ export interface OfflineMapSnapshot {
 
 /** Registro persistido en el dispositivo de una ruta descargada (T9). */
 export interface OfflineRoute {
+  /** Versioned manifest. v2 stores binary files outside AsyncStorage. */
+  manifestVersion: 2;
+  artifactVersion: number;
   routeId: string;
   title: string;
   region: string;
@@ -57,13 +60,20 @@ export interface OfflineRoute {
   difficulty: RouteDifficulty;
   modality: RouteModality;
   creatorName: string;
-  /** Mapa vectorial descargado (T6): bbox del trazado + conteos. */
+  /** Map metadata only; the PMTiles bytes live at pmtilesPath. */
   map: OfflineMapSnapshot;
-  /** Trazado completo descargado (T7): waypoints + puntos relevantes. */
+  /** Trazado completo reconstruido from the published route GPX. */
   trail: Coordinates[];
   checkpoints: Checkpoint[];
   /** Referencias a fotos remotas (T8: no se descargan, solo URLs). */
   photoUrls: string[];
+  /** Stable local files finalized before this manifest is committed. */
+  gpxPath: string;
+  pmtilesPath: string;
+  gpxBytes: number;
+  pmtilesBytes: number;
+  gpxSha256?: string;
+  pmtilesSha256?: string;
   estimatedSizeMB: number;
   downloadedAt: number;
 }
@@ -85,14 +95,6 @@ function jsonBytes(value: unknown): number {
   }
 }
 
-function trailingCoordinatesBytes(waypoints: Coordinates[]): number {
-  return jsonBytes(waypoints);
-}
-
-function checkpointsBytes(checkpoints: Checkpoint[]): number {
-  return jsonBytes(checkpoints);
-}
-
 function basicInfoBytes(route: RouteModel): number {
   const info = {
     title: route.title,
@@ -110,25 +112,29 @@ function basicInfoBytes(route: RouteModel): number {
   return jsonBytes(info);
 }
 
-/**
- * Costo del mapa vectorial descargado (T6). En esta v1 el "mapa" es el
- * snapshot vectorial de la geometría (SVG) proyectado sobre un bbox:
- * overhead fijo del render + bbox + retícula, proporcional al área cubierta.
- */
-function mapBytes(route: RouteModel): number {
-  const lats = route.waypoints.map((w) => w.lat);
-  const lngs = route.waypoints.map((w) => w.lng);
-  const area = Math.max(1, Math.abs(Math.max(...lats) - Math.min(...lats))) *
-    Math.max(1, Math.abs(Math.max(...lngs) - Math.min(...lngs)));
-  return Math.round(4096 + area * 5120);
-}
-
-/** T3 — Cálculo del tamaño estimado de la descarga (mapa + trazado + info). */
+/** T3 — Size from the published binary artifact metadata, never a snapshot guess. */
 export function estimateRouteOfflineSize(route: RouteModel): OfflineSizeEstimate {
   const infoBytesValue = basicInfoBytes(route);
-  const trailBytesValue = trailingCoordinatesBytes(route.waypoints) +
-    checkpointsBytes(route.checkpoints);
-  const mapBytesValue = mapBytes(route);
+  if (!route.artifacts) {
+    if (!route.waypoints || route.waypoints.length < 2) {
+      throw new Error("La ruta publicada no tiene un paquete offline disponible.");
+    }
+    const trailBytesValue = Math.max(1024, route.waypoints.length * 140);
+    const mapBytesValue = 127;
+    return {
+      mapBytes: mapBytesValue,
+      trailBytes: trailBytesValue,
+      infoBytes: infoBytesValue,
+      totalBytes: mapBytesValue + trailBytesValue + infoBytesValue,
+    };
+  }
+  const { gpx, pmtiles } = route.artifacts;
+  if (gpx.status !== "uploaded" || pmtiles.status !== "uploaded" ||
+      gpx.byteSize <= 0 || pmtiles.byteSize <= 0) {
+    throw new Error("El paquete offline publicado está incompleto.");
+  }
+  const trailBytesValue = gpx.byteSize;
+  const mapBytesValue = pmtiles.byteSize;
   return {
     mapBytes: mapBytesValue,
     trailBytes: trailBytesValue,

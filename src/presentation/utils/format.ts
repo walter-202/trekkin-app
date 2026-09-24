@@ -1,5 +1,5 @@
-﻿/**
- * Formateo de mÃ©tricas para la UI de actividad (HU-06). Cero lÃ³gica de negocio.
+/**
+ * Formateo de métricas para la UI de actividad (HU-06). Cero lógica de negocio.
  */
 
 export function formatDuration(totalSeconds: number): string {
@@ -16,7 +16,7 @@ export function formatKm(km: number): string {
 }
 
 export function formatDate(timestamp?: number): string {
-  if (!timestamp) return "â€”";
+  if (!timestamp) return "—";
   const d = new Date(timestamp);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;

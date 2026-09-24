@@ -62,6 +62,8 @@ Sigue el checklist de arriba para dominio/aplicación; el **renderer** no es un 
 3. Vistas: importar `{ TrekMap }` desde `presentation/components/map/TrekMap`.
    Metro elige `TrekMap.web.tsx` o `TrekMap.native.tsx`.
 4. Plan y formatos: `docs/plan/plan_mapas_on_offline.md`. Packs HU-04: `docs/plan/offline_maps.md`.
+   - GPX/GeoJSON: `src/core/domain/trackFormats.ts`.
+   - PMTiles/MBTiles: `src/core/domain/mapPackFormats.ts` + `ResolveOfflinePack` + `TrekMap.offlinePackPath`.
 5. Probar: `pnpm start` → `w` (http://localhost:8081) y QR Expo Go. V2 nativo: `expo prebuild` + `expo run:android` (rompe Expo Go).
 
 ```

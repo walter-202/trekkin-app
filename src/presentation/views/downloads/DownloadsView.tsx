@@ -65,12 +65,12 @@ export const DownloadsView: React.FC<DownloadsViewProps> = ({ onBack }) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={onBack} accessibilityLabel="Volver al inicio">
-          <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+          <ChevronLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.link}>Inicio</Text>
         </Pressable>
         <View style={styles.badge}>
-          <Download size={14} color={AndeanTheme.colors.primaryLight} />
-          <Text style={styles.badgeText}>HU-04 · DESCARGAS</Text>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>DESCARGAS</Text>
         </View>
       </View>
 
@@ -81,7 +81,7 @@ export const DownloadsView: React.FC<DownloadsViewProps> = ({ onBack }) => {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>Cargando descargas…</Text>
         </View>
       ) : (
@@ -124,7 +124,7 @@ const DownloadCard: React.FC<{
     >
       <View style={styles.cardHeader}>
         <View style={styles.thumb}>
-          <Download size={16} color={AndeanTheme.colors.primaryLight} />
+          <Download size={16} color={AndeanTheme.colors.textSecondary} />
         </View>
         <View style={styles.titleWrap}>
           <Text style={styles.cardTitle} numberOfLines={1}>
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   link: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -188,18 +188,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
     marginLeft: "auto",
   },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
+  },
   badgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: AndeanTheme.colors.primaryLight,
+    letterSpacing: 1,
+    color: AndeanTheme.colors.textSecondary,
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   session: {
@@ -225,9 +232,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
   },

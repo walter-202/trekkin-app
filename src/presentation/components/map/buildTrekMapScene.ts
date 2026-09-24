@@ -1,5 +1,6 @@
 import type { Coordinates } from "../../../core/domain/types";
 import { computeBoundingBox } from "../../../core/domain/geoBounds";
+import { ResolveOfflinePackUseCase } from "../../../core/application/offline/ResolveOfflinePack.usecase";
 import type {
   TrekMapScene,
   SceneMarker,
@@ -75,6 +76,14 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     });
   }
 
+  const userLocation = props.currentLocation
+    ? {
+        lat: props.currentLocation.lat,
+        lng: props.currentLocation.lng,
+        heading: props.currentLocation.heading,
+      }
+    : null;
+
   if (props.currentLocation) {
     markers.push({
       id: "user-location",
@@ -82,6 +91,7 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
       lng: props.currentLocation.lng,
       kind: "user",
       label: "Mi posición",
+      heading: props.currentLocation.heading,
     });
   }
 
@@ -90,13 +100,31 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
       ? props.fitTo
       : [...(props.trail ?? []), ...(props.track ?? []), ...markers];
 
+  let offlinePack: TrekMapScene["offlinePack"] = null;
+  if (props.offlinePackPath) {
+    try {
+      const resolved = ResolveOfflinePackUseCase({
+        path: props.offlinePackPath,
+      });
+      offlinePack = {
+        kind: resolved.kind,
+        protocolUrl: resolved.protocolUrl,
+        message: resolved.message,
+      };
+    } catch {
+      offlinePack = null;
+    }
+  }
+
   return {
     trail,
     track,
     markers,
+    userLocation,
     bounds: boundsFromPoints(fitPoints),
     interactive: props.interactive !== false,
     styleUrl: ONLINE_STYLE_URL,
+    offlinePack,
     followUser: props.followUser,
   };
 }

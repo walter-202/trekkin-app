@@ -10,8 +10,8 @@
  * - T5: SetPlanPointsUseCase — coordenadas válidas
  * - T6: ConfirmStartPointUseCase — confirma punto de inicio real
  * - T7: MarkReadyForGpsUseCase — bandera de preparación GPS
- * - T8: Tile cache stats report 1500 max tiles
- * - T9: isDenied respects denied tiles
+ * Raster tile caches are intentionally out of scope. Offline maps use the
+ * canonical PMTiles + GPX bundle path instead.
  */
 
 import {
@@ -27,7 +27,6 @@ import { SaveDraftUseCase, makeDraftId } from '../core/application/plan/SaveDraf
 import { SetPlanPointsUseCase } from '../core/application/plan/SetPlanPoints.usecase';
 import { ConfirmStartPointUseCase } from '../core/application/plan/ConfirmStartPoint.usecase';
 import { MarkReadyForGpsUseCase } from '../core/application/plan/MarkReadyForGps.usecase';
-import { tileCache } from '../infrastructure/persistence/tileCache';
 
 interface TestResult {
   id: string;
@@ -260,26 +259,6 @@ export async function runPlanAcceptanceTests(): Promise<TestResult[]> {
     const msg = err instanceof Error ? err.message : String(err);
     recordTest('T7: Rechaza MarkReady sin punto de inicio confirmado', true, msg);
   }
-
-  // =========================================================================
-  // T8: Tile cache stats report MAX_TILES = 1500
-  // =========================================================================
-  const stats = tileCache.getStats();
-  recordTest(
-    'T8: Caché de teselas configurada a 1500 tiles máximo',
-    stats.maxTiles === 1500,
-    `maxTiles: ${stats.maxTiles}`,
-  );
-
-  // =========================================================================
-  // T9: isDenied respects denied tiles
-  // =========================================================================
-  const wasDenied = tileCache.isDenied(99, 0, 0);
-  recordTest(
-    'T9: isDenied retorna false para tesela no denegada',
-    wasDenied === false,
-    `isDenied(99,0,0): ${wasDenied}`,
-  );
 
   return results;
 }

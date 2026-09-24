@@ -10,7 +10,6 @@ import {
 import { ChevronLeft, Route as RouteIcon, Mountain } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
-import { isFreeRecording } from "../../../core/domain/activity";
 import type { TrekkinActivity, RouteModel } from "../../../core/domain/types";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import { RouteCard } from "../explore/RouteCard";
@@ -19,6 +18,7 @@ import { TrackingView } from "./TrackingView";
 import { ResultView } from "./ResultView";
 import { HistoryView } from "./HistoryView";
 import { ActivityDetailView } from "./ActivityDetailView";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Hub "Realizar una ruta existente".
@@ -60,9 +60,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
 
   useEffect(() => {
     if (step !== "boot" || !live) return;
-    // ACTIVIDAD GPS solo recupera actividades de ruta (HU-06/plan).
-    // Las grabaciones libres (GRABAR RUTA) viven en FreeRecordView.
-    if (isFreeRecording(live)) return;
+    if (live.origin === "free") {
+      setStep("boot");
+      return;
+    }
     if (live.phase === "ready") setStep("prepare");
     else if (live.phase === "in_progress" || live.phase === "paused")
       setStep("tracking");
@@ -129,10 +130,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
           accessibilityLabel="Volver"
           style={styles.navBtn}
         >
-          <ChevronLeft size={20} color="#D1D5DB" />
+          <ChevronLeft size={20} color={AndeanTheme.colors.text} />
         </Pressable>
         <View style={styles.headerTitleBox}>
-          <RouteIcon size={14} color="#34D399" />
+          <RouteIcon size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.headerTitle}>{STEP_TITLES[step]}</Text>
         </View>
         <View style={styles.navBtn} />
@@ -141,7 +142,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
       {step === "boot" &&
         (isLoading && catalogRoutes.length === 0 ? (
           <View style={styles.center}>
-            <ActivityIndicator color="#10B981" />
+            <ActivityIndicator color={AndeanTheme.colors.primary} />
             <Text style={styles.muted}>Cargando catálogo de rutas…</Text>
           </View>
         ) : catalogRoutes.length > 0 ? (
@@ -158,19 +159,16 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
                   Del catálogo de rutas publicadas (HU-03). Aparecen también las
                   rutas nuevas que se publiquen.
                 </Text>
-                <Pressable
-                  onPress={() => setStep("prepare")}
-                  style={styles.recordBtn}
-                >
-                  <Text style={styles.recordBtnText}>＋ GRABAR NUEVA RUTA</Text>
-                </Pressable>
                 {error ? (
                   <View style={styles.demoBanner}>
                     <Text style={styles.demoText}>{error}</Text>
                   </View>
                 ) : null}
                 {isLoading ? (
-                  <ActivityIndicator color="#10B981" size="small" />
+                  <ActivityIndicator
+                    color={AndeanTheme.colors.primary}
+                    size="small"
+                  />
                 ) : null}
               </View>
             }
@@ -180,7 +178,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
           />
         ) : (
           <View style={styles.center}>
-            <Mountain size={28} color="#F59E0B" />
+            <Mountain size={28} color={AndeanTheme.colors.accentWarning} />
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.muted}>
               Verifica la conexión e intenta nuevamente.
@@ -238,7 +236,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#051712" },
+  container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -253,15 +251,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 14,
   },
   headerTitle: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
@@ -275,7 +273,11 @@ const styles = StyleSheet.create({
   },
   listContent: { padding: 16, paddingBottom: 32, gap: 10 },
   listHeader: { gap: 8, marginBottom: 4 },
-  listTitle: { color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
+  listTitle: {
+    color: AndeanTheme.colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
   demoBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,
@@ -284,41 +286,32 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   demoText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
-  muted: { color: "#9CA3AF", fontSize: 12, textAlign: "center" },
+  muted: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    textAlign: "center",
+  },
   errorText: {
-    color: "#FCA5A5",
+    color: AndeanTheme.colors.danger,
     fontSize: 14,
     fontWeight: "700",
     textAlign: "center",
   },
   retryBtn: {
     marginTop: 6,
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 24,
   },
   retryText: {
-    color: "#10B981",
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
   },
   linkBtn: { paddingVertical: 10 },
-  linkText: { color: "#9CA3AF", fontSize: 12 },
-  recordBtn: {
-    marginTop: 4,
-    backgroundColor: "#10B981",
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: "center",
-  },
-  recordBtnText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.5,
-  },
+  linkText: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
 });

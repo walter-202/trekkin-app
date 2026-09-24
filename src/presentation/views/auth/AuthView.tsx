@@ -8,11 +8,12 @@ import {
   Platform,
   StyleSheet,
 } from "react-native";
-import { ChevronLeft, Compass, Mountain, Sparkles } from "lucide-react-native";
+import { ChevronLeft, Compass, Mountain } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
+import { AndeanTheme } from "../../theme";
 import { LoginForm } from "./LoginForm";
 import { RegisterForm } from "./RegisterForm";
-import { Banner } from "../../components/ui";
+import { Banner, Button } from "../../components/ui";
 
 interface AuthViewProps {
   initialMode?: "register" | "login";
@@ -20,7 +21,7 @@ interface AuthViewProps {
   onSuccess?: () => void;
 }
 
-/** Compositor auth (HU-01/02): header + hero + form + Google + demo. Estado de negocio vive en cada form. */
+/** Compositor auth (HU-01/02): header oscuro + sheet blanca + form + switcher + invitado. */
 export const AuthView: React.FC<AuthViewProps> = ({
   initialMode = "register",
   onBack,
@@ -38,83 +39,78 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setNoticeError(null);
   };
 
+  const isRegister = mode === "register";
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.screenContainer}
+      style={styles.screen}
     >
-      {/* Header Navigation Bar */}
-      <View style={styles.header}>
-        {onBack ? (
-          <Pressable
-            onPress={onBack}
-            style={({ pressed }) => [
-              styles.iconButton,
-              pressed && styles.buttonPressed,
-            ]}
-            accessibilityLabel="Volver"
-          >
-            <ChevronLeft size={20} color="#ffffff" />
-          </Pressable>
-        ) : (
-          <View style={styles.placeholderButton} />
-        )}
+      {/* Zona oscura: top bar + título */}
+      <View style={styles.darkZone}>
+        <View style={styles.topBar}>
+          {isRegister && onBack ? (
+            <Pressable
+              onPress={onBack}
+              style={({ pressed }) => [
+                styles.iconBtn,
+                pressed && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Volver"
+            >
+              <ChevronLeft size={20} color={AndeanTheme.colors.primary} />
+            </Pressable>
+          ) : (
+            <View style={styles.iconBtn} accessibilityLabel="Trekkin Bolivia">
+              <Mountain size={20} color={AndeanTheme.colors.primary} />
+            </View>
+          )}
 
-        {/* Central Logo Pill (Design Rules) */}
-        <View style={styles.centerPill}>
-          <View style={styles.mountainBadge}>
-            <Mountain size={12} color="#10b981" />
+          <View style={styles.pill}>
+            <Text style={styles.pillText}>TREK-BOLIVIA PRO v1.0</Text>
           </View>
-          <Text style={styles.pillBrand}>TREKKIN APP</Text>
-          <View style={styles.pillVersion}>
-            <Text style={styles.pillVersionText}>v1.0.0</Text>
+
+          <View style={styles.iconBtn} accessibilityLabel="Brújula">
+            <Compass size={20} color={AndeanTheme.colors.primary} />
           </View>
         </View>
 
-        <View style={styles.iconButton}>
-          <Compass size={18} color="#10b981" />
-        </View>
-      </View>
-
-      {/* Title & Andean Subtitle */}
-      <View style={styles.heroSection}>
-        <View style={styles.subtitleBadge}>
-          <Sparkles size={12} color="#34d399" />
-          <Text style={styles.subtitleBadgeText}>
-            {mode === "register"
-              ? "NUEVA EXPEDICIÓN"
-              : "ACCESO AL CAMPAMENTO BASE"}
+        <View style={styles.titleBlock}>
+          <Text style={styles.eyebrow}>
+            {isRegister ? "◆ NUEVA EXPEDICIÓN" : "● ACCESO SEGURO"}
+          </Text>
+          <Text style={styles.title}>
+            {isRegister ? "Crear Cuenta" : "Iniciar Sesión"}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isRegister
+              ? "Únete a la comunidad de excursionistas y montañeros de Bolivia."
+              : "Bienvenido de vuelta, senderista."}
           </Text>
         </View>
-        <Text style={styles.heroTitle}>
-          {mode === "register" ? "Crear Cuenta" : "Iniciar Sesión"}
-        </Text>
-        <Text style={styles.heroDescription}>
-          {mode === "register"
-            ? "Únete a la comunidad de excursionistas y montañeros de Bolivia."
-            : "Accede a tus mapas topográficos, bitácoras y cumbres registradas."}
-        </Text>
       </View>
 
-      {/* High-Contrast White Elevated Sheet */}
-      <View style={styles.whiteSheet}>
+      {/* Hoja blanca del formulario */}
+      <View style={styles.sheet}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
         >
           {noticeError ? <Banner tone="error" message={noticeError} /> : null}
           {noticeMessage ? (
             <Banner tone="success" message={noticeMessage} />
           ) : null}
 
-          {mode === "register" ? (
+          {isRegister ? (
             <RegisterForm
               onSuccess={() => {
-                // HU-01 C5+C6: mensaje de confirmación + redirección a login (sin auto-sesión).
+                // HU-01 C5+C6: confirmación + redirección a login (sin auto-sesión).
                 setMode("login");
                 setNoticeError(null);
                 setNoticeMessage(
-                  "¡Cuenta creada exitosamente! Ahora inicia sesión.",
+                  "Cuenta creada. Inicia sesión para continuar.",
                 );
               }}
             />
@@ -122,45 +118,49 @@ export const AuthView: React.FC<AuthViewProps> = ({
             <LoginForm onSuccess={() => onSuccess?.()} />
           )}
 
-          {/* Nota: demo rápido y Google ocultos por ahora (fuera de HU-01/02).
-              Google sigue en AuthContext.loginWithGoogle para web/futuro. */}
+          {/* Nota: Google oculto por ahora (fuera de HU-01/02).
+              Sigue en AuthContext.loginWithGoogle para web/futuro. */}
 
-          {/* Mode Switcher */}
-          <View style={styles.switchModeContainer}>
-            {mode === "register" ? (
-              <Text style={styles.switchModeText}>
-                ¿Ya tienes una cuenta registrada?{" "}
-                <Text
-                  onPress={() => switchFormMode("login")}
-                  style={styles.switchModeLink}
-                >
-                  Iniciar Sesión
-                </Text>
-              </Text>
-            ) : (
-              <Text style={styles.switchModeText}>
-                ¿Aún no eres miembro de la plataforma?{" "}
-                <Text
-                  onPress={() => switchFormMode("register")}
-                  style={styles.switchModeLink}
-                >
-                  Crear Cuenta
-                </Text>
-              </Text>
-            )}
-            {/* HU-03 guest libre: entrada de invitado, sin sesión. */}
-            <Text style={styles.guestText}>
-              ¿Solo quieres mirar?{" "}
+          {isRegister ? (
+            <Text style={styles.switchText}>
+              ¿Ya tienes cuenta?{" "}
               <Text
-                onPress={continueAsGuest}
-                style={styles.switchModeLink}
+                onPress={() => switchFormMode("login")}
+                style={styles.switchLink}
                 accessibilityRole="link"
-                accessibilityLabel="Explorar como invitado sin crear cuenta"
+                accessibilityLabel="Ir a iniciar sesión"
               >
-                Explorar como invitado
+                Iniciar Sesión
               </Text>
             </Text>
-          </View>
+          ) : (
+            <View style={styles.loginSwitch}>
+              <View style={styles.dividerRow}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>O</Text>
+                <View style={styles.divider} />
+              </View>
+              <Button
+                title="Crear una cuenta nueva"
+                variant="outline-green"
+                onPress={() => switchFormMode("register")}
+                accessibilityLabel="Crear una cuenta nueva"
+              />
+            </View>
+          )}
+
+          {/* HU-03 guest libre: entrada de invitado, sin sesión. */}
+          <Text style={styles.guestText}>
+            ¿Solo quieres mirar?{" "}
+            <Text
+              onPress={continueAsGuest}
+              style={styles.switchLink}
+              accessibilityRole="link"
+              accessibilityLabel="Explorar como invitado sin crear cuenta"
+            >
+              Explorar como invitado
+            </Text>
+          </Text>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -168,146 +168,119 @@ export const AuthView: React.FC<AuthViewProps> = ({
 };
 
 const styles = StyleSheet.create({
-  screenContainer: {
+  screen: {
     flex: 1,
-    backgroundColor: "#051712",
-    justifyContent: "space-between",
-    minHeight: "100%",
+    backgroundColor: AndeanTheme.colors.background,
   },
-  header: {
+  darkZone: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+    gap: 32,
+  },
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
   },
-  iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  iconBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: AndeanTheme.colors.card,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.borderLight,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.12)",
   },
-  placeholderButton: {
-    width: 38,
-    height: 38,
-  },
-  buttonPressed: {
+  pressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
   },
-  centerPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#08241c",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+  pill: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
     borderWidth: 1,
-    borderColor: "#174635",
-    gap: 6,
+    borderColor: "rgba(16, 185, 129, 0.2)",
   },
-  mountainBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(16, 185, 129, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pillBrand: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#ffffff",
-    letterSpacing: 0.5,
-  },
-  pillVersion: {
-    backgroundColor: "#022c22",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.3)",
-  },
-  pillVersionText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#6ee7b7",
-  },
-  heroSection: {
-    paddingHorizontal: 24,
-    paddingTop: 4,
-    paddingBottom: 16,
-    alignItems: "center",
-  },
-  subtitleBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(6, 78, 59, 0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.4)",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-    marginBottom: 8,
-  },
-  subtitleBadgeText: {
+  pillText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#6ee7b7",
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: AndeanTheme.colors.primaryLight,
   },
-  heroTitle: {
-    fontSize: 24,
+  titleBlock: {
+    gap: 8,
+  },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: AndeanTheme.colors.primaryLight,
+  },
+  title: {
+    fontSize: 34,
     fontWeight: "900",
-    color: "#ffffff",
     letterSpacing: -0.5,
-    marginBottom: 4,
+    color: AndeanTheme.colors.white,
   },
-  heroDescription: {
-    fontSize: 12,
-    color: "#cbd5e1",
-    textAlign: "center",
-    lineHeight: 17,
-    maxWidth: 290,
+  subtitle: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: AndeanTheme.colors.textSecondary,
   },
-  whiteSheet: {
+  sheet: {
     flex: 1,
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 20,
-    paddingHorizontal: 22,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 20,
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
   },
-  scrollContent: {
-    paddingBottom: 40,
+  sheetContent: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 48,
+    gap: 0,
   },
-  switchModeContainer: {
-    marginTop: 18,
+  loginSwitch: {
+    gap: 20,
+    marginTop: 24,
+  },
+  dividerRow: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  switchModeText: {
-    fontSize: 12,
-    color: "#64748b",
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: AndeanTheme.colors.fieldBorder,
+  },
+  dividerText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    color: AndeanTheme.colors.fieldHint,
+  },
+  switchText: {
+    fontSize: 13,
+    color: AndeanTheme.colors.fieldHint,
+    textAlign: "center",
+    marginTop: 20,
+    paddingBottom: 8,
+  },
+  switchLink: {
+    color: AndeanTheme.colors.primaryDark,
+    fontWeight: "800",
   },
   guestText: {
-    fontSize: 12,
-    color: "#64748b",
-    marginTop: 8,
-  },
-  switchModeLink: {
-    color: "#064e3b",
-    fontWeight: "800",
-    textDecorationLine: "underline",
+    fontSize: 13,
+    color: AndeanTheme.colors.fieldHint,
+    textAlign: "center",
+    marginTop: 16,
   },
 });

@@ -61,8 +61,12 @@ export async function FinishActivityUseCase(
     activity.route.distanceKm > 0 &&
     distanceCoveredKm >=
       activity.route.distanceKm * ACTIVITY_CONFIG.COMPLETE_COVERAGE_RATIO;
+  const freeRecordingComplete =
+    activity.origin === "free" && activity.recordedPoints.length >= 2;
   const finalStatus: ActivityStatus =
-    reachedEnd || nearFullCoverage ? "completed" : "incomplete";
+    freeRecordingComplete || reachedEnd || nearFullCoverage
+      ? "completed"
+      : "incomplete";
 
   const finished: LiveActivity = {
     ...activity,

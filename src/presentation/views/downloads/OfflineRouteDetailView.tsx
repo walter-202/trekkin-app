@@ -25,6 +25,10 @@ import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { TrekMap } from "../../components/map/TrekMap";
+import { OfflineRouteMap } from "../../components/map/OfflineRouteMap";
+import { shouldUseOfflineTrailFallback } from "../../../core/domain/offlineMapFallback";
+
+const OFFLINE_MAP_READY_TIMEOUT_MS = 3000;
 
 interface OfflineRouteDetailViewProps {
   routeId: string;
@@ -42,6 +46,9 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
   const [record, setRecord] = useState<OfflineRoute | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offlinePackReady, setOfflinePackReady] = useState(false);
+  const [mapError, setMapError] = useState<Error | null>(null);
+  const [mapTimedOut, setMapTimedOut] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -64,6 +71,15 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     };
   }, [routeId]);
 
+  useEffect(() => {
+    if (!record?.pmtilesPath) return;
+    setOfflinePackReady(false);
+    setMapError(null);
+    setMapTimedOut(false);
+    const timeout = setTimeout(() => setMapTimedOut(true), OFFLINE_MAP_READY_TIMEOUT_MS);
+    return () => clearTimeout(timeout);
+  }, [record?.pmtilesPath]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -77,7 +93,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     return (
       <View style={styles.container}>
         <Pressable onPress={onBack} style={styles.backBtn}>
-          <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+          <ChevronLeft size={16} color={AndeanTheme.colors.text} />
           <Text style={styles.backText}>Descargas</Text>
         </Pressable>
         <Banner tone="error" message={error ?? "Ruta offline no disponible."} />
@@ -89,11 +105,17 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     "es-BO",
     { day: "2-digit", month: "short", year: "numeric" },
   );
+  const showTrailFallback = shouldUseOfflineTrailFallback({
+    hasLocalPack: Boolean(record.pmtilesPath),
+    mapReady: offlinePackReady,
+    mapError: Boolean(mapError),
+    timedOut: mapTimedOut,
+  });
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Pressable onPress={onBack} style={styles.backBtn}>
-        <ChevronLeft size={16} color={AndeanTheme.colors.primaryLight} />
+        <ChevronLeft size={16} color={AndeanTheme.colors.text} />
         <Text style={styles.backText}>Descargas</Text>
       </Pressable>
 
@@ -105,18 +127,38 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
       <Text style={styles.title}>{record.title}</Text>
       <Text style={styles.region}>{record.region}</Text>
 
-      <TrekMap
-        trail={record.trail}
-        pointsOfInterest={record.checkpoints}
-        start={record.startPoint}
-        end={record.endPoint}
-        height={240}
-        accessibilityLabel={`Mapa de ${record.title}`}
-      />
+      {showTrailFallback ? (
+        <>
+          <Banner
+            tone="error"
+            message="El GPX y el trazado están disponibles sin conexión, pero el renderizador del mapa vectorial no está disponible en esta compilación de Expo."
+          />
+          <OfflineRouteMap
+            route={record}
+            height={240}
+            accessibilityLabel={`Trazado offline de ${record.title}`}
+          />
+        </>
+      ) : (
+        <TrekMap
+          trail={record.trail}
+          pointsOfInterest={record.checkpoints}
+          start={record.startPoint}
+          end={record.endPoint}
+          offlinePackPath={record.pmtilesPath}
+          onMapReady={setOfflinePackReady}
+          onMapError={(nextError) => {
+            setOfflinePackReady(false);
+            setMapError(nextError);
+          }}
+          height={240}
+          accessibilityLabel={`Mapa de ${record.title}`}
+        />
+      )}
 
       <View style={styles.grid}>
         <View style={styles.metric}>
-          <MapPin size={14} color={AndeanTheme.colors.primaryLight} />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>INICIO</Text>
           <Text style={styles.metricValue}>{record.startPoint.name}</Text>
         </View>
@@ -126,23 +168,24 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
           <Text style={styles.metricValue}>{record.endPoint.name}</Text>
         </View>
         <View style={styles.metric}>
-          <Ruler size={14} color={AndeanTheme.colors.primaryLight} />
+          <Ruler size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DISTANCIA</Text>
           <Text style={styles.metricValue}>{record.distanceKm.toFixed(1)} km</Text>
         </View>
         <View style={styles.metric}>
-          <Clock size={14} color={AndeanTheme.colors.primaryLight} />
+          <Clock size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DURACIÓN</Text>
           <Text style={styles.metricValue}>
             {Math.round(record.durationMinutes / 60)} h
           </Text>
         </View>
         <View style={styles.metric}>
-          <TrendingUp size={14} color={AndeanTheme.colors.primaryLight} />
+          <TrendingUp size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>DESNIVEL</Text>
           <Text style={styles.metricValue}>{record.elevationGainM ?? 0} m</Text>
         </View>
         <View style={styles.metric}>
+          <HardDrive size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>
             DIFICULTAD · {record.difficulty.toUpperCase()}
           </Text>
@@ -176,7 +219,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
           Descargada {downloadedLabel} · {formatBytes(record.estimatedSizeMB * 1024 * 1024)}
         </Text>
         <HardDrive size={12} color={AndeanTheme.colors.textMuted} />
-        <Text style={styles.footerText}>Mapa vectorial + trazado + info</Text>
+        <Text style={styles.footerText}>PMTiles + GPX + manifiesto</Text>
         <CheckCircle2 size={12} color={AndeanTheme.colors.primaryLight} />
       </View>
     </ScrollView>
@@ -200,13 +243,13 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   backText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   region: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },

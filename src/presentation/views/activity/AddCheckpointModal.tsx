@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { CHECKPOINT_CATEGORY_VALUES } from "../../../core/domain/activity.schemas";
 import type { CheckpointCategory } from "../../../core/domain/types";
+import { AndeanTheme } from "../../theme";
 
 const CATEGORY_LABEL: Record<CheckpointCategory, string> = {
   agua: "Agua",
@@ -74,9 +75,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
         setError("No se pudo registrar la parada.");
       }
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "Datos de parada inválidos.",
-      );
+      setError(err instanceof Error ? err.message : "Datos de parada inválidos.");
     } finally {
       setSaving(false);
     }
@@ -106,7 +105,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
             value={name}
             onChangeText={setName}
             placeholder="Vertiente, mirador…"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={AndeanTheme.colors.textMuted}
             style={styles.input}
             maxLength={100}
             accessibilityLabel="Nombre de la parada"
@@ -124,9 +123,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                 >
-                  <Text
-                    style={[styles.chipText, active && styles.chipTextActive]}
-                  >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
                     {CATEGORY_LABEL[id]}
                   </Text>
                 </Pressable>
@@ -139,7 +136,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
             value={notes}
             onChangeText={setNotes}
             placeholder="Agua filtrable, viento fuerte…"
-            placeholderTextColor="#6B7280"
+            placeholderTextColor={AndeanTheme.colors.textMuted}
             style={[styles.input, styles.notes]}
             maxLength={1000}
             multiline
@@ -184,59 +181,60 @@ const styles = StyleSheet.create({
   },
   card: {
     maxHeight: "90%",
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 20,
   },
   cardContent: { padding: 20, gap: 8 },
-  title: { color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
-  hint: { color: "#9CA3AF", fontSize: 12, lineHeight: 17, marginBottom: 4 },
+  title: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
+  hint: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17, marginBottom: 4 },
   label: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
     marginTop: 6,
   },
   input: {
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: "#F9FAFB",
+    color: AndeanTheme.colors.text,
     fontSize: 13,
   },
   notes: { minHeight: 72, textAlignVertical: "top" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: "#1A4537",
-    backgroundColor: "#0A241C",
+    borderColor: AndeanTheme.colors.borderLight,
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  chipActive: { borderColor: "#10B981", backgroundColor: "#0A241C" },
-  chipText: { color: "#9CA3AF", fontSize: 11, fontWeight: "700" },
-  chipTextActive: { color: "#34D399" },
-  error: { color: "#FCA5A5", fontSize: 11 },
+  chipActive: { borderColor: AndeanTheme.colors.primary, backgroundColor: "rgba(16, 185, 129, 0.15)" },
+  chipText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: "700" },
+  chipTextActive: { color: AndeanTheme.colors.text },
+  error: { color: AndeanTheme.colors.danger, fontSize: 11 },
   actions: { flexDirection: "row", gap: 10, marginTop: 10 },
   cancelBtn: {
     flex: 1,
     alignItems: "center",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 12,
   },
-  cancelText: { color: "#D1D5DB", fontSize: 11, fontWeight: "800" },
+  cancelText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: "800" },
   saveBtn: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 12,
   },

@@ -57,7 +57,7 @@ infrastructure/map/mapBridge.ts                  # TrekMapScene / eventos
 **Se quita:** `react-native-maps`.  
 **No se instala aún:** `@maplibre/maplibre-react-native` (rompe Expo Go).
 
-`PlanMap.tsx` y `OfflineRouteMap.tsx` quedan **deprecated**; las vistas usan `TrekMap`.
+`PlanMap.tsx` fue retirado junto con la caché raster. `OfflineRouteMap.tsx` se conserva únicamente como fallback neutral de GPX/trail en el detalle offline cuando el renderer PMTiles no está disponible; las vistas usan `TrekMap` para el mapa canónico.
 
 ## 3. Trazabilidad backlog
 
@@ -126,13 +126,13 @@ OTA (`eas update`) no instala MapLibre Native: hace falta rebuild.
 - `TrekMap` online OpenFreeMap.
 - Contrato `TrekMapProps` (`trail`, `track`, markers, `onPress`, `fitTo`).
 
-### Entrega 2 — Formatos GPS (HU-07/08/05/06) — dominio ya hecho
+### Entrega 2 — Formatos GPS (HU-07/08/05/06) — dominio hecho + toGeoJSON
 
-`trackFormats.ts`, import/export GPX. No depende del renderer.
+`trackFormats.ts` (`parseGPX`, `buildGPX`/`buildGPX11`, `toGeoJSON`), import/export GPX. No depende del renderer.
 
-### Entrega 3 — Pack offline (HU-04) — pendiente
+### Entrega 3 — Pack offline (HU-04) — detección hecha, downloader pendiente
 
-Un archivo por ruta (PMTiles preferido; MBTiles nativo V2). Estimación por bbox sigue en `geoBounds.ts` (ajustar bytes/tile vectorial). **Prohibido** scrapear `tile.openstreetmap.org`.
+`mapPackFormats.ts` clasifica PMTiles vs MBTiles. `TrekMap.offlinePackPath` pinta PMTiles en V1. MBTiles = convertir. Estimación por bbox sigue en `geoBounds.ts`. **Prohibido** scrapear `tile.openstreetmap.org`.
 
 ### Entrega 4 — Firestore — hecha, paralela
 

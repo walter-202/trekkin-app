@@ -1,23 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { AndeanTheme } from '../../theme';
 
 /**
- * PLANTILLA — Cómo crear un nuevo módulo (ej. HU-03 Explorar).
+ * Plantilla oficial para crear una vista nueva de cualquier HU (HU-03…HU-10).
  *
- * 1. Copia esta carpeta a `src/presentation/views/<modulo>/` y renombra el componente.
- * 2. Crea tu dominio en `src/core/domain/<modulo>.ts` (tipos puros, sin Firebase).
- * 3. Crea tus validaciones en `src/core/domain/<modulo>.schemas.ts` (zod).
- * 4. Crea tus casos de uso en `src/core/application/<modulo>/*.usecase.ts`
- *    (funciones puras con puertos inyectados, sin imports de Firebase).
- * 5. Crea tu servicio en `src/infrastructure/database/<modulo>Service.ts`
- *    (único lugar donde se usa `firebase/firestore`).
- * 6. Si necesitas estado global, crea `src/infrastructure/persistence/use<Modulo>Store.ts` (zustand).
+ * Pasos obligatorios para crear un módulo nuevo:
+ * 1. Define las entidades y tipos puros en `src/core/domain/<modulo>.ts`.
+ * 2. Define el esquema Zod si hay entrada de usuario (`<modulo>.schemas.ts`).
+ * 3. Crea el caso de uso puro con puertos inyectados en `src/core/application/<modulo>/`.
+ * 4. Implementa el adaptador Firestore en `src/infrastructure/database/<modulo>Service.ts`.
+ * 5. Crea el store Zustand con persistencia offline en `src/infrastructure/persistence/use<Modulo>Store.ts`.
+ * 6. Diseña la vista UI nativa en `src/presentation/views/<modulo>/<Modulo>View.tsx`.
  * 7. Esta vista SOLO llama a hooks/casos de uso. Prohibido `firebase/*` aquí.
  * 8. Protege la ruta con `useAuth().hasRole([...])` si el módulo es privado.
  * 9. Registra la vista en `src/App.tsx` y documenta la HU en `docs/USER_STORIES.md`.
  *
- * Reglas de diseño: ver `docs/DESIGN_RULES.md` (fondo #051712, tarjetas #0E2E24,
- * borde #1A4537, acento #10B981, micro-labels uppercase).
+ * Reglas de diseño: ver `docs/DESIGN_RULES.md` y `AndeanTheme` en `src/presentation/theme.ts`.
  */
 export const ModuleTemplateView: React.FC<{ title?: string }> = ({
   title = 'Nuevo módulo (plantilla)',
@@ -36,11 +35,11 @@ export const ModuleTemplateView: React.FC<{ title?: string }> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#051712',
+    backgroundColor: AndeanTheme.colors.background,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { color: '#F9FAFB', fontSize: 16, fontWeight: '800', marginBottom: 8 },
-  body: { color: '#9CA3AF', fontSize: 12, textAlign: 'center', maxWidth: 300 },
+  title: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: '800', marginBottom: 8 },
+  body: { color: AndeanTheme.colors.textSecondary, fontSize: 12, textAlign: 'center', maxWidth: 300 },
 });

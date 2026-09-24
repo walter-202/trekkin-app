@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MapPin, Flag } from 'lucide-react-native';
 import { TrekMap } from '../map/TrekMap';
 import type { PlannedPoint } from '../../../core/domain/plan';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 — Selector de puntos sobre el mapa (se usa en crear y editar).
@@ -24,52 +25,57 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
   onEndChange,
   height = 320,
 }) => {
-  const [mode, setMode] = useState<'start' | 'end'>('start');
+  const [activeTab, setActiveTab] = useState<'start' | 'end'>('start');
 
-  const handlePress = (coords: { lat: number; lng: number }) => {
-    const point: PlannedPoint = { lat: coords.lat, lng: coords.lng };
-    if (mode === 'start') onStartChange(point);
-    else onEndChange(point);
+  const handleCoordinate = (coord: { lat: number; lng: number }) => {
+    if (activeTab === 'start') {
+      onStartChange({ lat: coord.lat, lng: coord.lng, name: 'Punto inicial (provisional)' });
+      setActiveTab('end');
+    } else {
+      onEndChange({ lat: coord.lat, lng: coord.lng, name: 'Destino (provisional)' });
+    }
   };
 
   return (
     <View>
       <View style={styles.tabs}>
         <Pressable
-          onPress={() => setMode('start')}
-          style={[styles.tab, mode === 'start' && styles.tabActive]}
+          onPress={() => setActiveTab('start')}
+          style={[styles.tab, activeTab === 'start' && styles.tabActive]}
         >
-          <MapPin size={14} color={mode === 'start' ? '#10B981' : '#9CA3AF'} />
-          <Text style={[styles.tabText, mode === 'start' && styles.tabTextActive]}>
-            PUNTO INICIAL
+          <MapPin size={14} color={activeTab === 'start' ? AndeanTheme.colors.primary : AndeanTheme.colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'start' && styles.tabTextActive]}>
+            1. PUNTO INICIAL
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => setMode('end')}
-          style={[styles.tab, mode === 'end' && styles.tabActive]}
+          onPress={() => setActiveTab('end')}
+          style={[styles.tab, activeTab === 'end' && styles.tabActive]}
         >
-          <Flag size={14} color={mode === 'end' ? '#F59E0B' : '#9CA3AF'} />
-          <Text style={[styles.tabText, mode === 'end' && styles.tabTextActive]}>DESTINO</Text>
+          <Flag size={14} color={activeTab === 'end' ? AndeanTheme.colors.accentWarning : AndeanTheme.colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'end' && styles.tabTextActive]}>
+            2. DESTINO
+          </Text>
         </Pressable>
       </View>
 
       <TrekMap
         start={start}
         end={end}
-        onPressCoordinate={handlePress}
+        onPressCoordinate={handleCoordinate}
         height={height}
       />
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
-          <MapPin size={14} color="#10B981" />
-          <Text style={styles.statusLabel}>Inicio (provisional)</Text>
+          <MapPin size={14} color={AndeanTheme.colors.primary} />
+          <Text style={styles.statusLabel}>Punto inicial (provisional)</Text>
           <Text style={styles.statusValue}>
             {start ? `${start.lat.toFixed(5)}, ${start.lng.toFixed(5)}` : 'Toca el mapa para fijarlo'}
           </Text>
         </View>
         <View style={styles.statusRow}>
-          <Flag size={14} color="#F59E0B" />
+          <Flag size={14} color={AndeanTheme.colors.accentWarning} />
           <Text style={styles.statusLabel}>Destino (provisional)</Text>
           <Text style={styles.statusValue}>
             {end ? `${end.lat.toFixed(5)}, ${end.lng.toFixed(5)}` : 'Toca el mapa para fijarlo'}
@@ -88,25 +94,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     paddingVertical: 10,
   },
-  tabActive: { borderColor: '#10B981', backgroundColor: '#0A241C' },
-  tabText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: '#9CA3AF' },
-  tabTextActive: { color: '#F9FAFB' },
+  tabActive: { borderColor: AndeanTheme.colors.primary, backgroundColor: AndeanTheme.colors.cardElevated },
+  tabText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: AndeanTheme.colors.textSecondary },
+  tabTextActive: { color: AndeanTheme.colors.text },
   statusCard: {
     marginTop: 10,
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusLabel: { fontSize: 11, color: '#D1D5DB', fontWeight: '700', flex: 1.2 },
-  statusValue: { fontSize: 11, color: '#9CA3AF', flex: 2, textAlign: 'right' },
+  statusLabel: { fontSize: 11, color: AndeanTheme.colors.text, fontWeight: '700', flex: 1.2 },
+  statusValue: { fontSize: 11, color: AndeanTheme.colors.textSecondary, flex: 2, textAlign: 'right' },
 });

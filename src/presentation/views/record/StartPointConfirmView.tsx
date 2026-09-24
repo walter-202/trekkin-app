@@ -5,6 +5,7 @@ import { Navigation, CheckCircle2 } from 'lucide-react-native';
 import { TrekMap } from '../../components/map/TrekMap';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
+import { AndeanTheme } from '../../theme';
 
 /**
  * HU-07 T8/T9 — Confirmar o modificar el punto inicial real al llegar al lugar.
@@ -77,7 +78,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 
       {locating ? (
         <View style={[styles.mapPlaceholder, { height: 260 }]}>
-          <ActivityIndicator color="#10B981" />
+          <ActivityIndicator color={AndeanTheme.colors.primary} />
           <Text style={styles.muted}>Obteniendo tu ubicación…</Text>
         </View>
       ) : (
@@ -90,7 +91,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
       )}
 
       <View style={styles.infoCard}>
-        <Navigation size={14} color="#34D399" />
+        <Navigation size={14} color={AndeanTheme.colors.textSecondary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.infoLabel}>PUNTO DE INICIO A CONFIRMAR</Text>
           {target ? (
@@ -105,7 +106,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 
       {current && !pending && (
         <Pressable onPress={() => setPending(current)} style={styles.useCurrentBtn}>
-          <Navigation size={14} color="#10B981" />
+          <Navigation size={14} color={AndeanTheme.colors.primary} />
           <Text style={styles.useCurrentText}>USAR MI UBICACIÓN ACTUAL</Text>
         </Pressable>
       )}
@@ -135,32 +136,32 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
-  help: { color: '#9CA3AF', fontSize: 12, lineHeight: 17 },
-  helpStrong: { color: '#34D399', fontWeight: '800' },
-  locationWarning: { color: '#FCA5A5', fontSize: 11 },
+  help: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  helpStrong: { color: AndeanTheme.colors.text, fontWeight: '800' },
+  locationWarning: { color: AndeanTheme.colors.danger, fontSize: 11 },
   mapPlaceholder: {
     width: '100%',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1A4537',
-    backgroundColor: '#0E2E24',
+    borderColor: AndeanTheme.colors.border,
+    backgroundColor: AndeanTheme.colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  muted: { color: '#9CA3AF', fontSize: 12 },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#0E2E24',
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: '#1A4537',
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 12,
   },
-  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#9CA3AF' },
-  infoValue: { color: '#F9FAFB', fontSize: 12, marginTop: 2 },
+  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: AndeanTheme.colors.textMuted },
+  infoValue: { color: AndeanTheme.colors.text, fontSize: 12, marginTop: 2 },
   useCurrentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -168,13 +169,13 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
   },
-  useCurrentText: { color: '#10B981', fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
+  useCurrentText: { color: AndeanTheme.colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
   confirmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },

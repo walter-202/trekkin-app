@@ -9,9 +9,13 @@ import {
   onSnapshot,
   query,
   limit,
+  orderBy,
+  startAfter,
+  documentId,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { UserProfile, UserRole } from '../../core/domain/types';
+import type { UserPage, UserPageCursor } from '../../core/application/admin/ListUsers.usecase';
 import { handleFirestoreError, OperationType } from './firestoreErrors';
 
 const USERS_COLLECTION = 'users';
@@ -118,6 +122,32 @@ export const userProfileService = {
       const q = query(collection(db, collectionPath), limit(max));
       const snapshot = await getDocs(q);
       return snapshot.docs.map((d) => d.data() as UserProfile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
+    }
+  },
+
+  /** Lists one bounded, deterministically ordered page for HU-10. */
+  async listUsersPage(args: {
+    cursor: UserPageCursor | null;
+    limit: number;
+  }): Promise<UserPage> {
+    const collectionPath = USERS_COLLECTION;
+    try {
+      const usersQuery = query(
+        collection(db, collectionPath),
+        orderBy(documentId(), 'asc'),
+        ...(args.cursor ? [startAfter(args.cursor)] : []),
+        limit(args.limit + 1),
+      );
+      const snapshot = await getDocs(usersQuery);
+      const pageDocs = snapshot.docs.slice(0, args.limit);
+      const lastDoc = pageDocs[pageDocs.length - 1] ?? null;
+      return {
+        users: pageDocs.map((d) => ({ ...d.data(), uid: d.id }) as UserProfile),
+        cursor: lastDoc,
+        hasMore: snapshot.docs.length > args.limit,
+      };
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, collectionPath);
     }

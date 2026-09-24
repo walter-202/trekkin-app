@@ -54,11 +54,7 @@ export interface LiveActivity {
   /** Tiempo activo acumulado, excluyendo pausas. */
   accumulatedActiveMs: number;
   recordedPoints: Coordinates[];
-  /**
-   * ETAPA 2 SQLite — distancia total (km) mantenida incrementalmente.
-   * Permite ventana en memoria: el historial completo vive en SQLite.
-   * Ausente en autosaves previos (se recalcula una vez como fallback).
-   */
+  /** Total distance retained while the in-memory track is windowed. */
   totalDistanceKm?: number;
   completedCheckpoints: string[];
   /** Paradas agregadas en vivo por el usuario durante la actividad (HU-08). */
@@ -79,7 +75,7 @@ export const ACTIVITY_CONFIG = {
   MIN_GPS_DELTA_M: 8,
   /** Desplazamiento máximo razonable entre puntos (salto mayor = error GPS). */
   MAX_GPS_JUMP_M: 400,
-  /** Precisión GPS máxima aceptable (m) — HEU-08 A: descartar accuracy > 25 m. */
+  /** Precisión GPS máxima aceptable (m) — cruz HU-08: descartar accuracy > 25 m. */
   MAX_ACCURACY_M: 25,
   /** Cobertura mínima sobre la distancia oficial para considerar COMPLETA. */
   COMPLETE_COVERAGE_RATIO: 0.95,
@@ -187,10 +183,13 @@ export function toTrekkinActivity(
   const endPoint = activity.route.endPoint;
   const routePolyline: Coordinates[] = [...activity.route.waypoints, endPoint];
   const lastPoint = activity.recordedPoints[activity.recordedPoints.length - 1];
-  const distanceCoveredKm = accumulatedDistanceKm(activity.recordedPoints, {
-    minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-    maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-  });
+  const distanceCoveredKm = activity.totalDistanceKm ?? accumulatedDistanceKm(
+    activity.recordedPoints,
+    {
+      minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+      maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+    },
+  );
   const remainingKm = lastPoint
     ? remainingDistanceToEndKm(lastPoint, routePolyline)
     : activity.route.distanceKm;

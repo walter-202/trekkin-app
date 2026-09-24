@@ -1,16 +1,20 @@
-import React from 'react';
-import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { ArrowRight } from 'lucide-react-native';
+import React from "react";
+import { Pressable, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { ArrowRight } from "lucide-react-native";
+import { AndeanTheme } from "../../theme";
 
 /**
- * CTA andino reusable (hoja clara): esmeralda profundo + flecha + loading.
- * Casa: `presentation/components/ui/` (vía `index.ts`).
+ * CTA andino reusable (hoja clara): primaria esmeralda + variantes outline.
+ * `icon` líder reemplaza la flecha (p. ej. logout/guardar); sin `icon`,
+ * la primaria muestra ArrowRight. Casa: `presentation/components/ui/`.
  */
 interface ButtonProps {
   title: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  variant?: "primary" | "outline-green" | "outline-danger" | "outline-muted";
+  icon?: React.ReactNode;
   accessibilityLabel?: string;
 }
 
@@ -19,15 +23,19 @@ export const Button: React.FC<ButtonProps> = ({
   onPress,
   loading = false,
   disabled = false,
+  variant = "primary",
+  icon,
   accessibilityLabel,
 }) => {
   const isDisabled = disabled || loading;
+  const isPrimary = variant === "primary";
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
       style={({ pressed }) => [
-        styles.cta,
+        styles.base,
+        styles[variant],
         pressed && styles.pressed,
         isDisabled && styles.disabled,
       ]}
@@ -36,11 +44,23 @@ export const Button: React.FC<ButtonProps> = ({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
     >
       {loading ? (
-        <ActivityIndicator color="#ffffff" size="small" />
+        <ActivityIndicator
+          color={
+            isPrimary
+              ? AndeanTheme.colors.white
+              : AndeanTheme.colors.primaryDark
+          }
+          size="small"
+        />
       ) : (
         <>
-          <Text style={styles.ctaText}>{title}</Text>
-          <ArrowRight size={16} color="#ffffff" />
+          {icon}
+          <Text style={[styles.text, styles[`${variant}Text` as const]]}>
+            {title}
+          </Text>
+          {isPrimary && !icon ? (
+            <ArrowRight size={17} color={AndeanTheme.colors.white} />
+          ) : null}
         </>
       )}
     </Pressable>
@@ -48,32 +68,63 @@ export const Button: React.FC<ButtonProps> = ({
 };
 
 const styles = StyleSheet.create({
-  cta: {
-    backgroundColor: '#064e3b',
-    height: 48,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  base: {
+    minHeight: 52,
+    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    marginTop: 4,
-    shadowColor: '#064e3b',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  primary: {
+    backgroundColor: AndeanTheme.colors.cta,
+    shadowColor: "#064e3b",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
   },
+  "outline-green": {
+    backgroundColor: "transparent",
+    borderColor: AndeanTheme.colors.primaryDark,
+  },
+  "outline-danger": {
+    backgroundColor: "transparent",
+    borderColor: AndeanTheme.colors.errorBorder,
+  },
+  "outline-muted": {
+    backgroundColor: "transparent",
+    borderColor: AndeanTheme.colors.fieldBorder,
+  },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.85,
     transform: [{ scale: 0.98 }],
   },
   disabled: {
     opacity: 0.5,
   },
-  ctaText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ffffff',
+  text: {
+    fontSize: 13,
+    fontWeight: "800",
     letterSpacing: 1,
+  },
+  primaryText: {
+    color: AndeanTheme.colors.white,
+  },
+  "outline-greenText": {
+    color: AndeanTheme.colors.primaryDark,
+    letterSpacing: 0.5,
+  },
+  "outline-dangerText": {
+    color: AndeanTheme.colors.danger,
+    letterSpacing: 0.5,
+  },
+  "outline-mutedText": {
+    color: AndeanTheme.colors.inkSecondary,
+    letterSpacing: 0.5,
   },
 });

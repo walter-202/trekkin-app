@@ -1,0 +1,85 @@
+import assert from "node:assert/strict";
+import type { RouteModel, RoutePublicationArtifacts } from "../core/domain/types";
+import { routeArtifactStoragePath } from "../core/application/route/PublishRoute.usecase";
+import { DownloadRouteOfflineUseCase, type DownloadedOfflineArtifact } from "../core/application/offline/DownloadRouteOffline.usecase";
+import { OfflineRouteSchema } from "../core/domain/offline.schemas";
+import type { OfflineRoute } from "../core/domain/offline";
+
+const DOWNLOADED_TRACK_POINTS = [
+  { lat: -16.5, lng: -68.1, altitude: 4000 },
+  { lat: -16.505, lng: -68.105, altitude: 4100 },
+  { lat: -16.51, lng: -68.11, altitude: 4200 },
+];
+
+const route = (): RouteModel => ({
+  id: "offline-bundle", title: "Bundle", description: "Published route", region: "La Paz",
+  startPoint: { name: "Start", lat: -16.5, lng: -68.1 }, endPoint: { name: "End", lat: -16.51, lng: -68.11 },
+  distanceKm: 2, durationMinutes: 60, difficulty: "facil", modality: "solo", status: "published", isPrivate: false,
+  creatorId: "creator", creatorName: "Guide", waypoints: [{ lat: -16.5, lng: -68.1 }, { lat: -16.51, lng: -68.11 }],
+  checkpoints: [], photos: [], createdAt: 1, updatedAt: 1,
+  artifacts: { version: 1,
+    gpx: { kind: "gpx", version: 1, storagePath: routeArtifactStoragePath("offline-bundle", 1, "gpx"), fileName: "route.gpx", mimeType: "application/gpx+xml", byteSize: 10, sha256: "a".repeat(64), status: "uploaded", updatedAt: 1 },
+    pmtiles: { kind: "pmtiles", version: 1, storagePath: routeArtifactStoragePath("offline-bundle", 1, "pmtiles"), fileName: "basemap.pmtiles", mimeType: "application/vnd.pmtiles", byteSize: 8, sha256: "b".repeat(64), status: "uploaded", updatedAt: 1 },
+  },
+});
+const file = (kind: "gpx" | "pmtiles", overrides: Partial<DownloadedOfflineArtifact> = {}): DownloadedOfflineArtifact => ({
+  tempPath: `${kind}.part`, finalPath: `${kind}.final`, byteSize: kind === "gpx" ? 10 : 8,
+  ...(kind === "gpx" ? { readTrackPoints: async () => DOWNLOADED_TRACK_POINTS } : {}),
+  sha256: kind === "gpx" ? "a".repeat(64) : "b".repeat(64), headerBytes: kind === "pmtiles" ? "PMTiles\u0003" : "<gpx", ...overrides,
+});
+const ports = (download: (kind: "gpx" | "pmtiles") => Promise<DownloadedOfflineArtifact>) => {
+  const cleaned: string[] = []; let finalized = false;
+  return { cleaned, get finalized() { return finalized; },
+    downloadArtifact: async (_id: string, kind: "gpx" | "pmtiles") => download(kind),
+    cleanupArtifact: async (path: string) => { cleaned.push(path); },
+    finalize: async () => { finalized = true; },
+  };
+};
+
+async function main() {
+  await assert.rejects(() => DownloadRouteOfflineUseCase({ ...route(), artifacts: undefined }, ports(async (kind) => file(kind))), /no tiene artefactos/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase({ ...route(), artifacts: { ...route().artifacts!, gpx: { ...route().artifacts!.gpx, kind: "pmtiles" } } }, ports(async (kind) => file(kind))), /incompatible|MIME|tipo/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase({ ...route(), artifacts: { ...route().artifacts!, pmtiles: { ...route().artifacts!.pmtiles, version: 2 } } }, ports(async (kind) => file(kind))), /misma versión/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase({ ...route(), artifacts: { ...route().artifacts!, gpx: { ...route().artifacts!.gpx, storagePath: "routes/other/v1/route.gpx" } } }, ports(async (kind) => file(kind))), /Storage/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), ports(async (kind) => file(kind, { byteSize: 7 }))), /tamaño/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), ports(async (kind) => file(kind, { sha256: "c".repeat(64) }))), /SHA-256/i);
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), ports(async (kind) => kind === "pmtiles" ? file(kind) : Promise.reject(new Error("network")))), /network/);
+  const cleanupCase = ports(async (kind) => kind === "pmtiles" ? file(kind) : Promise.reject(new Error("network")));
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), cleanupCase));
+  assert.deepEqual(cleanupCase.cleaned, ["pmtiles.part"]);
+  const previousBundle = { gpx: "old/route.gpx", pmtiles: "old/basemap.pmtiles", manifest: "old-manifest" };
+  const replacement = ports(async (kind) => file(kind));
+  replacement.finalize = async () => { throw new Error("manifest persistence failed"); };
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), replacement), /manifest persistence failed/);
+  assert.deepEqual(previousBundle, { gpx: "old/route.gpx", pmtiles: "old/basemap.pmtiles", manifest: "old-manifest" });
+  assert.deepEqual(replacement.cleaned, ["pmtiles.part", "gpx.part"]);
+  const success = ports(async (kind) => file(kind));
+  const record = await DownloadRouteOfflineUseCase(route(), success, { downloadedAt: 42 });
+  assert.equal(success.finalized, true);
+  assert.equal(record.manifestVersion, 2);
+  assert.equal(record.pmtilesPath, "pmtiles.final");
+  assert.equal(record.trail.length, 3, "offline trail comes from downloaded GPX, not Firestore waypoints");
+  assert.equal(record.trail[1].altitude, 4100);
+  assert.equal(OfflineRouteSchema.safeParse(record).success, true);
+  const invalidGpx = ports(async (kind) => file(kind, kind === "gpx" ? { readTrackPoints: async () => [] } : {}));
+  await assert.rejects(() => DownloadRouteOfflineUseCase(route(), invalidGpx), /GPX|track|puntos/i);
+  assert.deepEqual(invalidGpx.cleaned, ["pmtiles.part", "gpx.part"]);
+  const generations: string[] = [];
+  const committedPaths: string[] = [];
+  const redownloadPorts = {
+    downloadArtifact: async (_id: string, kind: "gpx" | "pmtiles", _metadata: unknown, generation?: string) => {
+      assert.ok(generation, "each artifact download receives a generation");
+      generations.push(`${kind}:${generation}`);
+      return file(kind, { finalPath: `${generation}/${kind}` });
+    },
+    cleanupArtifact: async () => {},
+    finalize: async (_id: string, next: OfflineRoute) => { committedPaths.push(next.pmtilesPath); },
+  };
+  await DownloadRouteOfflineUseCase(route(), redownloadPorts);
+  await DownloadRouteOfflineUseCase(route(), redownloadPorts);
+  assert.equal(generations.length, 4);
+  assert.notEqual(generations[0].split(":")[1], generations[2].split(":")[1]);
+  assert.notEqual(committedPaths[0], committedPaths[1], "re-download uses a new generation instead of overwriting current files");
+  console.log("Offline bundle: metadata/path/version, size/hash, cleanup and atomic manifest invariants passed");
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

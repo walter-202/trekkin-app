@@ -208,7 +208,7 @@ export function buildGPX(track: {
         const nameTag = w.name ? `<name>${escapeXml(w.name)}</name>` : "";
         const descTag = w.desc ? `<desc>${escapeXml(w.desc)}</desc>` : "";
         const eleTag = w.altitude !== undefined ? `<ele>${w.altitude}</ele>` : "";
-        return `  <wpt lat="${w.lat}" lon="${w.lng}">\n    ${nameTag}\n    ${descTag}\n    ${eleTag}\n  </wpt>`;
+        return `  <wpt lat="${w.lat}" lon="${w.lng}">\n    ${eleTag}\n    ${nameTag}\n    ${descTag}\n  </wpt>`;
       })
       .join("\n") + "\n";
   }
@@ -218,7 +218,7 @@ export function buildGPX(track: {
     trkptsXml = track.points
       .map((p) => {
         const eleTag = p.altitude !== undefined ? `<ele>${p.altitude}</ele>` : "";
-        const timeTag = p.timestamp ? `<time>${new Date(p.timestamp).toISOString()}</time>` : "";
+        const timeTag = p.timestamp !== undefined ? `<time>${new Date(p.timestamp).toISOString()}</time>` : "";
         return `      <trkpt lat="${p.lat}" lon="${p.lng}">\n        ${eleTag}\n        ${timeTag}\n      </trkpt>`;
       })
       .join("\n");
@@ -238,6 +238,73 @@ ${trkptsXml}
     </trkseg>
   </trk>
 </gpx>`;
+}
+
+/** Alias cruz BK-020: el serializador canónico es GPX 1.1. */
+export const buildGPX11 = buildGPX;
+
+export interface GeoJsonFeature {
+  type: "Feature";
+  properties: {
+    name?: string;
+    description?: string;
+    role?: string;
+  };
+  geometry:
+    | { type: "LineString"; coordinates: number[][] }
+    | { type: "Point"; coordinates: number[] };
+}
+
+export interface GeoJsonFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJsonFeature[];
+}
+
+/**
+ * Capa de usuario (cruz): GPX → GeoJSON para MapLibre / intercambio.
+ * Coordinates GeoJSON son [lng, lat] (y altitud si existe).
+ */
+export function toGeoJSON(track: {
+  name?: string;
+  description?: string;
+  points: Coordinates[];
+  waypoints?: WaypointItem[];
+}): GeoJsonFeatureCollection {
+  const features: GeoJsonFeature[] = [];
+  if (track.points && track.points.length > 0) {
+    features.push({
+      type: "Feature",
+      properties: {
+        name: track.name,
+        description: track.description,
+        role: "track",
+      },
+      geometry: {
+        type: "LineString",
+        coordinates: track.points.map((p) =>
+          p.altitude !== undefined ? [p.lng, p.lat, p.altitude] : [p.lng, p.lat],
+        ),
+      },
+    });
+  }
+  if (track.waypoints) {
+    for (const w of track.waypoints) {
+      features.push({
+        type: "Feature",
+        properties: {
+          name: w.name,
+          description: w.desc,
+          role: "waypoint",
+        },
+        geometry: {
+          type: "Point",
+          coordinates:
+            w.altitude !== undefined ? [w.lng, w.lat, w.altitude] : [w.lng, w.lat],
+        },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features };
 }
 
 /**

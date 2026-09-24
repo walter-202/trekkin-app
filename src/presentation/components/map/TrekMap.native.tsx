@@ -21,6 +21,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     children,
     onPress,
     onPressCoordinate,
+    onMapReady,
+    onMapError,
   } = props;
 
   const webRef = useRef<WebView>(null);
@@ -43,14 +45,19 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
       if (msg.type === "mapReady") {
         readyRef.current = true;
         apply();
+        onMapReady?.(Boolean(msg.payload?.offlinePackReady));
         return;
       }
       if (msg.type === "mapPress" && interactive) {
         onPress?.(msg.payload);
         onPressCoordinate?.(msg.payload);
+        return;
       }
-    } catch {
-      // Mensaje malformado: ignorar.
+      if (msg.type === "error") {
+        onMapError?.(new Error(msg.payload.message));
+      }
+    } catch (error) {
+      onMapError?.(error instanceof Error ? error : new Error("Respuesta inválida del mapa."));
     }
   };
 
@@ -83,6 +90,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         }}
         onError={() => {
           readyRef.current = false;
+          onMapError?.(new Error("No se pudo cargar el mapa offline."));
         }}
       />
       {children}

@@ -1,5 +1,6 @@
 import {
   TRACK_DB_SCHEMA_VERSION,
+  backfillTrackPoints,
   countTrackPoints,
   deleteActivity,
   getActivityHeader,
@@ -42,16 +43,24 @@ function recordTest(criterion: string, passed: boolean, detail: string) {
  * exactas que usa el repositorio (sin motor SQL real). Sirve para `tsx`.
  * Se tipa con `any` para evitar problemas de tipos con `SQLiteBindParams`.
  */
-function createMemoryDb(): TrackDbConnection & { version: number } {
+function createMemoryDb(failAfterInserts: number | null = null): TrackDbConnection & {
+  version: number;
+  setFailureAfter: (value: number | null) => void;
+} {
   const state: any = {
     version: 0,
     activities: new Map<string, Record<string, unknown>>(),
     points: [] as Array<Record<string, unknown>>,
+    inserts: 0,
+    failAfterInserts,
   };
 
   return {
     get version() {
       return state.version;
+    },
+    setFailureAfter(value: number | null): void {
+      state.failAfterInserts = value;
     },
     execSync(sql: string): void {
       const m = sql.match(/PRAGMA\s+user_version\s*=\s*(\d+)/i);
@@ -106,6 +115,12 @@ function createMemoryDb(): TrackDbConnection & { version: number } {
       }
       if (sql.toUpperCase().includes("INSERT INTO TRACK_POINTS")) {
         if (
+          state.failAfterInserts != null &&
+          state.inserts >= state.failAfterInserts
+        ) {
+          throw new Error("simulated interruption during backfill");
+        }
+        if (
           state.points.some(
             (p: (typeof state.points)[0]) =>
               p.activityId === params[0] && p.seq === params[1],
@@ -125,6 +140,7 @@ function createMemoryDb(): TrackDbConnection & { version: number } {
           speed: params[6],
           timestamp: params[7],
         });
+        state.inserts += 1;
         return { lastInsertRowId: state.points.length, changes: 1 };
       }
       if (sql.toUpperCase().includes("DELETE FROM TRACK_POINTS")) {
@@ -262,6 +278,32 @@ async function runTrackDbTests(): Promise<TestResult[]> {
     "Inserción secuencial con MAX(seq)+1 y conteo",
     countTrackPoints(db, "act-1") === 5 && getMaxSeq(db, "act-1") === 5,
     `pts=${countTrackPoints(db, "act-1")} max=${getMaxSeq(db, "act-1")}`,
+  );
+
+  const flaky = createMemoryDb(2);
+  saveActivityHeader(flaky, headerFixture("act-backfill"));
+  const legacyPoints = Array.from({ length: 5 }, (_, i) => pointFixture(i + 1));
+  try {
+    backfillTrackPoints(flaky, "act-backfill", legacyPoints, 1);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("interruption")) {
+      throw error;
+    }
+  }
+  const persistedBeforeRetry = getMaxSeq(flaky, "act-backfill");
+  flaky.setFailureAfter(null);
+  backfillTrackPoints(
+    flaky,
+    "act-backfill",
+    legacyPoints.slice(persistedBeforeRetry),
+    persistedBeforeRetry + 1,
+  );
+  recordTest(
+    "Backfill legacy resumible tras interrupción sin saltar puntos",
+    persistedBeforeRetry === 2 &&
+      countTrackPoints(flaky, "act-backfill") === 5 &&
+      getMaxSeq(flaky, "act-backfill") === 5,
+    `beforeRetry=${persistedBeforeRetry} final=${getMaxSeq(flaky, "act-backfill")}`,
   );
 
   const last2 = getLastTrackPoints(db, "act-1", 2);

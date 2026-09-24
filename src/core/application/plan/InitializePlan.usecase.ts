@@ -16,7 +16,7 @@ export async function InitializePlanUseCase(
 ): Promise<RoutePlan> {
   if (!args.forceNew) {
     const local = await ports.loadLocalPlan();
-    if (local && local.creatorId === args.uid && local.status !== 'ready_for_gps') {
+    if (local && local.creatorId === args.uid) {
       return local;
     }
   }

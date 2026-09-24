@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
 import { Compass, Search } from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import type { RouteModel, RouteDifficulty } from "../../../core/domain/types";
-import { ListPublishedRoutesUseCase } from "../../../core/application/explore/ListPublishedRoutes.usecase";
+import {
+  ListPublishedRoutesPaginatedUseCase,
+  mergePublishedRoutePages,
+} from "../../../core/application/explore/ListPublishedRoutesPaginated.usecase";
 import { SearchRoutesUseCase } from "../../../core/application/explore/SearchRoutes.usecase";
 import { routeService } from "../../../infrastructure/database/routeService";
-import { SEED_PUBLISHED_ROUTES } from "../../../infrastructure/database/routeSeed";
 import { AndeanTheme } from "../../theme";
 import { Banner } from "../../components/ui";
 import { RouteCard } from "./RouteCard";
@@ -32,6 +34,7 @@ const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
   "dificil",
   "experto",
 ];
+const CATALOG_PAGE_SIZE = 20;
 
 /**
  * HU-03 Explorar — Catálogo público/aprobado + búsqueda/filtro + detalle.
@@ -43,11 +46,15 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onBack,
   onStartActivity,
 }) => {
-  const { currentUser, isGuest, isAuthenticated, exitGuest } = useAuth();
-  const [routes, setRoutes] = useState<RouteModel[]>([]);
+  const { currentUser, isAuthenticated, isGuest, exitGuest } = useAuth();
+  const [catalogRoutes, setCatalogRoutes] = useState<RouteModel[]>([]);
+  const [filteredRoutes, setFilteredRoutes] = useState<RouteModel[]>([]);
+  const [lastVisible, setLastVisible] = useState<unknown | null>(null);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [usingDemo, setUsingDemo] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
   const [texto, setTexto] = useState("");
   const [dificultad, setDificultad] = useState<"todas" | RouteDifficulty>(
     "todas",
@@ -56,21 +63,25 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
-      const data = await ListPublishedRoutesUseCase({
-        listPublished: () => routeService.listPublishedRoutes(),
+      const page = await ListPublishedRoutesPaginatedUseCase(CATALOG_PAGE_SIZE, undefined, {
+        listPublishedPage: (pageSize, cursor) =>
+          routeService.listPublishedRoutesPaginated(pageSize, cursor),
       });
-      if (data.length === 0) {
-        setRoutes(SEED_PUBLISHED_ROUTES);
-        setUsingDemo(true);
-      } else {
-        setRoutes(data);
-        setUsingDemo(false);
-      }
-    } catch {
-      setRoutes(SEED_PUBLISHED_ROUTES);
-      setUsingDemo(true);
+      setCatalogRoutes(page.routes);
+      setLastVisible(page.lastVisible);
+      setHasMore(page.hasMore);
+    } catch (err: unknown) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar las rutas públicas.",
+      );
+      setCatalogRoutes([]);
+      setFilteredRoutes([]);
+      setLastVisible(null);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -80,32 +91,60 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     loadCatalog();
   }, [loadCatalog]);
 
-  const filtered = useMemo(() => {
-    return routes.filter((r) => {
-      const matchText =
-        !texto.trim() ||
-        r.title.toLowerCase().includes(texto.trim().toLowerCase()) ||
-        r.region.toLowerCase().includes(texto.trim().toLowerCase());
-      const matchDiff = dificultad === "todas" || r.difficulty === dificultad;
-      return matchText && matchDiff;
-    });
-  }, [routes, texto, dificultad]);
-
-  const onSearchSubmit = useCallback(async () => {
-    try {
-      const result = await SearchRoutesUseCase(
-        { texto, dificultad: dificultad === "todas" ? undefined : dificultad },
-        { listPublished: async () => routes },
-      );
-      setRoutes((prev) => {
-        void result;
-        return prev;
+  useEffect(() => {
+    let isCurrent = true;
+    void SearchRoutesUseCase(
+      { texto, dificultad: dificultad === "todas" ? undefined : dificultad },
+      { listPublished: async () => catalogRoutes },
+    )
+      .then((result) => {
+        if (!isCurrent) return;
+        setFilteredRoutes(result);
+        setFilterError(null);
+      })
+      .catch((err: unknown) => {
+        if (!isCurrent) return;
+        setFilterError(
+          err instanceof Error ? err.message : "Filtro inválido.",
+        );
       });
-      setError(null);
-    } catch (err: any) {
-      setError(err?.issues?.[0]?.message ?? err?.message ?? "Filtro inválido.");
+    return () => {
+      isCurrent = false;
+    };
+  }, [catalogRoutes, texto, dificultad]);
+
+  const onSearchSubmit = useCallback(() => {
+    // Filters already react to input changes; submit keeps the native search affordance explicit.
+    setFilterError(null);
+  }, []);
+
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore || lastVisible === null) return;
+
+    setLoadingMore(true);
+    setLoadError(null);
+    try {
+      const page = await ListPublishedRoutesPaginatedUseCase(
+        CATALOG_PAGE_SIZE,
+        lastVisible,
+        {
+          listPublishedPage: (pageSize, cursor) =>
+            routeService.listPublishedRoutesPaginated(pageSize, cursor),
+        },
+      );
+      setCatalogRoutes((current) => mergePublishedRoutePages(current, page.routes));
+      setLastVisible(page.lastVisible);
+      setHasMore(page.hasMore);
+    } catch (err: unknown) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "No se pudieron cargar más rutas públicas.",
+      );
+    } finally {
+      setLoadingMore(false);
     }
-  }, [texto, dificultad, routes]);
+  }, [hasMore, lastVisible, loading, loadingMore]);
 
   const sessionLabel = isAuthenticated
     ? `${currentUser?.email} · ${currentUser?.role}`
@@ -127,8 +166,8 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.badge}>
-          <Compass size={14} color={AndeanTheme.colors.primaryLight} />
-          <Text style={styles.badgeText}>HU-03 · EXPLORAR</Text>
+          <View style={styles.badgeDot} />
+          <Text style={styles.badgeText}>CATÁLOGO</Text>
         </View>
         {onBack ? (
           <Pressable onPress={onBack} accessibilityLabel="Volver al inicio">
@@ -138,13 +177,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
       </View>
       <Text style={styles.title}>Catálogo de rutas públicas</Text>
       <Text style={styles.session}>Sesión: {sessionLabel}</Text>
-      {usingDemo ? (
-        <Banner
-          tone="success"
-          message="Datos demo (Firestore vacío o sin red)."
-        />
-      ) : null}
-      {error ? <Banner tone="error" message={error} /> : null}
+      {loadError ?? filterError ? <Banner tone="error" message={loadError ?? filterError ?? ""} /> : null}
 
       <View style={styles.searchRow}>
         <Search size={14} color={AndeanTheme.colors.textMuted} />
@@ -183,12 +216,12 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={AndeanTheme.colors.primaryLight} />
+          <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.muted}>Cargando rutas publicadas…</Text>
         </View>
       ) : (
         <FlatList
-          data={filtered}
+          data={filteredRoutes}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
@@ -199,6 +232,16 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
           renderItem={({ item }) => (
             <RouteCard route={item} onPress={() => setSelectedId(item.id)} />
           )}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadMore}>
+                <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
+                <Text style={styles.muted}>Cargando más rutas…</Text>
+              </View>
+            ) : null
+          }
         />
       )}
 
@@ -233,26 +276,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "flex-start",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
   },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
+  },
   badgeText: {
     fontSize: 10,
     fontWeight: "800",
-    color: AndeanTheme.colors.primaryLight,
+    letterSpacing: 1,
+    color: AndeanTheme.colors.textSecondary,
   },
   link: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
   },
   title: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   session: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -277,26 +327,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: AndeanTheme.colors.backgroundSecondary },
+  chipActive: {
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderColor: AndeanTheme.colors.borderLight,
+  },
   chipText: {
     color: AndeanTheme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "700",
   },
-  chipTextActive: { color: AndeanTheme.colors.primaryLight },
+  chipTextActive: { color: AndeanTheme.colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   list: { gap: 10, paddingBottom: 16 },
+  loadMore: { alignItems: "center", gap: 6, paddingVertical: 12 },
   authBtn: {
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.borderLight,
     backgroundColor: AndeanTheme.colors.card,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
   authBtnText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
   },

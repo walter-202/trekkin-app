@@ -1,0 +1,57 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'wfernando.aguilarm@gmail.com' ||
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function routeDoc(routeId) {
+      return firestore.get(/databases/(default)/documents/routes/$(routeId));
+    }
+
+    function canReadPublishedRoute(routeId) {
+      return isSignedIn() && routeDoc(routeId).data.status == 'published' &&
+        (routeDoc(routeId).data.isPrivate != true ||
+         routeDoc(routeId).data.creatorId == request.auth.uid || isAdmin());
+    }
+
+    function validRouteArtifactWrite(routeId, version, fileName) {
+      return isAdmin() &&
+        version.matches('^[1-9][0-9]*$') &&
+        ((fileName == 'route.gpx' && request.resource.contentType == 'application/gpx+xml') ||
+         (fileName == 'basemap.pmtiles' && request.resource.contentType == 'application/vnd.pmtiles')) &&
+        request.resource.size > 0 && request.resource.size <= 524288000;
+    }
+
+    match /users/{userId}/activities/{activityId}/activity.gpx {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) &&
+        request.resource != null &&
+        request.resource.contentType == 'application/gpx+xml' &&
+        request.resource.size <= 10485760;
+      allow delete: if isOwner(userId);
+    }
+
+    // Published route bundle: authenticated users may download both binary
+    // artifacts; only admins may create/replace/delete publication bytes.
+    match /routes/{routeId}/v{version}/{fileName} {
+      allow read: if canReadPublishedRoute(routeId) &&
+        fileName in ['route.gpx', 'basemap.pmtiles'];
+      allow create, update: if validRouteArtifactWrite(routeId, version, fileName) &&
+        fileName in ['route.gpx', 'basemap.pmtiles'];
+      allow delete: if isAdmin() && version.matches('^[1-9][0-9]*$') &&
+        fileName in ['route.gpx', 'basemap.pmtiles'];
+    }
+  }
+}

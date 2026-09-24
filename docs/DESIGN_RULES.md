@@ -1,67 +1,97 @@
 # TREKKIN APP — DESIGN RULES & EXPO SDK 57 ARCHITECTURE GUIDE
 
-Este documento abstrae la esencia visual y técnica del sistema de diseño de **Trekkin App**, garantizando coherencia estética entre las vistas de autenticación, el sidebar drawer y la futura migración a **Expo SDK 57** (React Native / NativeWind).
+Este documento abstrae la esencia visual y técnica del sistema de diseño de **Trekkin App**, garantizando coherencia estética entre las vistas de autenticación, el sidebar drawer y el resto de módulos en **Expo SDK 57** (React Native + `StyleSheet` + `AndeanTheme`).
+
+> **Fuente canónica de tokens:** [`src/presentation/theme.ts`](../src/presentation/theme.ts).
+> **Prohibido** hardcodear hex fuera de `theme.ts` o de primitivas UI (`Button`, `Field`, `Banner`).
 
 ---
 
 ## 1. Identidad Visual y Paleta Cromática
 
-El sistema visual fusiona la estética técnica de montaña andina de alta precisión (*Andean Topo Engine*) con una ergonomía limpia y de alto contraste.
+El sistema visual fusiona la estética técnica de montaña andina de alta precisión (_Andean Topo Engine_) con una ergonomía limpia y de alto contraste.
 
-### A. Tonos Oscuros Andinos (Dark Mode & Backdrops)
-* **Andean Pine / Deep Canopy**: `#051712` — Fondo principal de pantallas oscuras y sidebar drawer.
-* **Slate Forest**: `#082019` — Superficie de tarjetas y contenedores elevados en modo oscuro.
-* **Topo Grid Line**: `rgba(16, 185, 129, 0.08)` — Trazado sutil de curvas de nivel o retícula cartográfica.
-* **Borde Táctico**: `#12382c` — Contorno fino de 1px en tarjetas, sin sombras pesadas.
+### Regla de oro: no es todo verde
 
-### B. Láminas Claras de Alto Contraste (Light Sheets & Modals)
-* **Crisp Pure White**: `#ffffff` — Hoja emergente inferior (`rounded-t-[32px]`) para formularios interactivos.
-* **Canvas Soft Tint**: `#fcfdfd` / `#f8faf9` — Fondos de campos de entrada (`bg-stone-50/70`).
-* **Input Borders**: `#e2e8f0` (`border-stone-200`) con realce en foco a `#059669` (`focus:ring-2`).
+**Error común (corregido en HU-01 y HU-02):** pintar pantalla completa, campos, textos y botones en tonos esmeralda. Eso reduce legibilidad y aplasta la jerarquía visual.
 
-### C. Acentos de Marca y Estados
-* **Deep Emerald CTA**: `#064e3b` (hover: `#043e2f`) — Botón principal de acción con tipografía blanca y flecha direccional.
-* **Vibrant Active Green**: `#10b981` / `#059669` — Indicador "En Vivo", selector activo de navegación y anillos de avatar.
-* **Andean Gold (Logros & Cumbres)**: `#d97706` / `#f59e0b` — Medallas de guía de montaña, insignias de verificación.
-* **Alpine Alert / SOS**: `#ef4444` / `#dc2626` — Indicador de grabación activa, auditoría de rescate y botón de salida.
+**Patrón correcto — capas duales:**
+
+| Capa             | Rol                                | Tokens (`AndeanTheme.colors`)                       | Dónde                                      |
+| ---------------- | ---------------------------------- | --------------------------------------------------- | ------------------------------------------ |
+| **Shell oscuro** | Marca, navegación, identidad       | `background`, `card`, `border*`, `text`, `primary*` | Cabecera, drawer, zona superior de perfil  |
+| **Hoja clara**   | Formularios, datos editables, CTAs | `sheet`, `field*`, `ink*`, `cta*`                   | Login, registro, edición y ficha de cuenta |
+
+El verde (`primary`, `primaryLight`, `primaryDark`) es **acento**, no fondo universal: iconos, pills, links, anillo de avatar, estados activos. Los formularios viven sobre **blanco + stone** (`sheet`, `field`, `fieldBorder`, `ink`).
+
+### A. Tonos Oscuros Andinos (Shell / Drawer / Cabecera)
+
+- **Andean Pine**: `#051712` (`background`) — Fondo principal de pantallas y drawer.
+- **Deep Canopy**: `#06231B` (`backgroundSecondary`) — Variante de fondo secundario.
+- **Card Forest**: `#0E2E24` / `#153E32` (`card`, `cardElevated`) — Botones circulares, chips y avatar en zona oscura.
+- **Borde Táctico**: `#1A4537` / `#265D4B` (`border`, `borderLight`) — Contorno 1px, sin sombras pesadas.
+- **Texto sobre oscuro**: `#F9FAFB` / `#9CA3AF` (`text`, `textSecondary`).
+
+### B. Láminas Claras de Alto Contraste (Light Sheets — HU-01/02)
+
+- **Crisp Sheet**: `#FFFFFF` (`sheet`) — Hoja inferior con `borderTopRadius: 36` para formularios.
+- **Field Canvas**: `#FAFAF9` (`field`) — Fondo de inputs e iconos de fila informativa.
+- **Field Borders**: `#E7E5E4` / `#D6D3D1` (`fieldBorder`, `fieldBorderStrong`).
+- **Tipografía sobre claro**: `#1C1917` / `#57534E` (`ink`, `inkSecondary`) — títulos y valores de formulario.
+- **Micro-labels**: `#78716C` / `#A8A29E` (`fieldLabel`, `fieldHint`) — labels uppercase 10px.
+
+### C. Acentos de Marca y Estados (uso puntual, no fondo)
+
+- **Deep Emerald CTA**: `#064E3B` / `#043E2F` (`cta`, `ctaPressed`) — Botón primario en hoja clara (`Button` variant `primary`).
+- **Vibrant Active Green**: `#10B981` / `#059669` (`primary`, `primaryDark`) — Links, iconos en shell, pill de versión, punto online.
+- **Andean Gold**: `#D97706` / `#F59E0B` (`amber`, `amberLight`) — Badge `ADMINISTRADOR`, logros (no senderista estándar).
+- **Alpine Alert**: `#EF4444` / `#DC2626` (`danger*`) — Cerrar sesión, errores, grabación SOS.
+- **Feedback**: `successBg/Border/Text` y `errorBg/Border/Text` — Banners de confirmación y validación.
 
 ---
 
 ## 2. Tipografía y Reglas de Etiquetado
 
-1. **Titulares de Pantalla**: `font-extrabold text-2xl tracking-tight text-white` (en dark) o `text-stone-900` (en light).
-2. **Micro-Labels de Formulario**:
-   - `text-[10px] font-bold tracking-wider uppercase text-stone-500`
-   - Deben ubicarse siempre arriba del campo con espaciado consistente (`space-y-1.5`).
-3. **Pills de Versión y Estado**:
-   - `TREK-BOLIVIA PRO v2.4`: Fondo verde bosque translúcido con badge verde brillante (`bg-emerald-500/20 text-emerald-400 border border-emerald-500/30`).
-   - `NUEVA EXPEDICIÓN`: Micro-badge superior con icono de ruta o compás.
-4. **Campos con Icono Integrado**:
-   - Todos los inputs incluyen un icono temático `lucide-react` a la izquierda (`w-4 h-4 text-stone-400`) y controles contextuales a la derecha (e.g. ojo para revelar contraseña).
+1. **Titulares en shell oscuro**: `fontWeight: 900`, `fontSize: 28–34`, `color: white` — solo en la zona superior (no en la hoja clara).
+2. **Titulares en hoja clara**: `color: ink` (`#1C1917`), no verde.
+3. **Micro-Labels de Formulario** (hoja clara):
+   - `fontSize: 10`, `fontWeight: 800`, `letterSpacing: 0.8–1.5`, `textTransform: uppercase`
+   - `color: fieldLabel` / `fieldHint` — **nunca** `primary` como color de label.
+4. **Pills de versión** (shell oscuro): fondo `rgba(16,185,129,0.1)`, borde `rgba(16,185,129,0.2)`, texto `primaryLight`.
+5. **Links interactivos** (hoja clara): `primaryDark` (`#059669`), no el CTA sólido.
+6. **Campos con icono** (`Field.tsx`): icono `fieldIcon` sobre fondo `field`; borde `fieldBorder`.
 
 ---
 
 ## 3. Especificación de Componentes Clave
 
-### A. Formulario "Crear Cuenta" & "Iniciar Sesión" (Image 1)
-- **Cabecera**:
-  - Botón circular volver (`<`) a la izquierda.
-  - Centro: Pill `TREK-BOLIVIA PRO v2.4`.
-  - Botón circular radar/brújula a la derecha.
-  - Subtítulo `NUEVA EXPEDICIÓN` sobre `Crear Cuenta`.
-  - Descripción: *"Únete a la comunidad de excursionistas y montañeros de Bolivia."*
-- **Contenedor**: Hoja blanca curvada (`rounded-t-[32px]` o `rounded-[28px]` modal) con campos en orden:
-  1. Nombre Completo (`Ej. Mateo Condori`)
-  2. Correo Electrónico (`andino@trekbolivia.bo`)
-  3. Usuario (`@caminante_bolivia`)
-  4. Contraseña (`Mínimo 8 caracteres` + toggle ojo)
-  5. Verificar Contraseña (`Repite tu contraseña` + toggle ojo)
-  6. Checkbox de términos y normas de seguridad en montaña.
-  7. Botón CTA `CREAR CUENTA →` en esmeralda profundo.
-  8. Separador `O REGÍSTRATE CON`.
-  9. Botón social `Continuar con Google`.
+### A. HU-01 / HU-02 — Auth (referencia implementada)
 
-### B. Sidebar Drawer en Modo Oscuro (Image 2)
+Vistas canónicas: `AuthView.tsx`, `LoginForm.tsx`, `RegisterForm.tsx`, `AuthModal.tsx`.
+
+**Layout obligatorio — shell oscuro + hoja clara:**
+
+- **Cabecera (shell):** botones circulares `card` + iconos `primary`; pill `TREK-BOLIVIA PRO v1.0`; eyebrow `◆ NUEVA EXPEDICIÓN` / `● ACCESO SEGURO`; título en blanco.
+- **Hoja blanca** (`sheet`, `borderTopRadius: 36`): `RegisterForm` / `LoginForm` con `Field`, `Banner` (success/error en tonos pastel).
+- **CTA primario:** `Button` variant `primary` → fondo `cta` (`#064E3B`), texto blanco.
+- **Secundarios:** `outline-green`, `outline-danger`, `outline-muted` — borde + texto, sin relleno verde.
+- **Anti-patrón:** inputs con `backgroundColor: card` o texto de formulario en `primaryLight`.
+
+Campos de registro (orden): nombre, correo, alias, contraseña, confirmación, checkbox normas, CTA, switch login/registro, enlace invitado.
+
+### B. HU-02 — Perfil (referencia implementada)
+
+Vistas canónicas: `ProfileView.tsx`, `EditProfileView.tsx`.
+
+Mismo patrón dual que auth:
+
+- **Zona oscura:** avatar, nombre (`text` blanco), `@username` (`textSecondary`), badge rol (verde senderista / **ámbar** admin).
+- **Hoja clara:** tarjeta informativa (`infoCard`, bordes `fieldBorder`), labels `fieldHint`, valores `ink`.
+- **Acciones:** `EDITAR PERFIL` → `Button primary`; `Cerrar Sesión` → `outline-danger` (rojo, no verde).
+- **Fuera de alcance HU-02:** métricas de montaña, toggle de tema, cambio de contraseña visible — no añadir sin criterio de HU.
+
+### C. Sidebar Drawer en Modo Oscuro
+
 - **Ancho del Drawer**: **Al menos el 60% del ancho del dispositivo** (`w-[82vw] max-w-sm sm:w-[65vw]`).
 - **Encabezado**: Logo Trek-Bolivia Pro con icono de montañista en caja verde + `ANDEAN TOPO GUIDE` + botón cerrar `X`.
 - **Ficha de Usuario**:
@@ -88,16 +118,18 @@ El sistema visual fusiona la estética técnica de montaña andina de alta preci
 
 ---
 
-## 4. Compatibilidad y Migración a Expo SDK 57
+## 4. Implementación Técnica (Expo SDK 57 — vigente)
 
-Para migrar esta arquitectura a **Expo SDK 57 (React Native)**:
+1. **Estilos:** `StyleSheet.create` + `AndeanTheme` en [`theme.ts`](../src/presentation/theme.ts). No Tailwind/NativeWind en producción.
+2. **Primitivas UI:** [`Button`](../src/presentation/components/ui/Button.tsx), [`Field`](../src/presentation/components/ui/Field.tsx), [`Banner`](../src/presentation/components/ui/Banner.tsx) — importar vía `components/ui`.
+3. **Dominio (`/src/core/domain`):** TypeScript puro, sin RN/Expo/Firebase.
+4. **Firebase:** JS SDK + `@react-native-async-storage/async-storage` para persistencia de auth.
+5. **Mapas offline:** IndexedDB en web; destino nativo `expo-file-system` + SQLite (HU-04).
 
-1. **Capa de Dominio (`/src/core/domain`)**:
-   - Es 100% TypeScript puro, sin dependencias de DOM ni navegador. Se copia directamente a la app de Expo.
-2. **Capa de Firebase (`/src/infrastructure/firebase`)**:
-   - Compatible con Firebase JS v10/v11 en Expo SDK 57 (usando `@react-native-async-storage/async-storage` para persistencia de Auth) o `@react-native-firebase`.
-3. **Capa de Estilos (`NativeWind v4` / Tailwind)**:
-   - Las clases de Tailwind aplicadas (`bg-[#051712]`, `rounded-3xl`, `text-emerald-400`) se mapean 1:1 en componentes `View`, `Text`, `Pressable` y `TextInput`.
-4. **Almacenamiento Offline de Mapas**:
-   - En web se utiliza **IndexedDB** (`tileCacheDB.ts`).
-   - En Expo SDK 57 se migra de manera transparente a **expo-file-system** + **expo-sqlite** con la misma interfaz de repositorio.
+### Checklist anti-verde (code review)
+
+- [ ] ¿La pantalla de formulario usa `sheet` + `field` + `ink`?
+- [ ] ¿El verde aparece solo en acentos (iconos, links, pills, CTA)?
+- [ ] ¿Los labels del formulario usan `fieldLabel`/`fieldHint`, no `primary`?
+- [ ] ¿Acciones destructivas usan `danger`/`outline-danger`?
+- [ ] ¿Admin usa `amber`, no otro verde extra?

@@ -1,10 +1,10 @@
 import type { SQLiteBindParams, SQLiteRunResult } from "expo-sqlite";
 
 /**
- * HU-08 — Repositorio SQLite para tracks GPS (ETAPA 1: infraestructura).
- * Persiste cabeceras de actividad + puntos con `seq` incremental, SIN
- * reescribir toda la ruta por cada fix. Todavía NO conectado al flujo de
- * grabación (etapas posteriores).
+ * T4 — Repositorio SQLite para tracks GPS.
+ * Persiste cabeceras de actividad + puntos con `seq` incremental, sin
+ * reescribir toda la ruta por cada fix. The activity store owns sequencing
+ * and uses this repository for incremental writes and recovery.
  *
  * La conexión es inyectable (`TrackDbConnection`) para probar la lógica
  * bajo `tsx`/node sin el módulo nativo.
@@ -245,6 +245,25 @@ export function insertTrackPoint(
       point.timestamp,
     ],
   );
+}
+
+/**
+ * Resumable legacy backfill. `startSeq` is the first missing sequence, so a
+ * process interruption leaves already committed rows intact and a retry only
+ * appends the remaining suffix.
+ */
+export function backfillTrackPoints(
+  db: TrackDbConnection,
+  activityId: string,
+  points: NewTrackPoint[],
+  startSeq: number = 1,
+): number {
+  let nextSeq = startSeq;
+  for (const point of points) {
+    insertTrackPoint(db, activityId, nextSeq, point);
+    nextSeq += 1;
+  }
+  return nextSeq;
 }
 
 /** Máximo `seq` persistido (0 si la actividad aún no tiene puntos). */

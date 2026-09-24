@@ -96,26 +96,6 @@ export function StartFreeRecordingUseCase(
     difficulty: "facil",
   };
 
-  // Semilla solo con fix de calidad: timestamp y accuracy REALES del fix.
-  // Sin calidad suficiente NO se inventa semilla: el primer fix validado
-  // del watcher será P1 (distancia parte de 0, sin salto artificial).
-  // La accuracy se conserva en la semilla (intersección local, sin tocar
-  // el tipo canónico `Coordinates`).
-  type SeededPoint = import("../../domain/types").Coordinates & {
-    accuracy?: number;
-  };
-  const quality = seedQualityCheck(position, now);
-  const seeded: SeededPoint[] = quality.ok
-    ? [
-        {
-          lat: position.lat,
-          lng: position.lng,
-          altitude: position.altitude,
-          accuracy: position.accuracy ?? undefined,
-          timestamp: position.fixTimestamp as number,
-        },
-      ]
-    : [];
   const recordedPoints: LiveActivity["recordedPoints"] = [];
 
   return {

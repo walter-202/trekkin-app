@@ -14,23 +14,29 @@ export interface SceneMarker {
   kind: SceneMarkerKind;
   label?: string;
   notes?: string;
+  heading?: number;
+}
+
+export interface TrekMapOfflinePack {
+  kind: "pmtiles" | "mbtiles";
+  protocolUrl: string | null;
+  message: string | null;
 }
 
 export interface TrekMapScene {
   trail: LngLat[];
   track: LngLat[];
   markers: SceneMarker[];
+  userLocation?: { lat: number; lng: number; heading?: number } | null;
   bounds: [LngLat, LngLat] | null;
   interactive: boolean;
   styleUrl: string;
-  /**
-   * Fase 1 cámara libre: `false` = encuadre inicial único, luego solo datos.
-   * Ausente/`true` = `fitBounds` en cada apply (comportamiento histórico).
-   */
+  /** Pack de fondo HU-04. Null = estilo online OpenFreeMap. */
+  offlinePack: TrekMapOfflinePack | null;
   followUser?: boolean;
 }
 
 export type MapToHostEvent =
-  | { type: "mapReady" }
+  | { type: "mapReady"; payload?: { offlinePackReady?: boolean } }
   | { type: "mapPress"; payload: { lat: number; lng: number } }
   | { type: "error"; payload: { message: string } };

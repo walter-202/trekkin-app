@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -16,23 +16,31 @@ import {
   Circle,
   ListChecks,
   MapPinPlus,
+  AlertTriangle,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { AddCheckpointModal } from "./AddCheckpointModal";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
+import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import {
   activeElapsedMs,
   ACTIVITY_CONFIG,
 } from "../../../core/domain/activity";
 import {
   accumulatedDistanceKm,
+  haversineKm,
+  projectOnPolyline,
   remainingDistanceToEndKm,
 } from "../../../core/domain/calculations";
 import { formatDuration } from "../../utils/format";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import type { PlannedPoint } from "../../../core/domain/plan";
 import type { CheckpointCategory } from "../../../core/domain/types";
-import type { LocationAccuracyOptions } from "../../../infrastructure/location/locationService";
+import {
+  locationService,
+  type LocationAccuracyOptions,
+} from "../../../infrastructure/location/locationService";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Vista principal del recorrido.
@@ -64,7 +72,6 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const mapTrack = useActivityStore((s) => s.mapTrack);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
-  // DIAG-TEMP — telemetría GPS temporal (solo lectura).
   const gpsStats = useActivityStore((s) => s.gpsStats);
   const gpsEvents = useActivityStore((s) => s.gpsEvents);
 
@@ -91,18 +98,50 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     };
   }, [watchOptions]);
 
+  const [compassHeading, setCompassHeading] = useState<number | undefined>(
+    undefined,
+  );
+
+  useEffect(() => {
+    let watch: { remove: () => void } | null = null;
+    let mounted = true;
+    void locationService
+      .watchHeading((deg) => {
+        if (mounted) setCompassHeading(deg);
+      })
+      .then((sub) => {
+        if (!mounted) {
+          sub?.remove();
+        } else {
+          watch = sub;
+        }
+      });
+    return () => {
+      mounted = false;
+      watch?.remove();
+    };
+  }, []);
+
   if (!live) return null;
 
   const startTwice = live.recordedPoints[0];
   const lastPoint = live.recordedPoints[live.recordedPoints.length - 1];
-  const currentLocation: PlannedPoint | undefined = lastPoint
-    ? { lat: lastPoint.lat, lng: lastPoint.lng, name: "Tu posición" }
+  const currentLocation = lastPoint
+    ? {
+        lat: lastPoint.lat,
+        lng: lastPoint.lng,
+        heading: compassHeading,
+        name: "Tu posición",
+      }
     : startTwice
-      ? { lat: startTwice.lat, lng: startTwice.lng, name: "Tu posición" }
+      ? {
+          lat: startTwice.lat,
+          lng: startTwice.lng,
+          heading: compassHeading,
+          name: "Tu posición",
+        }
       : undefined;
 
-  // ETAPA 2 — distancia incremental (la memoria guarda ventana, el total
-  // vive en `live.totalDistanceKm`; fallback para autosaves previos).
   const distanceKm =
     live.totalDistanceKm ??
     accumulatedDistanceKm(live.recordedPoints, {
@@ -118,6 +157,32 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     : live.route.distanceKm;
   const elapsedSeconds = Math.round(activeElapsedMs(live) / 1000);
 
+  // Soporte de mapa offline (PMTiles) si la ruta fue descargada previamente
+  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId) return;
+    tileCacheDB
+      .get(routeId)
+      .then((record) => {
+        if (record?.pmtilesPath) {
+          setOfflinePackPath(record.pmtilesPath);
+        }
+      })
+      .catch(() => {});
+  }, [live?.route?.routeId]);
+
+  // Detección de desvío sobre la ruta oficial del creador
+  const isGuided = live.route.waypoints.length >= 2;
+  const deviation = useMemo(() => {
+    if (!isGuided || !lastPoint) return { isOffRoute: false, meters: 0 };
+    const proj = projectOnPolyline(lastPoint, routePolyline);
+    const meters = Math.round(haversineKm(lastPoint, proj.projection) * 1000);
+    return { isOffRoute: meters > 50, meters };
+  }, [isGuided, lastPoint, routePolyline]);
+
   const handlePause = async () => {
     await useActivityStore.getState().pauseActivity();
   };
@@ -130,6 +195,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         .startWatch(watchOptions);
       setGpsWarning(!watchOk);
     }
+  };
+
+  const handleFinalize = async () => {
+    setShowConfirm(false);
+    const result = await useActivityStore.getState().finishActivity();
+    if (result) onFinish(result);
   };
 
   const handleAddCheckpoint = async (input: {
@@ -148,12 +219,6 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       lng: point.lng,
       notes: input.notes,
     });
-  };
-
-  const handleFinalize = async () => {
-    setShowConfirm(false);
-    const result = await useActivityStore.getState().finishActivity();
-    if (result) onFinish(result);
   };
 
   const visitedCount = live.completedCheckpoints.length;
@@ -199,9 +264,68 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         }
         currentLocation={currentLocation}
         fitTo={routePolyline}
-        height={300}
+        offlinePackPath={offlinePackPath}
         followUser={mode === "free" ? false : undefined}
+        height={300}
       />
+
+      <View style={styles.mapLegend}>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendIndicator,
+              { backgroundColor: AndeanTheme.colors.primaryLight },
+            ]}
+          />
+          <Text style={styles.legendText}>Ruta creador</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendIndicator,
+              { backgroundColor: AndeanTheme.colors.trackOrange },
+            ]}
+          />
+          <Text style={styles.legendText}>Tu trazado</Text>
+        </View>
+        {offlinePackPath ? (
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendBadgeDot,
+                { backgroundColor: AndeanTheme.colors.primary },
+              ]}
+            />
+            <Text style={styles.legendBadgeText}>Offline</Text>
+          </View>
+        ) : (
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendBadgeDot,
+                { backgroundColor: AndeanTheme.colors.amberLight },
+              ]}
+            />
+            <Text style={styles.legendBadgeText}>Online</Text>
+          </View>
+        )}
+      </View>
+
+      {mode === "guide" && deviation.isOffRoute && (
+        <View style={styles.offRouteBanner}>
+          <AlertTriangle size={15} color={AndeanTheme.colors.amberLight} />
+          <Text style={styles.offRouteText}>
+            Atención: te encuentras a{" "}
+            {deviation.meters >= 1000
+              ? `${(deviation.meters / 1000).toFixed(2)} km`
+              : `${deviation.meters} m`}{" "}
+            del sendero oficial.{" "}
+            {deviation.meters > 500 && offlinePackPath
+              ? "(El mapa offline cubre el área del sendero; aproxímate a la ruta para centrar tu posición)."
+              : ""}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.hud}>
         <View style={styles.hudCol}>
@@ -220,7 +344,6 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         )}
       </View>
 
-      {/* DIAG-TEMP — bloque diagnóstico temporal (retirar tras la prueba) */}
       <View style={styles.diagBox}>
         <Text style={styles.diagText}>
           GPS recibidos: {gpsStats.received} | aceptados: {gpsStats.accepted} |
@@ -239,14 +362,14 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       {mode === "guide" && (
         <View style={styles.checkpointsCard}>
           <View style={styles.checkpointsHeader}>
-            <ListChecks size={14} color="#D97706" />
+            <ListChecks size={14} color={AndeanTheme.colors.accentWarning} />
             <Text style={styles.checkpointsTitle}>
               CHECKPOINTS ({visitedCount}/{totalCheckpoints})
             </Text>
           </View>
           {totalCheckpoints === 0 ? (
             <Text style={styles.muted}>
-              Esta ruta no tiene checkpoints publicados.
+              Aún no hay paradas. Agrega una en tu posición actual.
             </Text>
           ) : (
             listedCheckpoints.map((cp) => {
@@ -254,9 +377,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
               return (
                 <View key={cp.id} style={styles.checkpointRow}>
                   {visited ? (
-                    <CheckCircle2 size={16} color="#10B981" />
+                    <CheckCircle2
+                      size={16}
+                      color={AndeanTheme.colors.primary}
+                    />
                   ) : (
-                    <Circle size={16} color="#4B5563" />
+                    <Circle size={16} color={AndeanTheme.colors.borderLight} />
                   )}
                   <Text
                     style={[
@@ -291,7 +417,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Agregar parada en la posición actual"
       >
-        <MapPinPlus size={16} color="#10B981" />
+        <MapPinPlus size={16} color={AndeanTheme.colors.primary} />
         <Text style={styles.checkpointBtnText}>AGREGAR PARADA</Text>
       </Pressable>
 
@@ -320,7 +446,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Pausar actividad"
           >
-            <Pause size={16} color="#10B981" />
+            <Pause size={16} color={AndeanTheme.colors.textSecondary} />
             <Text style={styles.secondaryText}>PAUSAR</Text>
           </Pressable>
         ) : (
@@ -425,24 +551,24 @@ const styles = StyleSheet.create({
   warningText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
   hud: {
     flexDirection: "row",
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
   },
   hudCol: { flex: 1, alignItems: "center", gap: 4 },
   hudLabel: {
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-  hudValue: { color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
+  hudValue: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
   checkpointsCard: {
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 16,
     padding: 14,
     gap: 8,
@@ -454,16 +580,24 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   checkpointsTitle: {
-    color: "#6EE7B7",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
   checkpointRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  checkpointName: { flex: 1, color: "#D1D5DB", fontSize: 12 },
-  checkpointNameVisited: { color: "#6EE7B7" },
-  checkpointState: { color: "#4B5563", fontSize: 10, fontWeight: "800" },
-  checkpointStateVisited: { color: "#10B981" },
+  checkpointName: {
+    flex: 1,
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+  },
+  checkpointNameVisited: { color: AndeanTheme.colors.text },
+  checkpointState: {
+    color: AndeanTheme.colors.textMuted,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  checkpointStateVisited: { color: AndeanTheme.colors.primary },
   pausedBanner: {
     backgroundColor: "rgba(245,158,11,0.12)",
     borderWidth: 1,
@@ -472,7 +606,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   pausedText: {
-    color: "#FCD34D",
+    color: AndeanTheme.colors.accentWarning,
     fontSize: 10,
     fontWeight: "800",
     textAlign: "center",
@@ -484,7 +618,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  errorText: { color: "#FCA5A5", fontSize: 11, lineHeight: 15 },
+  errorText: { color: AndeanTheme.colors.danger, fontSize: 11, lineHeight: 15 },
   actions: { flexDirection: "row", gap: 10 },
   secondaryBtn: {
     flex: 1,
@@ -492,14 +626,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 14,
   },
   secondaryText: {
-    color: "#10B981",
+    color: AndeanTheme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -510,7 +644,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
   },
@@ -526,7 +660,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#DC2626",
+    backgroundColor: AndeanTheme.colors.danger,
     borderRadius: 14,
     paddingVertical: 14,
   },
@@ -546,61 +680,130 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 20,
     padding: 20,
     gap: 10,
   },
-  modalTitle: { color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
-  modalText: { color: "#9CA3AF", fontSize: 12, lineHeight: 17 },
+  modalTitle: {
+    color: AndeanTheme.colors.text,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  modalText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
   modalCancel: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 12,
   },
-  modalCancelText: { color: "#D1D5DB", fontSize: 11, fontWeight: "800" },
+  modalCancelText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+  },
   modalConfirm: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: "#DC2626",
+    backgroundColor: AndeanTheme.colors.danger,
     borderRadius: 14,
     paddingVertical: 12,
   },
   modalConfirmText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
   pressed: { opacity: 0.8 },
-  muted: { color: "#9CA3AF", fontSize: 11 },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
   checkpointBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     paddingVertical: 12,
   },
   checkpointBtnText: {
-    color: "#10B981",
+    color: AndeanTheme.colors.text,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
   },
-  // DIAG-TEMP — estilos del bloque diagnóstico temporal.
   diagBox: {
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 10,
     gap: 4,
   },
-  diagText: { color: "#9CA3AF", fontSize: 10 },
+  diagText: { color: AndeanTheme.colors.textSecondary, fontSize: 10 },
+  mapLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderRadius: 8,
+    alignSelf: "center",
+    marginTop: -8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendIndicator: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+  },
+  legendBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  legendText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  legendBadgeText: {
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  offRouteBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.amberLight,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  offRouteText: {
+    color: AndeanTheme.colors.amberLight,
+    fontSize: 12,
+    fontWeight: "700",
+    flex: 1,
+  },
 });

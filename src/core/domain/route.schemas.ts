@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoutePreviewSchema } from "./routePreview.schemas";
 
 /**
  * HU-03 Explorar — Dominio Route (puro, sin Firebase/RN).
@@ -46,8 +47,11 @@ export const RouteSchema = z.object({
   modality: z.enum(["solo", "acompañado"]).default("acompañado"),
   status: z.enum(["draft", "in_review", "published", "rejected"]),
   isPrivate: z.boolean().default(false),
+  createdAt: z.number(),
+  updatedAt: z.number(),
   creatorId: z.string().trim().min(1).max(128),
   creatorName: z.string().trim().max(150).default(""),
+  preview: RoutePreviewSchema.optional(),
   waypoints: z.array(coordinateSchema).max(5000).default([]),
   checkpoints: z
     .array(
@@ -73,6 +77,35 @@ export const RouteSchema = z.object({
     .max(100)
     .default([]),
   photos: z.array(z.string().max(500)).max(50).default([]),
+  artifacts: z
+    .object({
+      version: z.number().int().positive(),
+      gpx: z.object({
+        kind: z.literal("gpx"),
+        version: z.number().int().positive(),
+        storagePath: z.string().trim().min(1).max(500),
+        fileName: z.literal("route.gpx"),
+        mimeType: z.literal("application/gpx+xml"),
+        byteSize: z.number().int().nonnegative(),
+        sha256: z.string().trim().regex(/^[0-9a-fA-F]{64}$/).optional(),
+        status: z.enum(["pending", "uploading", "uploaded", "failed"]),
+        updatedAt: z.number(),
+        error: z.string().max(500).optional(),
+      }),
+      pmtiles: z.object({
+        kind: z.literal("pmtiles"),
+        version: z.number().int().positive(),
+        storagePath: z.string().trim().min(1).max(500),
+        fileName: z.literal("basemap.pmtiles"),
+        mimeType: z.literal("application/vnd.pmtiles"),
+        byteSize: z.number().int().nonnegative(),
+        sha256: z.string().trim().regex(/^[0-9a-fA-F]{64}$/).optional(),
+        status: z.enum(["pending", "uploading", "uploaded", "failed"]),
+        updatedAt: z.number(),
+        error: z.string().max(500).optional(),
+      }),
+    })
+    .optional(),
 });
 
 export type RouteValidated = z.infer<typeof RouteSchema>;

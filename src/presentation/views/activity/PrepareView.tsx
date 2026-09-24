@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Modal,
 } from "react-native";
 import {
   Navigation,
@@ -15,6 +16,10 @@ import {
   Gauge,
   ListChecks,
   Play,
+  AlertTriangle,
+  CheckCircle2,
+  WifiOff,
+  Download,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
@@ -22,14 +27,18 @@ import {
   locationService,
   type GpsPosition,
 } from "../../../infrastructure/location/locationService";
+import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
+import { DownloadRouteModal } from "../explore/DownloadRouteModal";
 import { distanceM } from "../../../core/domain/calculations";
 import { formatDurationMinutes } from "../../utils/format";
 import type { PlannedPoint } from "../../../core/domain/plan";
+import type { RouteModel } from "../../../core/domain/types";
+import { AndeanTheme } from "../../theme";
 
 /**
  * HU-06 — Vista de preparación de la actividad.
- * Muestra la información de la ruta, el mapa, la ubicación actual del usuario y
- * la distancia aproximada hasta el punto de inicio.
+ * Muestra la información de la ruta, el mapa interactivo con brújula/cono de visión,
+ * verificación pre-flight offline y advertencia de proximidad al punto de partida.
  */
 interface PrepareViewProps {
   onBegin: () => void;
@@ -58,6 +67,13 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
   const [position, setPosition] = useState<GpsPosition | null>(null);
   const [locating, setLocating] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [compassHeading, setCompassHeading] = useState<number | undefined>(undefined);
+
+  // HU-04: Verificación pre-flight offline
+  const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
+  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(undefined);
+  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [showFarConfirm, setShowFarConfirm] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -78,6 +94,47 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
     };
   }, []);
 
+  // Observador de orientación (brújula en tiempo real para el cono de visión)
+  useEffect(() => {
+    let watch: { remove: () => void } | null = null;
+    let active = true;
+    void locationService
+      .watchHeading((deg) => {
+        if (active) setCompassHeading(deg);
+      })
+      .then((sub) => {
+        if (!active) sub?.remove();
+        else watch = sub;
+      });
+    return () => {
+      active = false;
+      watch?.remove();
+    };
+  }, []);
+
+  // Comprobar si la ruta ya está descargada en el dispositivo
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId) return;
+    let active = true;
+    tileCacheDB
+      .get(routeId)
+      .then((record) => {
+        if (!active) return;
+        if (record?.pmtilesPath) {
+          setIsDownloaded(true);
+          setOfflinePackPath(record.pmtilesPath);
+        } else {
+          setIsDownloaded(false);
+          setOfflinePackPath(undefined);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [live?.route?.routeId]);
+
   if (!live) return null;
   const route = live.route;
   const fitTo = [
@@ -95,15 +152,41 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       ) / 1000;
   }
 
+  const isFarFromStart = distanceToStartKm != null && distanceToStartKm > 0.5;
+
+  const routeModelForDownload: RouteModel = {
+    id: route.routeId,
+    title: route.routeTitle,
+    description: route.description ?? "",
+    region: "",
+    startPoint: route.startPoint,
+    endPoint: route.endPoint,
+    waypoints: route.waypoints,
+    checkpoints: route.checkpoints,
+    distanceKm: route.distanceKm,
+    durationMinutes: route.durationMinutes,
+    difficulty: route.difficulty,
+    modality: "solo",
+    status: "published",
+    isPrivate: false,
+    creatorId: "",
+    creatorName: "",
+    photos: route.photos ?? [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  const handleBeginClick = () => {
+    if (isFarFromStart) {
+      setShowFarConfirm(true);
+    } else {
+      onBegin();
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.provisionalBadge}>
-        <Text style={styles.provisionalText}>
-          PROVISIONAL · se cargó la primera ruta publicada (catálogo HU-03
-          pendiente)
-        </Text>
-      </View>
-
+      {/* 1. Mapa interactivo con ruta oficial, inicio, fin, checkpoints y ubicación actual con cono */}
       <TrekMap
         trail={route.waypoints}
         pointsOfInterest={route.checkpoints}
@@ -114,17 +197,65 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
             ? {
                 lat: position.latitude,
                 lng: position.longitude,
+                heading: compassHeading,
               }
             : undefined
         }
         fitTo={fitTo}
+        offlinePackPath={offlinePackPath}
         height={240}
       />
+
+      {/* 2. Badge de estado offline o alerta de pre-flight */}
+      {isDownloaded ? (
+        <View style={styles.offlineReadyCard}>
+          <CheckCircle2 size={16} color={AndeanTheme.colors.primaryLight} />
+          <Text style={styles.offlineReadyText}>
+            Paquete offline listo · Mapa vectorial y GPX descargados
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.offlineWarningCard}>
+          <WifiOff size={16} color={AndeanTheme.colors.amberLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.offlineWarningTitle}>
+              Sin mapa offline descargado
+            </Text>
+            <Text style={styles.offlineWarningText}>
+              Para consultar el mapa si te quedas sin señal en la montaña, te sugerimos descargarlo antes de iniciar.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => setDownloadModalOpen(true)}
+            style={styles.downloadActionBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Descargar mapa offline"
+          >
+            <Download size={14} color={AndeanTheme.colors.white} />
+            <Text style={styles.downloadActionText}>DESCARGAR</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* 3. Advertencia de proximidad si el usuario está a >500m del startPoint */}
+      {isFarFromStart ? (
+        <View style={styles.proximityCard}>
+          <AlertTriangle size={18} color={AndeanTheme.colors.amberLight} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.proximityTitle}>
+              Estás a {distanceToStartKm != null ? distanceToStartKm.toFixed(2) : "0"} km del inicio
+            </Text>
+            <Text style={styles.proximityText}>
+              El punto de partida es &quot;{route.startPoint.name}&quot;. El mapa offline cubre el perímetro de la ruta; tu posición se integrará al sendero una vez que te acerques.
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.titleCard}>
         <Text style={styles.title}>{route.routeTitle}</Text>
         <View style={styles.chip}>
-          <Gauge size={12} color="#F59E0B" />
+          <Gauge size={12} color={AndeanTheme.colors.accentWarning} />
           <Text style={styles.chipText}>
             {DIFFICULTY_LABEL[route.difficulty] ?? route.difficulty}
           </Text>
@@ -146,21 +277,21 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       <View style={styles.metricsCard}>
         <Text style={styles.metricRowLabel}>MÉTRICAS</Text>
         <View style={styles.metricRow}>
-          <MapPin size={14} color="#10B981" />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Distancia total</Text>
           <Text style={styles.metricValue}>
             {route.distanceKm.toFixed(1)} km
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Gauge size={14} color="#34D399" />
+          <Gauge size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Tiempo estimado</Text>
           <Text style={styles.metricValue}>
             {formatDurationMinutes(route.durationMinutes)}
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <MapPin size={14} color="#3B82F6" />
+          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Punto de inicio</Text>
           <Text style={styles.metricValue}>
             {route.startPoint.name} · {route.startPoint.lat.toFixed(4)},{" "}
@@ -168,7 +299,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Flag size={14} color="#F59E0B" />
+          <Flag size={14} color={AndeanTheme.colors.accentWarning} />
           <Text style={styles.metricLabel}>Punto final</Text>
           <Text style={styles.metricValue}>
             {route.endPoint.name} · {route.endPoint.lat.toFixed(4)},{" "}
@@ -176,19 +307,19 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <ListChecks size={14} color="#D97706" />
+          <ListChecks size={14} color={AndeanTheme.colors.textSecondary} />
           <Text style={styles.metricLabel}>Checkpoints</Text>
           <Text style={styles.metricValue}>{route.checkpoints.length}</Text>
         </View>
       </View>
 
       <View style={styles.locationCard}>
-        <Navigation size={14} color="#34D399" />
+        <Navigation size={14} color={AndeanTheme.colors.primary} />
         <View style={{ flex: 1 }}>
           <Text style={styles.locationLabel}>TU UBICACIÓN</Text>
           {locating ? (
             <View style={styles.locationInner}>
-              <ActivityIndicator color="#10B981" size="small" />
+              <ActivityIndicator color={AndeanTheme.colors.primary} size="small" />
               <Text style={styles.muted}>Ubicándote…</Text>
             </View>
           ) : locationError ? (
@@ -206,14 +337,19 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           <Text style={styles.distanceLabel}>
             DISTANCIA APROX. HASTA EL INICIO
           </Text>
-          <Text style={styles.distanceValue}>
+          <Text
+            style={[
+              styles.distanceValue,
+              isFarFromStart && { color: AndeanTheme.colors.amberLight },
+            ]}
+          >
             {distanceToStartKm.toFixed(2)} km
           </Text>
         </View>
       )}
 
       <Pressable
-        onPress={onBegin}
+        onPress={handleBeginClick}
         disabled={beginning}
         style={({ pressed }) => [
           styles.beginBtn,
@@ -232,6 +368,61 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </>
         )}
       </Pressable>
+
+      {/* Modal de confirmación si está lejos del inicio */}
+      <Modal
+        visible={showFarConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFarConfirm(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <AlertTriangle size={24} color={AndeanTheme.colors.amberLight} />
+            </View>
+            <Text style={styles.modalTitle}>¿Iniciar lejos de la ruta?</Text>
+            <Text style={styles.modalText}>
+              Te encuentras a {distanceToStartKm?.toFixed(2)} km del punto inicial ({route.startPoint.name}).
+              {"\n\n"}
+              Los mapas offline descargados cubren la zona de la ruta oficial. Si inicias desde aquí, tu ubicación estará fuera del encuadre hasta que te aproximes al sendero.
+            </Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setShowFarConfirm(false)}
+                style={[styles.modalBtn, styles.modalCancel]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalCancelText}>CANCELAR Y ACERCARME</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setShowFarConfirm(false);
+                  onBegin();
+                }}
+                style={[styles.modalBtn, styles.modalConfirm]}
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalConfirmText}>INICIAR DE TODOS MODOS</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de descarga offline HU-04 */}
+      {downloadModalOpen ? (
+        <DownloadRouteModal
+          route={routeModelForDownload}
+          visible={downloadModalOpen}
+          onClose={() => setDownloadModalOpen(false)}
+          onCompleted={(record) => {
+            setIsDownloaded(true);
+            setOfflinePackPath(record.pmtilesPath);
+            setDownloadModalOpen(false);
+          }}
+        />
+      ) : null}
     </ScrollView>
   );
 };
@@ -239,71 +430,132 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
-  provisionalBadge: {
-    backgroundColor: "#0A241C",
+  offlineReadyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(52, 211, 153, 0.08)",
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.primary,
     borderRadius: 12,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  provisionalText: {
-    color: "#9CA3AF",
-    fontSize: 10,
+  offlineReadyText: {
+    flex: 1,
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  offlineWarningCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(245, 158, 11, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.35)",
+    borderRadius: 12,
+    padding: 12,
+  },
+  offlineWarningTitle: {
+    color: AndeanTheme.colors.amberLight,
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
+  offlineWarningText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  downloadActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: AndeanTheme.colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  downloadActionText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
+  proximityCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.accentWarning,
+    borderRadius: 12,
+    padding: 12,
+  },
+  proximityTitle: {
+    color: AndeanTheme.colors.amberLight,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  proximityText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 3,
+  },
   titleCard: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { flex: 1, color: "#F9FAFB", fontSize: 16, fontWeight: "900" },
+  title: { flex: 1, color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
   chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(245,158,11,0.15)",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "rgba(245,158,11,0.4)",
+    borderColor: AndeanTheme.colors.border,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
   },
-  chipText: { color: "#F59E0B", fontSize: 10, fontWeight: "800" },
-  description: { color: "#D1D5DB", fontSize: 12, lineHeight: 17 },
-  photo: {
-    width: "100%",
-    height: 150,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#1A4537",
+  chipText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
+  description: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  photo: { width: "100%", height: 160, borderRadius: 12 },
   metricsCard: {
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
-    borderRadius: 16,
-    padding: 14,
+    borderColor: AndeanTheme.colors.border,
+    borderRadius: 12,
+    padding: 12,
     gap: 8,
   },
   metricRowLabel: {
-    color: "#6EE7B7",
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
-    letterSpacing: 1,
-    marginBottom: 2,
+    letterSpacing: 0.8,
+    color: AndeanTheme.colors.textMuted,
   },
   metricRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  metricLabel: { color: "#9CA3AF", fontSize: 11, flex: 1 },
-  metricValue: {
-    color: "#D1D5DB",
-    fontSize: 11,
-    fontWeight: "700",
-    textAlign: "right",
-  },
+  metricLabel: { flex: 1, color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "700" },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#0E2E24",
+    backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,
-    borderColor: "#1A4537",
+    borderColor: AndeanTheme.colors.border,
     borderRadius: 12,
     padding: 12,
   },
@@ -317,38 +569,38 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textMuted,
   },
-  locationValue: { color: "#F9FAFB", fontSize: 12, marginTop: 2 },
+  locationValue: { color: AndeanTheme.colors.text, fontSize: 12, marginTop: 2 },
   locationError: {
-    color: "#FCA5A5",
+    color: AndeanTheme.colors.danger,
     fontSize: 11,
     marginTop: 2,
     lineHeight: 15,
   },
-  muted: { color: "#9CA3AF", fontSize: 12 },
+  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
   distanceCard: {
-    backgroundColor: "#0A241C",
+    backgroundColor: AndeanTheme.colors.cardElevated,
     borderWidth: 1,
-    borderColor: "#10B981",
+    borderColor: AndeanTheme.colors.borderLight,
     borderRadius: 14,
     padding: 14,
     alignItems: "center",
     gap: 4,
   },
   distanceLabel: {
-    color: "#9CA3AF",
+    color: AndeanTheme.colors.textMuted,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-  distanceValue: { color: "#6EE7B7", fontSize: 20, fontWeight: "900" },
+  distanceValue: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
   beginBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#10B981",
+    backgroundColor: AndeanTheme.colors.primary,
     borderRadius: 14,
     paddingVertical: 15,
   },
@@ -360,4 +612,73 @@ const styles = StyleSheet.create({
     color: "#064E3B",
   },
   pressed: { opacity: 0.8 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.borderLight,
+    borderRadius: 18,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: AndeanTheme.colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalActions: {
+    width: "100%",
+    gap: 10,
+  },
+  modalBtn: {
+    width: "100%",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCancel: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  modalCancelText: {
+    color: AndeanTheme.colors.text,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  modalConfirm: {
+    backgroundColor: AndeanTheme.colors.accentWarning,
+  },
+  modalConfirmText: {
+    color: "#000000",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
 });

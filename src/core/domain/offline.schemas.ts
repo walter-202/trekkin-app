@@ -45,6 +45,8 @@ const boundsSchema = z
   });
 
 export const OfflineRouteSchema = z.object({
+  manifestVersion: z.literal(2),
+  artifactVersion: z.number().int().positive(),
   routeId: z.string().trim().min(1).max(128),
   title: z.string().trim().min(1).max(200),
   region: z.string().trim().max(150),
@@ -84,6 +86,12 @@ export const OfflineRouteSchema = z.object({
     }),
   ).max(100),
   photoUrls: z.array(z.string().max(500)).max(50),
+  gpxPath: z.string().trim().min(1).max(2048),
+  pmtilesPath: z.string().trim().min(1).max(2048),
+  gpxBytes: z.number().int().positive(),
+  pmtilesBytes: z.number().int().positive(),
+  gpxSha256: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
+  pmtilesSha256: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
   estimatedSizeMB: z.number().min(0),
   downloadedAt: z.number().int().positive(),
 });
@@ -98,6 +106,15 @@ export const OfflineRouteIdSchema = z
   .max(128);
 
 export const OfflineDownloadStageSchema = z.enum(["map", "trail", "info"]);
+
+/** Path / URL de un pack HU-04 (PMTiles o MBTiles). */
+export const OfflinePackPathSchema = z
+  .string()
+  .trim()
+  .min(1, "Indica el archivo del pack (PMTiles o MBTiles)")
+  .max(2048, "La ruta del pack es demasiado larga");
+
+export const MapPackKindSchema = z.enum(["pmtiles", "mbtiles"]);
 
 export type OfflineDownloadStageValidated = z.infer<
   typeof OfflineDownloadStageSchema

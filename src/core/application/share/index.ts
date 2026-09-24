@@ -7,3 +7,5 @@ export type {
   PublishShareLinkPorts,
   ShareSheetResult,
 } from "./PublishShareLink.usecase";
+export { ShareGpxFileUseCase } from "./ShareGpxFile.usecase";
+export type { ShareGpxFilePorts } from "./ShareGpxFile.usecase";
