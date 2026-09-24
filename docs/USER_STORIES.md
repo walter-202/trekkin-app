@@ -3,12 +3,14 @@
 > **Revisión técnica consolidada 2026-09-17 (MapLibre GL — desbloqueo Android/web).**
 > Regla de validación vigente: **100% solo con matriz Expo Go + web localhost + `/ui-review` sin blockers + OK del usuario**. Todo lo demás declara su % real.
 >
-> **Alcance real consolidado (verificación T9):**
+> **Alcance real consolidado (verificación T9 — actualizado 2026-09-24):**
 >
-> - **🟢 Sólidas (sin declarar cierre de campo para HU-04…HU-08):** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (80%), HU-07 (85%), HU-08 (85%), HU-10 (90%).
-> - **🟡 En progreso / pendientes de campo:** HU-06 (75%), HU-04 (80%).
+> - **🟢 Sólidas:** HU-01 (95%), HU-02 (90%), HU-03 (90%), HU-05 (80%), HU-07 (85%), HU-08 (85%), HU-10 (90%).
+> - **🟡 En progreso / pendientes de campo:** HU-04 (80%), HU-06 (75%), HU-09 (70%).
+> - **🔴 RF Won't (sin HU):** RF-24, RF-33, RF-34, RF-35, RF-42, RF-43.
+> - **Por sprint:** S1 → HU-01/02 · S2 → HU-03/07/08/12/13 · S3 → HU-04/05/06/09/10/11.
 > - **Regla T9:** HU-04…HU-08 no pueden superar 90% ni declararse 100% mientras falten Firebase Emulator, Expo Go UI, dispositivos físicos y revisión UI completa.
-> - **🚫 HU-09 eliminada.** Roles vigentes: `user` y `admin`.
+> - **Roles vigentes:** `user` y `admin` (sin moderador).
 
 ---
 
@@ -230,9 +232,27 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-09: Moderación — 🚫 ELIMINADA
+## HU-09: Compartir ruta recién grabada — 🟡 70% funcional
 
-Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
+- **Rol:** Usuario.
+- **Narrativa:** **Como** usuario de la aplicación **quiero** compartir una ruta que acabo de grabar y guardar **para** enviar el enlace de la ruta a otras personas mediante WhatsApp, redes sociales, mensajería u otros medios disponibles en el dispositivo.
+- **Criterios de Aceptación (DoD):**
+  1. ✅ El usuario finaliza la grabación desde “Grabar Recorrido”; el sistema detiene el GPS y calcula métricas (distancia, duración, dificultad sugerida, puntos registrados).
+  2. ✅ El resumen muestra trazado, distancia, duración y estado (`completed` / `incomplete`).
+  3. ⚠️ Opción **“Compartir”** en el resumen de ruta recién grabada: hoy el resumen exporta GPX vía share sheet; falta flujo dedicado `ShareRoute` desde `ResultView` con validación de estado publicable.
+  4. ✅ `ShareRoute` valida `status === 'published'` antes de generar enlace (rutas no publicables no comparten enlace público).
+  5. ✅ Enlace canónico `trekkin-app://r/{routeId}` + `Linking` en `App.tsx`.
+  6. ✅ Al abrir enlace sin sesión: `RouteDetailView` + `onRequireAuth` → `AuthView`; tras login se conserva `pendingRouteId`.
+  7. ⚠️ Tras registro/login, redirección al detalle de la ruta compartida: parcial — deep link abre detalle; flujo post-registro con ruta pendiente requiere matriz en dispositivo.
+  8. ⚠️ Share sheet nativo con enlace (no solo GPX) desde resumen de grabación: pendiente en dispositivo.
+  9. ✅ Mensaje de error tipado si la ruta no es compartible (`ShareRoute` / `share.schemas`).
+- **Estado real y brecha (30%):** resumen post-grabación, deep link, gate de auth y share de rutas **publicadas** desde detalle están cubiertos (`share_hu5`, `gpx_delivery`). Falta cerrar el botón “Compartir” en `ResultView` con enlace de ruta (RF-36), pulir conservación del enlace tras registro (RF-37) y UAT completa (WhatsApp, usuario no autenticado, ruta no publicable).
+- **Mapeo Técnico:**
+  - _Dominio:_ `share.schemas.ts`, `activity.schemas.ts`, `calculations.ts` (`suggestRouteDifficulty`).
+  - _Aplicación:_ `ShareRoute`, `CopyShareLink`, `FinishActivity`, `ExportTrackFile`.
+  - _Infraestructura:_ `shareService.buildShareUrl`, `Linking` en `App.tsx`, `routeService`.
+  - _Presentación:_ `ResultView`, `ShareModal`, `RouteDetailView`.
+  - _Suites:_ `share_hu5.test.ts`, `gpx_delivery.test.ts` (base); faltan casos HU-09 específicos desde resumen de grabación.
 
 ---
 
@@ -257,6 +277,51 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 
 ---
 
+## HU-11: Certificar offline en campo — 🟡 Roadmap (RF-10)
+
+- **Rol:** Senderista autenticado.
+- **Narrativa:** **Como** senderista sin cobertura **quiero** confirmar que la ruta descargada funciona en modo avión **para** usarla con confianza en expedición.
+- **Criterios de Aceptación (DoD):**
+  1. Matriz UAT Android/iOS: descarga → modo avión → mapa PMTiles en frío + trazado GPX visible.
+  2. Badge/lista offline coherente en `DownloadsView`.
+  3. Evidencia documentada en esta sección (capturas + dispositivo/OS).
+- **RF asociados:** RF-10, RNF-01.
+- **Sprint:** S3.
+- **Extiende:** HU-04.
+- **Estado:** 🟡 Sprint 3 — cierre principalmente de pruebas de campo.
+
+---
+
+## HU-12: Fotos georreferenciadas en grabación — 🟡 Roadmap (RF-29)
+
+- **Rol:** Senderista autenticado.
+- **Narrativa:** **Como** explorador en levantamiento **quiero** adjuntar fotos a la ruta o a un punto **para** enriquecer el registro de campo.
+- **Criterios de Aceptación (DoD):**
+  1. Captura desde cámara o galería durante grabación (`TrackingView` / checkpoint).
+  2. Foto ligada a coordenada y persistida localmente (y metadatos en ruta si aplica).
+  3. Recuperación tras interrupción (RNF-02).
+- **RF asociados:** RF-29.
+- **Sprint:** S2.
+- **Extiende:** HU-08.
+- **Estado:** 🟡 Sprint 2 — sin flujo UI de captura hoy.
+
+---
+
+## HU-13: Filtros avanzados en catálogo — 🟡 Roadmap (RF-06)
+
+- **Rol:** Visitante / usuario autenticado.
+- **Narrativa:** **Como** usuario del catálogo **quiero** filtrar por distancia y duración **para** encontrar rutas acordes a mi tiempo y condición física.
+- **Criterios de Aceptación (DoD):**
+  1. Filtros por rango o chips de distancia (km) y duración (horas/min) en `ExploreView`.
+  2. Combinables con búsqueda por texto y dificultad existentes.
+  3. Suite `catalog_hu3` o nueva con casos de filtrado.
+- **RF asociados:** RF-06 (completar distancia + duración).
+- **Sprint:** S2.
+- **Extiende:** HU-03.
+- **Estado:** 🟡 Sprint 2 — hoy solo texto + dificultad.
+
+---
+
 ## Matriz de Estado Real y Suites
 
 | HU        | Módulo               | Estado real | Suite Automatizada                                       |
@@ -269,8 +334,11 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
 | **HU-06** | Realizar ruta (guía) |   🟡 75%    | `activity_hu6.test.ts`, `activity_store.test.ts`, `activity_record_sqlite.test.ts` |
 | **HU-07** | Planificar borrador  |   🟢 85%    | `plan_hu7.test.ts` + `track_formats_hu7_hu8.test.ts`     |
 | **HU-08** | Grabar GPS y GPX     |   🟢 85%    | `activity_hu8.test.ts`, `track_formats_hu7_hu8.test.ts`, `activity_track_db.test.ts`, `activity_gpx_storage.test.ts`, `background_location.test.ts` |
-| **HU-09** | Moderación           |    🚫 —     | Eliminada del alcance                                    |
+| **HU-09** | Compartir ruta grabada |   🟡 70%    | `share_hu5`, `gpx_delivery` (base); UAT HU-09 pendiente  |
 | **HU-10** | Admin y roles        |   🟢 90%    | `user_management_hu10.test.ts`                           |
+| **HU-11** | Offline certificado  |   🟡 S3     | UAT campo (extiende HU-04)                              |
+| **HU-12** | Fotos en grabación   |   🟡 S2     | Por crear (RF-29)                                        |
+| **HU-13** | Filtros catálogo     |   🟡 S2     | Por crear (RF-06)                                        |
 
 ### Matriz T9: evidencia y límites explícitos
 
