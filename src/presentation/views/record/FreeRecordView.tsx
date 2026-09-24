@@ -18,6 +18,10 @@ import {
   locationService,
   RECORDING_WATCH_OPTIONS,
 } from "../../../infrastructure/location/locationService";
+import {
+  seedQualityCheck,
+  type FreeRecordingPosition,
+} from "../../../core/application/activity/StartFreeRecording.usecase";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import type { TrekkinActivity } from "../../../core/domain/types";
 import { TrackingView } from "../activity/TrackingView";
@@ -49,25 +53,44 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
     setLocating(true);
     setLocError(null);
     try {
-      const pos = await locationService.getCurrentPosition({
-        accuracy: Location.Accuracy.High,
-      });
-      if (!pos) {
+      // P0-2: distinguir permiso denegado de fix no disponible (iOS/Expo Go).
+      const hasPermission = await locationService.hasForegroundPermission();
+      if (!hasPermission) {
+        const granted = await locationService.requestForegroundPermission();
+        if (!granted) {
+          setLocError(
+            "Permiso de ubicación denegado. Actívalo en Ajustes → Privacidad → Ubicación y vuelve a intentar.",
+          );
+          return;
+        }
+      }
+      // P0-2: hasta 3 intentos de fix; se acepta el último aunque la calidad
+      // no pase el check (la semilla puede quedar vacía y el watch la reemplaza).
+      let candidate: FreeRecordingPosition | null = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const pos = await locationService.getCurrentPosition({
+          accuracy: Location.Accuracy.High,
+        });
+        if (!pos) continue;
+        candidate = {
+          lat: pos.latitude,
+          lng: pos.longitude,
+          altitude: pos.altitude,
+          accuracy: pos.accuracy ?? null,
+          fixTimestamp: pos.timestamp ?? null,
+        };
+        if (seedQualityCheck(candidate).ok) break;
+      }
+      if (!candidate) {
         setLocError(
-          "No se pudo obtener tu ubicación. Concede el permiso de ubicación e inténtalo de nuevo.",
+          "No se pudo obtener tu ubicación GPS. Sal al aire libre, espera unos segundos y reintenta.",
         );
         return;
       }
       const ok = await useActivityStore
         .getState()
         .startFreeRecording(
-          {
-            lat: pos.latitude,
-            lng: pos.longitude,
-            altitude: pos.altitude,
-            accuracy: pos.accuracy,
-            fixTimestamp: pos.timestamp,
-          },
+          candidate,
           currentUser.uid,
           currentUser.displayName,
         );
@@ -241,7 +264,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AndeanTheme.colors.border,
   },
-  headerTitle: { flex: 1, color: AndeanTheme.colors.text, fontSize: 15, fontWeight: "900" },
+  headerTitle: {
+    flex: 1,
+    color: AndeanTheme.colors.text,
+    fontSize: 15,
+    fontWeight: "900",
+  },
   sheet: {
     flex: 1,
     backgroundColor: AndeanTheme.colors.sheet,

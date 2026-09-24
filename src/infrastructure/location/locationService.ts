@@ -111,6 +111,9 @@ export const locationService = {
   /**
    * Obtiene la posición actual (pide permiso si aún no se concedió).
    * Devuelve null si el permiso fue denegado o no se pudo obtener la posición.
+   * Si el fix en vivo falla (típico en iOS/Expo Go bajo techo), se intenta el
+   * último fix conocido del OS como fallback — la frescura la juzga el caller
+   * (`seedQualityCheck`, máx. 30 s).
    */
   async getCurrentPosition(
     options?: Pick<LocationAccuracyOptions, "accuracy">,
@@ -126,7 +129,12 @@ export const locationService = {
       });
       return toGpsPosition(pos);
     } catch {
-      return null;
+      try {
+        const last = await Location.getLastKnownPositionAsync({});
+        return last ? toGpsPosition(last) : null;
+      } catch {
+        return null;
+      }
     }
   },
 
@@ -202,26 +210,34 @@ export const locationService = {
       }
       try {
         if (lifecycleGeneration !== backgroundLifecycleGeneration) return false;
-        if (await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK_NAME)) {
+        if (
+          await Location.hasStartedLocationUpdatesAsync(
+            BACKGROUND_LOCATION_TASK_NAME,
+          )
+        ) {
           backgroundStarted = true;
           return true;
         }
         if (lifecycleGeneration !== backgroundLifecycleGeneration) return false;
-        await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK_NAME, {
-          accuracy: options?.accuracy ?? Location.Accuracy.High,
-          distanceInterval: options?.distanceInterval ?? 5,
-          timeInterval: options?.timeInterval ?? 2500,
-          deferredUpdatesInterval: options?.deferredUpdatesInterval ?? 10_000,
-          deferredUpdatesDistance: options?.deferredUpdatesDistance ?? 25,
-          pausesUpdatesAutomatically: false,
-          showsBackgroundLocationIndicator: true,
-          foregroundService: {
-            notificationTitle: "Grabando ruta",
-            notificationBody: "Trekkin registra tu recorrido en segundo plano.",
-            notificationColor: "#0F766E",
-            killServiceOnDestroy: false,
+        await Location.startLocationUpdatesAsync(
+          BACKGROUND_LOCATION_TASK_NAME,
+          {
+            accuracy: options?.accuracy ?? Location.Accuracy.High,
+            distanceInterval: options?.distanceInterval ?? 5,
+            timeInterval: options?.timeInterval ?? 2500,
+            deferredUpdatesInterval: options?.deferredUpdatesInterval ?? 10_000,
+            deferredUpdatesDistance: options?.deferredUpdatesDistance ?? 25,
+            pausesUpdatesAutomatically: false,
+            showsBackgroundLocationIndicator: true,
+            foregroundService: {
+              notificationTitle: "Grabando ruta",
+              notificationBody:
+                "Trekkin registra tu recorrido en segundo plano.",
+              notificationColor: "#0F766E",
+              killServiceOnDestroy: false,
+            },
           },
-        });
+        );
         backgroundStarted = true;
         return true;
       } catch {
@@ -241,8 +257,15 @@ export const locationService = {
     backgroundStopInFlight = (async () => {
       try {
         if (startInFlight) await startInFlight;
-        if (backgroundStarted || await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK_NAME)) {
-          await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK_NAME);
+        if (
+          backgroundStarted ||
+          (await Location.hasStartedLocationUpdatesAsync(
+            BACKGROUND_LOCATION_TASK_NAME,
+          ))
+        ) {
+          await Location.stopLocationUpdatesAsync(
+            BACKGROUND_LOCATION_TASK_NAME,
+          );
         }
       } catch {
         // A process restart can make the native task disappear between the
