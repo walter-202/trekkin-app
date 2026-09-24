@@ -43,26 +43,28 @@ User asked to compare both reports; ours wins on real progress; then confirmed (
 - [x] T1 — Create this task doc + Engram mirror before first write
 - [x] T2 — Extract and rename curated UML/screenshot assets from official docx to `docs/assets/informe/` (11 PNGs)
 - [x] T3 — Rewrite `INFORME_PRESENTACION_CLIENTE.md`: HU table = USER_STORIES; §8 fundamentos con código; §9 entregables; §10 UML+screenshots; §12 fuente que manda; mermaid intactos
-- [ ] T4 — Structural readback of the report + asset paths; work-unit commit (docs only)
+- [x] T4 — Structural readback of the report + asset paths; work-unit commit (docs only)
 
 ## Acceptance criteria
 
 - [x] HU % match `USER_STORIES.md` consolidated figures
 - [x] Report contains: fundamentos con código (real paths), entregables, UML + screenshots, existing mermaid set
 - [x] No assertive false claims from docx (chunk/moderator/9 suites) — called out as non-authoritative in §12
-- [ ] `git diff` for the commit touches only intended docs paths
+- [x] `git diff` for the commit touches only intended docs paths
 
 ## Progress
 
-- Started 2026-09-24 on branch `codex/hu10-user-pagination`
-- T1–T3 done; structural readback PASS (15 sections, 11/11 images); T4 commit pending
+- Completed 2026-09-24 on branch `codex/hu10-user-pagination`
+- Work-unit commit: `fc38d93` — `docs(client): refresh report with code foundations, deliverables, and UML evidence`
+- Structural readback PASS (15 sections, 11/11 images); no source files staged
 
 ## Evidence
 
 - 46 `*.usecase.ts`, 27 `src/tests/*.test.ts` counted 2026-09-24
 - Assets: `docs/assets/informe/*.png` (11 files)
 - Readback: sections 1–15 present; image refs resolve
+- Commit: `fc38d93` (13 files, +267/−45)
 
 ## Next step
 
-- Complete T4: stage only intended docs paths and create work-unit commit
+- Optional later: regenerate remaining official UML (SEC/CU) with uniform style; device matrix gates remain open in BACKLOG
