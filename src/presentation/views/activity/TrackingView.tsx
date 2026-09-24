@@ -61,6 +61,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   mode = "guide",
 }) => {
   const live = useActivityStore((s) => s.live);
+  const mapTrack = useActivityStore((s) => s.mapTrack);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
   // DIAG-TEMP — telemetría GPS temporal (solo lectura).
@@ -174,7 +175,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
 
       <TrekMap
         trail={live.route.waypoints}
-        track={live.recordedPoints}
+        track={mapTrack}
         pointsOfInterest={listedCheckpoints}
         start={
           live.route

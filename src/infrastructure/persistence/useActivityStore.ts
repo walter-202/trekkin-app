@@ -1,7 +1,11 @@
 import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
 import { toTrekkinActivity } from "../../core/domain/activity";
-import type { TrekkinActivity, RouteModel } from "../../core/domain/types";
+import type {
+  Coordinates,
+  TrekkinActivity,
+  RouteModel,
+} from "../../core/domain/types";
 import { appStorage } from "./storage";
 import { routeService } from "../database/routeService";
 import { SEED_PUBLISHED_ROUTES } from "../database/routeSeed";
@@ -225,6 +229,34 @@ export function ensureTrackReady(
   return max + 1;
 }
 
+/**
+ * Carga la geometría del track desde SQLite (paginado) sin tocar `LiveActivity`.
+ * Fuente para `mapTrack` (mapa en vivo). Fallback: `[]`.
+ */
+function loadMapTrackFromDb(activityId: string): Coordinates[] {
+  try {
+    const db = getTrackDb();
+    const total = countTrackPoints(db, activityId);
+    if (total === 0) return [];
+    const all: Coordinates[] = [];
+    const PAGE = 2000;
+    for (let offset = 0; offset < total; offset += PAGE) {
+      const page = getTrackPointsPage(db, activityId, PAGE, offset);
+      for (const row of page) {
+        all.push({
+          lat: row.lat,
+          lng: row.lng,
+          altitude: row.altitude ?? undefined,
+          timestamp: row.timestamp,
+        });
+      }
+    }
+    return all;
+  } catch {
+    return [];
+  }
+}
+
 /** Lee el track completo desde SQLite (paginado); fallback a memoria. */
 function loadFullTrackPoints(live: LiveActivity): LiveActivity {
   try {
@@ -343,6 +375,13 @@ function pushRawGpsTelemetry(
 
 interface ActivityState {
   live: LiveActivity | null;
+  /**
+   * Fase 1 — geometría completa del track para el mapa en vivo.
+   * SQLite sigue siendo la fuente persistente; esto es un espejo de lectura
+   * (hidratación + append post-insert). NO vive en `live` ni en autosave:
+   * `live.recordedPoints` sigue siendo la ventana TRACK_WINDOW_SIZE.
+   */
+  mapTrack: Coordinates[];
   activities: TrekkinActivity[];
   unsynced: TrekkinActivity[];
   lastResult: TrekkinActivity | null;
@@ -397,6 +436,7 @@ interface ActivityState {
 
 export const useActivityStore = create<ActivityState>((set, get) => ({
   live: null,
+  mapTrack: [],
   activities: [],
   unsynced: [],
   lastResult: null,
@@ -421,7 +461,9 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       // ETAPA 3 — cabecera de AsyncStorage + ventana desde SQLite.
       const restored = await restoreLiveSession();
       if (restored) {
-        set({ live: restored });
+        set({ live: restored, mapTrack: loadMapTrackFromDb(restored.id) });
+      } else {
+        set({ mapTrack: [] });
       }
       let routes = await routeService.listPublishedRoutes();
       if (routes.length === 0) {
@@ -505,6 +547,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       await saveLiveHeader(tracked);
       set({
         live: tracked,
+        mapTrack: loadMapTrackFromDb(tracked.id),
         isLoading: false,
         gpsStats: { ...EMPTY_GPS_STATS },
         gpsEvents: [],
@@ -680,7 +723,20 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
             totalDistanceKm: base + haversineKm(prev, point),
           };
           await saveLiveHeader(tracked);
-          set({ live: tracked });
+          // Fase 1 — append al espejo del mapa SOLO tras insert OK.
+          // `live.recordedPoints` queda recortado a la ventana (300).
+          set({
+            live: tracked,
+            mapTrack: [
+              ...get().mapTrack,
+              {
+                lat: point.lat,
+                lng: point.lng,
+                altitude: point.altitude,
+                timestamp: point.timestamp ?? Date.now(),
+              },
+            ],
+          });
         } catch (dbErr) {
           set({
             error:
@@ -914,6 +970,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     get().stopWatch();
     set({
       live: null,
+      mapTrack: [],
       lastResult: null,
       error: null,
       rawGpsTelemetry: [],

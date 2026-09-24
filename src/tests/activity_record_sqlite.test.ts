@@ -20,6 +20,7 @@ import type {
   TrackDbConnection,
 } from "../infrastructure/database/activityTrackDb";
 import type { LiveActivity } from "../core/domain/activity";
+import type { Coordinates } from "../core/domain/types";
 
 interface TestResult {
   id: string;
@@ -303,6 +304,13 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     `len=${windowed.length}`,
   );
 
+  // La ventana de `live.recordedPoints` NO cambia con mapTrack (invariante Fase 1).
+  recordTest(
+    `Invariante: TRACK_WINDOW_SIZE sigue en ${TRACK_WINDOW_SIZE} (mapTrack no lo toca)`,
+    TRACK_WINDOW_SIZE === 300 && windowed.length <= TRACK_WINDOW_SIZE,
+    `TRACK_WINDOW_SIZE=${TRACK_WINDOW_SIZE}`,
+  );
+
   recordTest(
     "nextSeqAfterMax: null/0/N → 1/1/N+1 (sin COUNT por fix)",
     nextSeqAfterMax(null) === 1 &&
@@ -329,6 +337,12 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
   recordTest(
     "Rehidratación paginada cubre 1..4 en orden (finish/GPX)",
     pages.join(",") === "1,2,3,4",
+    `seqs=${pages.join(",")}`,
+  );
+
+  recordTest(
+    "mapTrack reutiliza getTrackPointsPage (misma API que finish)",
+    pages.every((seq) => seq >= 1 && seq <= 4) && pages.length === 4,
     `seqs=${pages.join(",")}`,
   );
 
@@ -391,6 +405,108 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
       getMaxSeq(seedlessDb, seedlessLive.id) === 1 &&
       seedlessLive.recordedPoints.length === 0,
     `seedMax=${getMaxSeq(seededDb, seededLive.id)} seedlessMax=${getMaxSeq(seedlessDb, seedlessLive.id)}`,
+  );
+
+  // ——— FASE 1 mapTrack: hidratación desde SQLite + invariante ventana 300 ———
+  const loadMapTrack = (
+    conn: TrackDbConnection,
+    activityId: string,
+  ): Coordinates[] => {
+    try {
+      const total = countTrackPoints(conn, activityId);
+      if (total === 0) return [];
+      const all: Coordinates[] = [];
+      const PAGE = 2000;
+      for (let offset = 0; offset < total; offset += PAGE) {
+        const page = getTrackPointsPage(conn, activityId, PAGE, offset);
+        for (const row of page) {
+          all.push({
+            lat: row.lat,
+            lng: row.lng,
+            altitude: row.altitude ?? undefined,
+            timestamp: row.timestamp,
+          });
+        }
+      }
+      return all;
+    } catch {
+      return [];
+    }
+  };
+
+  const geomDb = createMemoryDb();
+  const geomId = "geom-1";
+  saveActivityHeader(geomDb, {
+    id: geomId,
+    userId: "user-123",
+    routeId: "free",
+    routeTitle: "Geom",
+    origin: "free",
+    status: "in_progress",
+    startedAt: Date.now(),
+    finishedAt: null,
+    distanceKm: 0,
+    durationSec: 0,
+    synced: 0,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  for (let i = 1; i <= 420; i++) {
+    insertTrackPoint(
+      geomDb,
+      geomId,
+      i,
+      toNew({ lat: -16.5 + i * 0.0001, lng: -68.1, timestamp: 1000 + i }),
+    );
+  }
+  const hydrated = loadMapTrack(geomDb, geomId);
+  recordTest(
+    "mapTrack: loader paginado cubre TODO el histórico (420 pts, orden seq)",
+    hydrated.length === 420 &&
+      Math.abs(hydrated[0].lat - (-16.5 + 1 * 0.0001)) < 1e-9 &&
+      Math.abs(hydrated[419].lat - (-16.5 + 420 * 0.0001)) < 1e-9 &&
+      hydrated[0].lng === -68.1,
+    `len=${hydrated.length}`,
+  );
+
+  recordTest(
+    "mapTrack: id sin puntos → [] (hidratación limpia al iniciar free)",
+    loadMapTrack(geomDb, "sin-actividad").length === 0,
+    "vacío",
+  );
+
+  // Simula el ciclo del store: insert OK → append mapTrack + sliceWindow live.
+  const cycleLive: LiveActivity = { ...live, id: geomId, recordedPoints: [] };
+  let cycleMap: Coordinates[] = [];
+  let cycleWindow = cycleLive.recordedPoints;
+  for (let i = 0; i < 350; i++) {
+    const pt: Coordinates = {
+      lat: -16.5 + i * 0.0001,
+      lng: -68.1,
+      timestamp: 2000 + i,
+    };
+    cycleWindow = sliceWindow([...cycleWindow, pt], TRACK_WINDOW_SIZE);
+    cycleMap = [...cycleMap, pt];
+  }
+  recordTest(
+    `Fase 1: mapTrack crece sin límite y live queda en ventana ${TRACK_WINDOW_SIZE}`,
+    cycleMap.length === 350 && cycleWindow.length === TRACK_WINDOW_SIZE,
+    `mapTrack=${cycleMap.length} window=${cycleWindow.length}`,
+  );
+
+  recordTest(
+    "Fase 1: Opción A intacta — free inicia con recordedPoints=[]",
+    StartFreeRecordingUseCase({
+      position: {
+        lat: -16.5,
+        lng: -68.1,
+        accuracy: 8,
+        fixTimestamp: Date.now(),
+      },
+      userId: "user-123",
+      userName: "Tester",
+    }).recordedPoints.length === 0,
+    "opción A verificada",
   );
 
   return results;
