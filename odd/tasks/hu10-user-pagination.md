@@ -28,7 +28,7 @@ Complete HU-10's documented gap by allowing administrators to browse and filter 
 
 - Branch: `codex/hu10-user-pagination`.
 - Strategy: `ask-on-risk` (default); the staged work unit currently contains 471 authored changed lines including this tracker. The user previously selected `stacked-to-main` for any future PR sequence. No remote operation or PR is authorized; this is one coherent local behavior, so keep it as one work unit and treat 400 lines as a planning heuristic rather than forcing a nonfunctional split.
-- Work-unit commit: one coherent pagination behavior including application/data contract, UI, tests, and HU evidence. Conventional Commit, no attribution trailer. Local commit pending.
+- Work-unit commit: `526f6ed` — `feat(admin): paginate user management list`; one coherent pagination behavior including application/data contract, UI, tests, and HU evidence. No attribution trailer.
 - Runtime receipt-driven development: off by default at the time of planning; no review transaction will be started.
 
 ## Acceptance Criteria
@@ -52,16 +52,16 @@ Complete HU-10's documented gap by allowing administrators to browse and filter 
 - [x] Run final local HU-10 focused suite, lint, and diff check; report remaining device/full-suite limitations honestly.
 - [ ] Obtain explicit authorization for the full suite's live Firestore target and credential/session, then run `npm test` (or record a user-run result).
 - [ ] Complete the Expo Go admin pagination scenario and required human UI/diff review.
-- [ ] Commit the local work unit, record its identity here, and synchronize the final tracker with Engram.
+- [x] Commit the local work unit, record its identity here, and synchronize the final tracker with Engram.
 
 ## Progress and Evidence
 
-- State: Implemented locally; source-level independent verification and focused checks pass. Work-unit commit, explicitly authorized full suite, and Expo Go/device review remain pending.
+- State: Implemented and committed locally; source-level independent verification and focused checks pass. Explicitly authorized full suite and Expo Go/device review remain pending.
 - Exploration evidence: HU-10 criteria at `docs/USER_STORIES.md:239-256`; current one-shot service, array-only use-case port, and client-side filters were confirmed before implementation.
 - Verification: `npx tsx src/tests/user_management_hu10.test.ts` — 27/27 pass (also rerun by parent); `npm run lint` — pass; `git diff --check` — pass. `npm test` — one delegated run exited 0 but reported live Firestore access; this was not authorized and is not accepted as final proof. No Expo Go run.
 - Independent review: No remaining source-level findings. Tests use mocked page ports; no Firestore adapter emulator/live test or mounted-view test exists yet.
-- Commit: Pending.
+- Commit: `526f6ed` — `feat(admin): paginate user management list`.
 
 ## Next Step
 
-Commit the coherent local work unit after final tracker/mirror readback. Keep the full live-Firestore suite and Expo Go/device flow pending until authorized/runtime proof is available.
+Obtain explicit authorization for the configured live Firestore target and credential/session before rerunning `npm test`, and complete the Expo Go admin pagination scenario plus human UI/diff review. No remote operations or PR are authorized.
