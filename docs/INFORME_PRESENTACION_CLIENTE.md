@@ -327,22 +327,29 @@ flowchart TB
 
 Los mermaid de §3–§8 sirven para el flujo del cliente. Para revisión formal se adjuntan **casos de uso / comunicación** y **capturas reales** de la app (extraídas del informe académico; la app en pantalla es la del repo, no un mock).
 
-### 10.1 Casos de uso y comunicación
+### 10.1 Casos de uso, secuencia y comunicación
 
-**Uso del sistema (visión general de actores):**
+Inventario completo (17 figuras UML extraídas del docx académico): ver `docs/informe-formal/03-sprints.md` — sección Diseño por sprint.
+
+**Visión general:**
 
 ![Uso del sistema](assets/informe/uml-uso-sistema-overview.png)
 
-**CU-03 — Explorar y consultar una ruta:**
+**Casos de uso CU-01 … CU-09 (9 diagramas):**
 
-![CU-03 Explorar](assets/informe/uml-cu03-explorar.png)
+![CU-01](assets/informe/uml-cu01-registrar.png)
+![CU-02](assets/informe/uml-cu02-sesion.png)
+![CU-03](assets/informe/uml-cu03-explorar.png)
+![CU-04](assets/informe/uml-cu04-descargar.png)
+![CU-05](assets/informe/uml-cu05-compartir.png)
+![CU-06](assets/informe/uml-cu06-realizar.png)
+![CU-07](assets/informe/uml-cu07-planificar.png)
+![CU-08](assets/informe/uml-cu08-grabar.png)
+![CU-09](assets/informe/uml-cu09-finalizar-gestionar.png)
 
-**CU-09 — Finalizar y gestionar una ruta creada (visibilidad / revisión):**
+**Secuencia y comunicación (muestra):**
 
-![CU-09 Finalizar](assets/informe/uml-cu09-finalizar-gestionar.png)
-
-**Comunicación CU-04 — Descargar ruta offline:**
-
+![Secuencia registro](assets/informe/uml-sec-cu01-registrar.png)
 ![Comunicación descarga offline](assets/informe/uml-com-cu04-descarga.png)
 
 ### 10.2 Capturas de la aplicación
