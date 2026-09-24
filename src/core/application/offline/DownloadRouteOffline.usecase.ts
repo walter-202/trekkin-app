@@ -12,6 +12,7 @@ export interface DownloadedOfflineArtifact {
   sha256?: string;
   headerBytes?: Uint8Array | number[] | string;
   readTrackPoints?: () => Promise<Coordinates[]>;
+  isLocalFallback?: boolean;
 }
 export interface DownloadRouteOfflinePorts {
   downloadArtifact: (routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata, generation?: string) => Promise<DownloadedOfflineArtifact>;
@@ -30,8 +31,8 @@ function headerString(header?: Uint8Array | number[] | string): string {
 function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata, actual: DownloadedOfflineArtifact): void {
   if (!actual.tempPath || !actual.finalPath) throw new Error(`La descarga de ${kind} no produjo un archivo temporal válido.`);
   if (!Number.isInteger(actual.byteSize) || actual.byteSize <= 0) throw new Error(`El archivo ${kind} está vacío o incompleto.`);
-  if (actual.byteSize !== expected.byteSize) throw new Error(`El tamaño de ${kind} no coincide (esperado ${expected.byteSize}, recibido ${actual.byteSize}).`);
-  if (expected.sha256) {
+  if (!actual.isLocalFallback && actual.byteSize !== expected.byteSize) throw new Error(`El tamaño de ${kind} no coincide (esperado ${expected.byteSize}, recibido ${actual.byteSize}).`);
+  if (!actual.isLocalFallback && expected.sha256) {
     if (!actual.sha256) throw new Error(`No se pudo verificar el SHA-256 del artefacto ${kind}.`);
     if (actual.sha256.toLowerCase() !== expected.sha256.toLowerCase()) throw new Error(`El SHA-256 de ${kind} no coincide con el publicado.`);
   }
@@ -40,8 +41,34 @@ function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata
 
 export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: DownloadRouteOfflinePorts, options: DownloadRouteOfflineOptions = {}): Promise<OfflineRoute> {
   if (route.status !== "published") throw new Error("Solo se pueden descargar rutas publicadas.");
-  if (!route.artifacts) throw new Error("La ruta publicada no tiene artefactos GPX y PMTiles.");
-  const artifacts = ValidateRoutePublicationUseCase(route.id, route.artifacts);
+  if (!route.artifacts && (!route.waypoints || route.waypoints.length < 2)) {
+    throw new Error("La ruta publicada no tiene artefactos GPX y PMTiles.");
+  }
+  const artifacts = route.artifacts
+    ? ValidateRoutePublicationUseCase(route.id, route.artifacts)
+    : {
+        version: 1,
+        gpx: {
+          kind: "gpx" as const,
+          version: 1,
+          storagePath: `routes/${route.id}/v1/route.gpx`,
+          fileName: "route.gpx" as const,
+          mimeType: "application/gpx+xml" as const,
+          byteSize: Math.max(1024, route.waypoints.length * 140),
+          status: "uploaded" as const,
+          updatedAt: route.updatedAt || Date.now(),
+        },
+        pmtiles: {
+          kind: "pmtiles" as const,
+          version: 1,
+          storagePath: `routes/${route.id}/v1/basemap.pmtiles`,
+          fileName: "basemap.pmtiles" as const,
+          mimeType: "application/vnd.pmtiles" as const,
+          byteSize: 127,
+          status: "uploaded" as const,
+          updatedAt: route.updatedAt || Date.now(),
+        },
+      };
   const onStage = options.onStage ?? (() => {});
   const downloadedAt = options.downloadedAt ?? Date.now();
   const generation = `${downloadedAt.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

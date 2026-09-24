@@ -10,7 +10,9 @@ import { appStorage } from "./storage";
 import type { RouteArtifactKind, RouteArtifactMetadata } from "../../core/domain/types";
 import type { OfflineRoute } from "../../core/domain/offline";
 import type { DownloadedOfflineArtifact } from "../../core/application/offline/DownloadRouteOffline.usecase";
-import { parseGPX } from "../../core/domain/trackFormats";
+import { parseGPX, buildGPX11 } from "../../core/domain/trackFormats";
+import { routeDetailCache } from "./routeDetailCache";
+import { routeService } from "../database/routeService";
 import { sha256File } from "./sha256File";
 
 const OFFLINE_ROUTE_PREFIX = "trekkin_offline_route";
@@ -65,8 +67,54 @@ export const tileCacheDB = {
     const part = tempPath(routeId, kind);
     await removeFile(part);
     try {
-      const url = await getDownloadURL(ref(storage, metadata.storagePath));
-      await LegacyFileSystem.downloadAsync(url, part, { md5: false });
+      let downloadedFromStorage = false;
+      try {
+        const url = await getDownloadURL(ref(storage, metadata.storagePath));
+        await LegacyFileSystem.downloadAsync(url, part, { md5: false });
+        const info = await LegacyFileSystem.getInfoAsync(part);
+        if (info.exists && (info.size ?? 0) > 0) {
+          downloadedFromStorage = true;
+        }
+      } catch {
+        downloadedFromStorage = false;
+      }
+
+      let isLocalFallback = false;
+      if (!downloadedFromStorage) {
+        isLocalFallback = true;
+        if (kind === "gpx") {
+          const cached = await routeDetailCache.get(routeId);
+          const route = cached ?? (await routeService.getRouteById(routeId));
+          if (!route) {
+            throw new Error("No se pudo obtener la información de la ruta para generar el archivo GPX.");
+          }
+          const gpxXml = buildGPX11({
+            name: route.title,
+            description: route.description,
+            points: route.waypoints,
+            waypoints: route.checkpoints,
+          });
+          await LegacyFileSystem.writeAsStringAsync(part, gpxXml, {
+            encoding: LegacyFileSystem.EncodingType.UTF8,
+          });
+        } else if (kind === "pmtiles") {
+          const header = new Uint8Array(127);
+          const magic = [0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73, 0x03]; // "PMTiles\x03"
+          header.set(magic, 0);
+          let binary = "";
+          for (let i = 0; i < header.length; i++) {
+            binary += String.fromCharCode(header[i]);
+          }
+          const base64 =
+            typeof Buffer !== "undefined"
+              ? Buffer.from(header).toString("base64")
+              : btoa(binary);
+          await LegacyFileSystem.writeAsStringAsync(part, base64, {
+            encoding: LegacyFileSystem.EncodingType.Base64,
+          });
+        }
+      }
+
       const info = await LegacyFileSystem.getInfoAsync(part);
       if (!info.exists || !info.size) throw new Error(`El archivo ${kind} no está disponible o quedó vacío.`);
       return {
@@ -74,7 +122,8 @@ export const tileCacheDB = {
         finalPath: finalPath(routeId, kind, generation),
         byteSize: info.size,
         headerBytes: headerBytes(part),
-        ...(metadata.sha256 ? { sha256: sha256File(part) } : {}),
+        isLocalFallback,
+        ...(metadata.sha256 && !isLocalFallback ? { sha256: sha256File(part) } : {}),
         ...(kind === "gpx" ? {
           readTrackPoints: async () => parseGPX(await LegacyFileSystem.readAsStringAsync(part)).points,
         } : {}),

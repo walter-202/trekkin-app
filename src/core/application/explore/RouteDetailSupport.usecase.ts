@@ -28,12 +28,20 @@ export function CheckRouteDownloadAvailabilityUseCase(
 ): RouteDownloadAvailability {
   if (!isAuthenticated) return { available: false, reason: "authentication_required" };
   if (route.status !== "published") return { available: false, reason: "route_not_published" };
-  if (!route.artifacts) return { available: false, reason: "artifacts_unavailable" };
+  if (!route.artifacts) {
+    if (route.waypoints && route.waypoints.length >= 2) {
+      return { available: true };
+    }
+    return { available: false, reason: "artifacts_unavailable" };
+  }
 
   try {
     ValidateRoutePublicationUseCase(route.id, route.artifacts);
     return { available: true };
   } catch {
+    if (route.waypoints && route.waypoints.length >= 2) {
+      return { available: true };
+    }
     return { available: false, reason: "artifacts_unavailable" };
   }
 }

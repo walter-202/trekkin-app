@@ -95,6 +95,29 @@ const ROUTES = [
     ],
     photos: ['https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=800&q=80'],
   },
+  {
+    id: 'route-unandes-ucb-obrajes',
+    title: 'Conexión UNANDES — UCB Obrajes',
+    description: 'Ruta corta de conexión urbana y trekking suave entre la Universidad de Los Andes (Av. Los Leones) y el campus de la Universidad Católica Boliviana San Pablo (Calle 2 de Obrajes). Ideal para caminata matutina, descenso panorámico y aclimatación.',
+    region: 'Zona Sur / Miraflores, La Paz',
+    startPoint: { name: 'Universidad de Los Andes (Av. Los Leones)', lat: -16.518784, lng: -68.114406 },
+    endPoint: { name: 'Universidad Católica Boliviana San Pablo (Calle 2)', lat: -16.522639, lng: -68.111930 },
+    distanceKm: 0.85, durationMinutes: 18, difficulty: 'facil', modality: 'solo',
+    waypoints: [
+      { lat: -16.518784, lng: -68.114406, altitude: 3640 },
+      { lat: -16.519350, lng: -68.113980, altitude: 3625 },
+      { lat: -16.520120, lng: -68.113420, altitude: 3610 },
+      { lat: -16.520950, lng: -68.112850, altitude: 3595 },
+      { lat: -16.521800, lng: -68.112350, altitude: 3585 },
+      { lat: -16.522639, lng: -68.111930, altitude: 3580 },
+    ],
+    checkpoints: [
+      { id: 'cp-unandes-1', name: 'Puerta Principal UNANDES', category: 'descanso', lat: -16.518784, lng: -68.114406, notes: 'Punto de partida en la Universidad de Los Andes sobre Av. Los Leones.', createdAt: 1720400000000 },
+      { id: 'cp-unandes-2', name: 'Curva Panorámica Los Leones', category: 'vista', lat: -16.520120, lng: -68.113420, notes: 'Vista abierta hacia los puentes Trillizos y el valle de Obrajes.', createdAt: 1720400000000 },
+      { id: 'cp-unandes-3', name: 'Entrada Campus UCB (Calle 2)', category: 'refugio', lat: -16.522639, lng: -68.111930, notes: 'Llegada al campus de la Universidad Católica Boliviana San Pablo.', createdAt: 1720400000000 },
+    ],
+    photos: ['https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=800&q=80'],
+  },
 ];
 
 // --- Codificador Firestore REST ---
@@ -129,7 +152,41 @@ async function req(token, method, path, fields) {
 
   for (const route of ROUTES) {
     const existing = await req(token, 'GET', `routes/${route.id}`);
-    if (existing) { console.log(`  existe, se respeta: ${route.id}`); continue; }
+    const artifactsData = {
+      version: 1,
+      gpx: {
+        kind: 'gpx',
+        version: 1,
+        storagePath: `routes/${route.id}/v1/route.gpx`,
+        fileName: 'route.gpx',
+        mimeType: 'application/gpx+xml',
+        byteSize: Math.max(1024, (route.waypoints?.length || 2) * 140),
+        status: 'uploaded',
+        updatedAt: now,
+      },
+      pmtiles: {
+        kind: 'pmtiles',
+        version: 1,
+        storagePath: `routes/${route.id}/v1/basemap.pmtiles`,
+        fileName: 'basemap.pmtiles',
+        mimeType: 'application/vnd.pmtiles',
+        byteSize: 127,
+        status: 'uploaded',
+        updatedAt: now,
+      },
+    };
+
+    if (existing) {
+      if (!existing.fields?.artifacts) {
+        console.log(`  agregando artifacts a ruta existente: ${route.id}`);
+        await req(token, 'PATCH', `routes/${route.id}`, {
+          artifacts: enc(artifactsData),
+        });
+      } else {
+        console.log(`  existe, con artifacts: ${route.id}`);
+      }
+      continue;
+    }
     // Fase 1: crear como borrador (único status permitido al crear por reglas).
     await req(token, 'PATCH', `routes/${route.id}`, {
       ...enc({ ...route, status: 'draft', isPrivate: false, creatorId: uid, creatorName: 'Fernando Aguilar', createdAt: now, updatedAt: now }).mapValue.fields,
@@ -138,6 +195,7 @@ async function req(token, method, path, fields) {
     await req(token, 'PATCH', `routes/${route.id}`, {
       status: { stringValue: 'published' }, reviewedBy: { stringValue: uid }, reviewedAt: { integerValue: String(now) },
       moderationNotes: { stringValue: 'Seed propuesta inicial (pendiente refinamiento HU-03).' },
+      artifacts: enc(artifactsData),
     });
     console.log(`  publicada (propuesta): ${route.id} — ${route.title}`);
   }

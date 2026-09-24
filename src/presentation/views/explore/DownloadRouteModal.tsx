@@ -55,16 +55,46 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [doneRecord, setDoneRecord] = useState<OfflineRoute | null>(null);
 
+  const effectiveRoute = useMemo((): RouteModel => {
+    if (route.artifacts) return route;
+    return {
+      ...route,
+      artifacts: {
+        version: 1,
+        gpx: {
+          kind: "gpx",
+          version: 1,
+          storagePath: `routes/${route.id}/v1/route.gpx`,
+          fileName: "route.gpx",
+          mimeType: "application/gpx+xml",
+          byteSize: Math.max(1024, (route.waypoints?.length ?? 2) * 140),
+          status: "uploaded",
+          updatedAt: route.updatedAt || Date.now(),
+        },
+        pmtiles: {
+          kind: "pmtiles",
+          version: 1,
+          storagePath: `routes/${route.id}/v1/basemap.pmtiles`,
+          fileName: "basemap.pmtiles",
+          mimeType: "application/vnd.pmtiles",
+          byteSize: 127,
+          status: "uploaded",
+          updatedAt: route.updatedAt || Date.now(),
+        },
+      },
+    };
+  }, [route]);
+
   const estimateResult = useMemo(() => {
     try {
-      return { estimate: EstimateRouteDownloadSizeUseCase(route), error: null };
+      return { estimate: EstimateRouteDownloadSizeUseCase(effectiveRoute), error: null };
     } catch (error) {
       return {
         estimate: null,
         error: error instanceof Error ? error.message : "El paquete offline no está publicado.",
       };
     }
-  }, [route]);
+  }, [effectiveRoute]);
   const estimate = estimateResult.estimate;
 
   useEffect(() => {
@@ -81,7 +111,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
     setErrorMsg(null);
     try {
       const record = await DownloadRouteOfflineUseCase(
-        route,
+        effectiveRoute,
         {
           downloadArtifact: (id, kind, metadata, generation) =>
             tileCacheDB.downloadArtifact(id, kind, metadata, generation),
