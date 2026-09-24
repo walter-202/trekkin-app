@@ -3,7 +3,10 @@ import type {
   ActivityGpxUploadStatus,
 } from "../../domain/types";
 
-export type { ActivityGpxMetadata, ActivityGpxUploadStatus } from "../../domain/types";
+export type {
+  ActivityGpxMetadata,
+  ActivityGpxUploadStatus,
+} from "../../domain/types";
 
 export const ACTIVITY_GPX_MIME_TYPE = "application/gpx+xml" as const;
 export const ACTIVITY_GPX_FILE_NAME = "activity.gpx" as const;
@@ -56,8 +59,23 @@ function assertSegment(value: string, label: string): string {
 }
 
 /** Stable private path policy. The path is also enforced by Storage rules. */
-export function activityGpxStoragePath(userId: string, activityId: string): string {
+export function activityGpxStoragePath(
+  userId: string,
+  activityId: string,
+): string {
   return `users/${assertSegment(userId, "usuario")}/activities/${assertSegment(activityId, "id")}/${ACTIVITY_GPX_FILE_NAME}`;
+}
+
+function definedOnly(
+  extra: Partial<ActivityGpxMetadata>,
+): Partial<ActivityGpxMetadata> {
+  const out: Partial<ActivityGpxMetadata> = {};
+  for (const [key, value] of Object.entries(extra)) {
+    if (value !== undefined) {
+      out[key as keyof ActivityGpxMetadata] = value as never;
+    }
+  }
+  return out;
 }
 
 function transition(
@@ -76,7 +94,9 @@ function transition(
     ...(payload.sha256 === undefined ? {} : { sha256: payload.sha256 }),
     status,
     updatedAt: Date.now(),
-    ...extra,
+    // Firestore no admite `undefined` explícito (p. ej. gpx.sha256 cuando el
+    // receipt local no trae hash): las claves definidas con `undefined` se omiten.
+    ...definedOnly(extra),
   };
 }
 

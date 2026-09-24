@@ -8,8 +8,12 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
-import type { ActivityGpxMetadata, TrekkinActivity } from "../../core/domain/types";
+import type {
+  ActivityGpxMetadata,
+  TrekkinActivity,
+} from "../../core/domain/types";
 import { handleFirestoreError, OperationType } from "./firestoreErrors";
+import { stripUndefined } from "./sanitizeDoc";
 
 /**
  * HU-06 — Servicio de actividades (colección `activities`).
@@ -20,9 +24,11 @@ const ACTIVITIES_COLLECTION = "activities";
 
 function toCloudActivity(activity: TrekkinActivity): Record<string, unknown> {
   // GPS points remain in SQLite/AsyncStorage. Firestore contains only the
-  // activity summary plus GPX Storage metadata.
+  // activity summary plus GPX Storage metadata. Nested `undefined` (e.g.
+  // gpx.sha256 from a local-cache upload receipt) is stripped so setDoc never
+  // throws "Unsupported field value: undefined".
   const { recordedPoints: _recordedPoints, ...metadata } = activity;
-  return metadata;
+  return stripUndefined(metadata) as Record<string, unknown>;
 }
 
 export const activityService = {
@@ -46,10 +52,13 @@ export const activityService = {
         where("userId", "==", uid),
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((d) => ({
-        recordedPoints: [],
-        ...d.data(),
-      }) as unknown as TrekkinActivity);
+      return snapshot.docs.map(
+        (d) =>
+          ({
+            recordedPoints: [],
+            ...d.data(),
+          }) as unknown as TrekkinActivity,
+      );
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, collectionPath);
     }
@@ -82,13 +91,16 @@ export const activityService = {
   ): Promise<void> {
     const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
     try {
-      const clean = Object.entries(updates).reduce<Record<string, unknown>>(
-        (acc, [key, value]) => {
-          if (key !== "recordedPoints" && value !== undefined) acc[key] = value;
-          return acc;
-        },
-        {},
-      );
+      const clean = stripUndefined(
+        Object.entries(updates).reduce<Record<string, unknown>>(
+          (acc, [key, value]) => {
+            if (key !== "recordedPoints" && value !== undefined)
+              acc[key] = value;
+            return acc;
+          },
+          {},
+        ),
+      ) as Record<string, unknown>;
       if (Object.keys(clean).length === 0) return;
       const docRef = doc(db, ACTIVITIES_COLLECTION, id);
       await setDoc(docRef, clean, { merge: true });
