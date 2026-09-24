@@ -247,13 +247,13 @@ Sin `moderator` en `UserRole`, `firestore.rules` ni dominio. Revisión = admin.
   4. ✅ Bloqueo/desbloqueo con modal de confirmación y registro en `accountLogs`; anti-autobloqueo.
   5. ✅ Cambio de roles solo `user`↔`admin` con registro de rol previo y nuevo en auditoría.
   6. ✅ `accountLogs` inmutable en `firestore.rules` con `actorId === auth.uid`.
-- **Estado real y brecha (10%):** RBAC y auditoría 100% funcionales. Falta paginación por cursor si la lista de usuarios supera 50.
+- **Estado real y brecha (10%):** RBAC y auditoría siguen cubiertos. La lista usa páginas acotadas de Firestore con cursor y conserva búsqueda/filtros en memoria sobre las páginas recorridas; cada filtro reinicia el recorrido y las páginas sin coincidencias permiten continuar. La evidencia automatizada local no sustituye la prueba en Expo Go: paginación con más de 50 usuarios, cambios de filtro, reintento y fin de lista en dispositivo siguen pendientes. Mantener el 90% hasta completar esa validación de campo y revisión UI.
 - **Mapeo Técnico:**
   - _Dominio:_ `userManagement.schemas.ts`, `AccountLogEntry` en `types.ts`.
-  - _Aplicación:_ `ListUsers`, `GetUserDetail`, `BlockUser`, `UnblockUser`, `AssignRole`.
-  - _Infraestructura:_ `accountLogService.ts`, `isAdmin()` en `firestore.rules`.
+  - _Aplicación:_ `ListUsers` filtra cada página recibida por su puerto paginado; el cursor es opaco fuera del adaptador. También están `GetUserDetail`, `BlockUser`, `UnblockUser`, `AssignRole`.
+  - _Infraestructura:_ `userProfileService.listUsersPage` pagina por ID de documento ascendente para incluir también perfiles legacy sin `createdAt`, solicita un documento adicional para calcular `hasMore` con exactitud y conserva el último documento como cursor. La presentación mantiene el orden global `createdAt` descendente entre páginas, con perfiles sin fecha al final y UID ascendente como desempate. `accountLogService.ts`, `isAdmin()` en `firestore.rules`.
   - _Presentación:_ `UserManagementView`, `UserCard`, `UserDetailView`, `ConfirmActionModal`.
-  - _Suite:_ `src/tests/user_management_hu10.test.ts`.
+  - _Suite:_ `src/tests/user_management_hu10.test.ts` (incluye recorrido de páginas, terminal, página cruda sin coincidencias, reinicio/UID duplicados, guardia de solicitudes y reintento). Verificación local reportada aparte; prueba Expo Go y revisión UI pendientes.
 
 ---
 

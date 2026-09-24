@@ -18,6 +18,8 @@ import {
 import type { UserProfile, UserRole } from "../core/domain/types";
 import {
   ListUsersUseCase,
+  mergeUniqueUserPages,
+  UserPageRequestGuard,
   ListUsersPorts,
 } from "../core/application/admin/ListUsers.usecase";
 import { GetUserDetailUseCase } from "../core/application/admin/GetUserDetail.usecase";
@@ -149,33 +151,133 @@ export async function runUserManagementAcceptanceTests(): Promise<
   // =========================================================================
   // T8/T14 — Listado de usuarios con filtros (ListUsersUseCase)
   // =========================================================================
-  const listPorts: ListUsersPorts = { listUsers: async () => USERS };
+  const listPorts: ListUsersPorts = {
+    listUsersPage: async () => ({ users: USERS, cursor: null, hasMore: false }),
+  };
   const allUsers = await ListUsersUseCase({}, listPorts);
   recordTest(
-    "T8/T14: Listado consulta todos los usuarios registrados",
-    allUsers.length === 3,
-    `Usuarios listados: ${allUsers.length}`,
+    "T8/T14: Primera página filtra y conserva el orden por fecha descendente",
+    allUsers.users.length === 3 && allUsers.users[0].uid === "u-1",
+    `Usuarios listados: ${allUsers.users.length}`,
+  );
+
+  const legacyUser = {
+    uid: "legacy-user",
+    email: "legacy@trekbolivia.bo",
+    displayName: "Legacy User",
+    username: "legacy_user",
+    role: "user",
+    isBlocked: false,
+  } as UserProfile;
+  const mixedPageOrder = mergeUniqueUserPages(
+    [USERS[2]],
+    [legacyUser, USERS[1]],
+    false,
+  );
+  recordTest(
+    "T8: Orden global mantiene perfiles legacy sin fecha al final",
+    mixedPageOrder.map((user) => user.uid).join(",") === "u-2,u-3,legacy-user",
+    `Orden con fecha ausente: ${mixedPageOrder.map((user) => user.uid).join(",")}`,
   );
 
   const blocked = await ListUsersUseCase({ state: "blocked" }, listPorts);
   recordTest(
     "T14: Filtro por estado 'blocked' devuelve solo bloqueados",
-    blocked.length === 1 && blocked[0].uid === "u-2",
-    blocked.map((u) => `${u.uid}:isBlocked=${u.isBlocked}`).join(", "),
+    blocked.users.length === 1 && blocked.users[0].uid === "u-2",
+    blocked.users.map((u) => `${u.uid}:isBlocked=${u.isBlocked}`).join(", "),
   );
 
   const admins = await ListUsersUseCase({ role: "admin" }, listPorts);
   recordTest(
     "T14: Filtro por rol 'admin' devuelve solo administradores",
-    admins.length === 1 && admins[0].uid === "u-3",
-    admins.map((u) => u.role).join(", "),
+    admins.users.length === 1 && admins.users[0].uid === "u-3",
+    admins.users.map((u) => u.role).join(", "),
   );
 
   const searched = await ListUsersUseCase({ texto: "lucia" }, listPorts);
   recordTest(
     "T1: Búsqueda por texto encuentra por alias",
-    searched.length === 1 && searched[0].uid === "u-2",
-    `Coincidencias: ${searched.map((u) => u.username).join(", ")}`,
+    searched.users.length === 1 && searched.users[0].uid === "u-2",
+    `Coincidencias: ${searched.users.map((u) => u.username).join(", ")}`,
+  );
+
+  const pageRequests: Array<{ cursor: unknown; limit: number }> = [];
+  const pagePorts: ListUsersPorts = {
+    listUsersPage: async (request) => {
+      pageRequests.push(request);
+      if (request.cursor === null) {
+        return { users: USERS.slice(0, 2), cursor: "page-1", hasMore: true };
+      }
+      return { users: USERS.slice(2), cursor: "page-2", hasMore: false };
+    },
+  };
+  const firstPage = await ListUsersUseCase({}, pagePorts, null, 2);
+  const secondPage = await ListUsersUseCase({}, pagePorts, firstPage.cursor, 2);
+  recordTest(
+    "T8: Navegación alcanza páginas posteriores manteniendo cursor opaco",
+    firstPage.users.length === 2 && firstPage.hasMore &&
+      secondPage.users[0]?.uid === "u-3" && !secondPage.hasMore &&
+      pageRequests[1]?.cursor === "page-1" && pageRequests[1]?.limit === 2,
+    `Páginas: ${firstPage.users.length} + ${secondPage.users.length}; terminal=${!secondPage.hasMore}`,
+  );
+
+  const emptyFilteredPage = await ListUsersUseCase(
+    { texto: "lucia" },
+    { listUsersPage: async ({ cursor }) => cursor === null
+      ? { users: [USERS[0]], cursor: "raw-page-1", hasMore: true }
+      : { users: [USERS[1]], cursor: "raw-page-2", hasMore: false } },
+    null,
+    1,
+  );
+  const afterEmptyRawPage = await ListUsersUseCase(
+    { texto: "lucia" },
+    { listUsersPage: async ({ cursor }) => cursor === "raw-page-1"
+      ? { users: [USERS[1]], cursor: "raw-page-2", hasMore: false }
+      : { users: [], cursor: null, hasMore: false } },
+    emptyFilteredPage.cursor,
+    1,
+  );
+  recordTest(
+    "T8: Página cruda sin coincidencias conserva el cursor para continuar",
+    emptyFilteredPage.users.length === 0 && emptyFilteredPage.hasMore &&
+      afterEmptyRawPage.users[0]?.uid === "u-2",
+    `Sin coincidencias=${emptyFilteredPage.users.length}; cursor=${String(emptyFilteredPage.cursor)}`,
+  );
+
+  const mergedUsers = mergeUniqueUserPages(USERS.slice(0, 1), [USERS[0], USERS[1]], false);
+  const resetUsers = mergeUniqueUserPages(mergedUsers, [USERS[2]], true);
+  const requestGuard = new UserPageRequestGuard();
+  const firstGeneration = requestGuard.reset();
+  const duplicateRequestRejected = requestGuard.begin(firstGeneration) &&
+    !requestGuard.begin(firstGeneration);
+  requestGuard.end(firstGeneration);
+  const secondGeneration = requestGuard.reset();
+  recordTest(
+    "T8: Reinicios invalidan solicitudes viejas y páginas superpuestas no duplican UID",
+    duplicateRequestRejected && !requestGuard.isCurrent(firstGeneration) &&
+      mergedUsers.length === 2 && resetUsers.length === 1 && resetUsers[0].uid === "u-3",
+    `UID superpuestos=${mergedUsers.length}; tras reset=${resetUsers.map((user) => user.uid).join(",")}; generación vigente=${requestGuard.isCurrent(secondGeneration)}`,
+  );
+
+  let retryAttempts = 0;
+  const retryPorts: ListUsersPorts = {
+    listUsersPage: async () => {
+      retryAttempts += 1;
+      if (retryAttempts === 1) throw new Error("temporary read failure");
+      return { users: [USERS[0]], cursor: null, hasMore: false };
+    },
+  };
+  let retryRecovered = false;
+  try {
+    await ListUsersUseCase({}, retryPorts, null, 1);
+  } catch {
+    const retried = await ListUsersUseCase({}, retryPorts, null, 1);
+    retryRecovered = retried.users[0]?.uid === "u-1";
+  }
+  recordTest(
+    "T8: Fallo de página puede reintentarse desde el mismo cursor",
+    retryRecovered && retryAttempts === 2,
+    `Intentos: ${retryAttempts}; recuperado=${retryRecovered}`,
   );
 
   // =========================================================================

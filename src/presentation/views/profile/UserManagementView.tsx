@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,12 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { ShieldCheck, Search, ArrowLeft } from "lucide-react-native";
-import { ListUsersUseCase } from "../../../core/application/admin/ListUsers.usecase";
+import {
+  ListUsersUseCase,
+  mergeUniqueUserPages,
+  UserPageRequestGuard,
+} from "../../../core/application/admin/ListUsers.usecase";
+import type { UserPageCursor } from "../../../core/application/admin/ListUsers.usecase";
 import type { UserProfile } from "../../../core/domain/types";
 import { userProfileService } from "../../../infrastructure/database/userProfileService";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
@@ -48,35 +53,83 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
   const { currentUser, isAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [texto, setTexto] = useState("");
   const [stateFilter, setStateFilter] = useState<StateFilter>("all");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const cursorRef = useRef<UserPageCursor | null>(null);
+  const requestGuardRef = useRef(new UserPageRequestGuard());
+  const retryRef = useRef<{ cursor: UserPageCursor | null; reset: boolean }>({
+    cursor: null,
+    reset: true,
+  });
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
+  const loadPage = useCallback(async (
+    cursor: UserPageCursor | null,
+    reset: boolean,
+    generation: number,
+  ) => {
+    const requestGuard = requestGuardRef.current;
+    if (!requestGuard.begin(generation)) return;
+    retryRef.current = { cursor, reset };
+    if (reset) setLoading(true);
+    else setLoadingMore(true);
     setError(null);
     try {
-      const data = await ListUsersUseCase(
+      const page = await ListUsersUseCase(
         { texto, state: stateFilter, role: roleFilter },
-        { listUsers: (limit) => userProfileService.listUsers(limit) },
+        { listUsersPage: (args) => userProfileService.listUsersPage(args) },
+        cursor,
       );
-      setUsers(data);
-    } catch (err: any) {
-      setError(
-        err?.message ??
-          "No se pudo consultar el listado de usuarios. Reintenta con red.",
-      );
-      setUsers([]);
+      if (!requestGuard.isCurrent(generation)) return;
+      cursorRef.current = page.cursor;
+      setHasMore(page.hasMore);
+      setUsers((current) => {
+        return mergeUniqueUserPages(current, page.users, reset);
+      });
+    } catch (err: unknown) {
+      if (requestGuard.isCurrent(generation)) {
+        const message = err instanceof Error ? err.message : undefined;
+        setError(
+          message ??
+            "No se pudo consultar el listado de usuarios. Reintenta con red.",
+        );
+      }
     } finally {
-      setLoading(false);
+      requestGuard.end(generation);
+      if (requestGuard.isCurrent(generation)) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
   }, [texto, stateFilter, roleFilter]);
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    const generation = requestGuardRef.current.reset();
+    cursorRef.current = null;
+    setUsers([]);
+    setHasMore(false);
+    setError(null);
+    setLoadingMore(false);
+    void loadPage(null, true, generation);
+  }, [loadPage, refreshVersion]);
+
+  const loadNextPage = () => {
+    if (!hasMore || loading || loadingMore) return;
+    void loadPage(cursorRef.current, false, requestGuardRef.current.current());
+  };
+
+  const retryPage = () => {
+    void loadPage(
+      retryRef.current.cursor,
+      retryRef.current.reset,
+      requestGuardRef.current.current(),
+    );
+  };
 
   // T13: guard defensivo. La entrada real la protege el Gate (tab solo admin).
   if (!currentUser || !isAdmin) {
@@ -96,7 +149,7 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         userId={selectedId}
         onBack={() => {
           setSelectedId(null);
-          loadUsers();
+          setRefreshVersion((version) => version + 1);
         }}
       />
     );
@@ -126,7 +179,14 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
         confirma antes de ejecutarse
       </Text>
 
-      {error ? <Banner tone="error" message={error} /> : null}
+      {error ? (
+        <View style={styles.errorRow}>
+          <Banner tone="error" message={error} />
+          <Pressable onPress={retryPage} accessibilityRole="button" accessibilityLabel="Reintentar carga de usuarios">
+            <Text style={styles.actionText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.searchRow}>
         <Search size={14} color={AndeanTheme.colors.textMuted} />
@@ -200,8 +260,38 @@ export const UserManagementView: React.FC<UserManagementViewProps> = ({
               <Text style={styles.muted}>
                 Sin usuarios que coincidan con los criterios.
               </Text>
+              {hasMore ? (
+                loadingMore ? (
+                  <View style={styles.loadingMore} accessible accessibilityLabel="Buscando más usuarios">
+                    <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
+                    <Text style={styles.muted}>Buscando más usuarios…</Text>
+                  </View>
+                ) : (
+                  <Pressable onPress={loadNextPage} accessibilityRole="button" accessibilityLabel="Continuar buscando en más usuarios">
+                    <Text style={styles.actionText}>Continuar buscando en más usuarios</Text>
+                  </Pressable>
+                )
+              ) : null}
             </View>
           }
+          ListFooterComponent={users.length > 0 ? (
+            <View style={styles.footer}>
+              {hasMore ? loadingMore ? (
+                <View style={styles.loadingMore} accessible accessibilityLabel="Cargando más usuarios">
+                  <ActivityIndicator color={AndeanTheme.colors.textSecondary} />
+                  <Text style={styles.muted}>Cargando más usuarios…</Text>
+                </View>
+              ) : (
+                <Pressable onPress={loadNextPage} accessibilityRole="button" accessibilityLabel="Cargar más usuarios">
+                  <Text style={styles.actionText}>Cargar más usuarios</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.muted} accessibilityRole="text" accessibilityLabel="Fin de la lista de usuarios">
+                  Llegaste al final de la lista.
+                </Text>
+              )}
+            </View>
+          ) : null}
           renderItem={({ item }) => (
             <UserCard user={item} onPress={() => setSelectedId(item.uid)} />
           )}
@@ -288,4 +378,14 @@ const styles = StyleSheet.create({
   },
   list: { gap: 10, paddingBottom: 16 },
   empty: { paddingVertical: 32 },
+  footer: { alignItems: "center", paddingVertical: 16 },
+  loadingMore: { alignItems: "center", gap: 6 },
+  errorRow: { gap: 8 },
+  actionText: {
+    color: AndeanTheme.colors.amberLight,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    paddingVertical: 8,
+  },
 });

@@ -1,13 +1,24 @@
 import type { UserProfile } from "../../domain/types";
 import { UserFiltersSchema } from "../../domain/userManagement.schemas";
 
-/**
- * HU-10 C2/T8 — Listar usuarios registrados + búsqueda y filtros (T1).
- * Puro: recibe el listado vía puerto y filtra en memoria con Zod.
- */
+/** Opaque continuation token owned by the infrastructure adapter. */
+export type UserPageCursor = unknown;
 
+export interface UserPage {
+  users: UserProfile[];
+  cursor: UserPageCursor | null;
+  hasMore: boolean;
+}
+
+/**
+ * HU-10 C2/T8 — List users in bounded pages and filter each page in memory.
+ * Cursor data remains opaque to the application and presentation layers.
+ */
 export interface ListUsersPorts {
-  listUsers: (limit?: number) => Promise<UserProfile[]>;
+  listUsersPage: (args: {
+    cursor: UserPageCursor | null;
+    limit: number;
+  }) => Promise<UserPage>;
 }
 
 export interface ListUsersFilters {
@@ -16,17 +27,78 @@ export interface ListUsersFilters {
   role?: "all" | "user" | "admin";
 }
 
-export async function ListUsersUseCase(
-  filters: ListUsersFilters,
-  ports: ListUsersPorts,
-): Promise<UserProfile[]> {
-  const parsed = UserFiltersSchema.parse({
+export const USER_PAGE_SIZE = 50;
+
+function compareUsersByCreatedAt(a: UserProfile, b: UserProfile): number {
+  const aCreatedAt = a.createdAt;
+  const bCreatedAt = b.createdAt;
+  if (aCreatedAt == null && bCreatedAt != null) return 1;
+  if (aCreatedAt != null && bCreatedAt == null) return -1;
+  if (aCreatedAt != null && bCreatedAt != null && aCreatedAt !== bCreatedAt) {
+    return bCreatedAt - aCreatedAt;
+  }
+  return a.uid.localeCompare(b.uid);
+}
+
+/** Coordinates one in-flight request per filter generation. */
+export class UserPageRequestGuard {
+  private generation = 0;
+  private activeGeneration: number | null = null;
+
+  reset(): number {
+    this.generation += 1;
+    return this.generation;
+  }
+
+  current(): number {
+    return this.generation;
+  }
+
+  isCurrent(generation: number): boolean {
+    return this.generation === generation;
+  }
+
+  begin(generation: number): boolean {
+    if (!this.isCurrent(generation) || this.activeGeneration === generation) {
+      return false;
+    }
+    this.activeGeneration = generation;
+    return true;
+  }
+
+  end(generation: number): void {
+    if (this.activeGeneration === generation) this.activeGeneration = null;
+  }
+}
+
+export function mergeUniqueUserPages(
+  existing: UserProfile[],
+  incoming: UserProfile[],
+  reset: boolean,
+): UserProfile[] {
+  const merged = reset ? [] : [...existing];
+  const seen = new Set(merged.map((user) => user.uid));
+  for (const user of incoming) {
+    if (!seen.has(user.uid)) {
+      seen.add(user.uid);
+      merged.push(user);
+    }
+  }
+  return merged.sort(compareUsersByCreatedAt);
+}
+
+function parseFilters(filters: ListUsersFilters) {
+  return UserFiltersSchema.parse({
     texto: filters.texto ?? "",
     state: filters.state ?? "all",
     role: filters.role ?? "all",
   });
+}
 
-  const users = await ports.listUsers();
+function filterAndSortUsers(
+  users: UserProfile[],
+  parsed: ReturnType<typeof parseFilters>,
+) {
   const q = parsed.texto.toLowerCase();
 
   return users
@@ -40,5 +112,19 @@ export async function ListUsersUseCase(
         .toLowerCase()
         .includes(q);
     })
-    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    .sort(compareUsersByCreatedAt);
+}
+
+export async function ListUsersUseCase(
+  filters: ListUsersFilters,
+  ports: ListUsersPorts,
+  cursor: UserPageCursor | null = null,
+  limit = USER_PAGE_SIZE,
+): Promise<UserPage> {
+  const parsedFilters = parseFilters(filters);
+  const page = await ports.listUsersPage({ cursor, limit });
+  return {
+    ...page,
+    users: filterAndSortUsers(page.users, parsedFilters),
+  };
 }
