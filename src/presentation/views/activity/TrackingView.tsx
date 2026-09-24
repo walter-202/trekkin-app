@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -16,23 +16,30 @@ import {
   Circle,
   ListChecks,
   MapPinPlus,
+  AlertTriangle,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { AddCheckpointModal } from "./AddCheckpointModal";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
+import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import {
   activeElapsedMs,
   ACTIVITY_CONFIG,
 } from "../../../core/domain/activity";
 import {
   accumulatedDistanceKm,
+  haversineKm,
+  projectOnPolyline,
   remainingDistanceToEndKm,
 } from "../../../core/domain/calculations";
 import { formatDuration } from "../../utils/format";
 import type { FinishActivityResult } from "../../../core/application/activity/FinishActivity.usecase";
 import type { PlannedPoint } from "../../../core/domain/plan";
 import type { CheckpointCategory } from "../../../core/domain/types";
-import type { LocationAccuracyOptions } from "../../../infrastructure/location/locationService";
+import {
+  locationService,
+  type LocationAccuracyOptions,
+} from "../../../infrastructure/location/locationService";
 import { AndeanTheme } from "../../theme";
 
 /**
@@ -88,14 +95,46 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     };
   }, [watchOptions]);
 
+  const [compassHeading, setCompassHeading] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    let watch: { remove: () => void } | null = null;
+    let mounted = true;
+    void locationService
+      .watchHeading((deg) => {
+        if (mounted) setCompassHeading(deg);
+      })
+      .then((sub) => {
+        if (!mounted) {
+          sub?.remove();
+        } else {
+          watch = sub;
+        }
+      });
+    return () => {
+      mounted = false;
+      watch?.remove();
+    };
+  }, []);
+
   if (!live) return null;
 
   const startTwice = live.recordedPoints[0];
   const lastPoint = live.recordedPoints[live.recordedPoints.length - 1];
-  const currentLocation: PlannedPoint | undefined = lastPoint
-    ? { lat: lastPoint.lat, lng: lastPoint.lng, name: "Tu posición" }
+  const currentLocation = lastPoint
+    ? {
+        lat: lastPoint.lat,
+        lng: lastPoint.lng,
+        heading: compassHeading,
+        name: "Tu posición",
+      }
     : startTwice
-      ? { lat: startTwice.lat, lng: startTwice.lng, name: "Tu posición" }
+      ? {
+          lat: startTwice.lat,
+          lng: startTwice.lng,
+          heading: compassHeading,
+          name: "Tu posición",
+        }
       : undefined;
 
   const distanceKm = live.totalDistanceKm ?? accumulatedDistanceKm(live.recordedPoints, {
@@ -110,6 +149,30 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     ? remainingDistanceToEndKm(lastPoint, routePolyline)
     : live.route.distanceKm;
   const elapsedSeconds = Math.round(activeElapsedMs(live) / 1000);
+
+  // Soporte de mapa offline (PMTiles) si la ruta fue descargada previamente
+  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId) return;
+    tileCacheDB
+      .get(routeId)
+      .then((record) => {
+        if (record?.pmtilesPath) {
+          setOfflinePackPath(record.pmtilesPath);
+        }
+      })
+      .catch(() => {});
+  }, [live?.route?.routeId]);
+
+  // Detección de desvío sobre la ruta oficial del creador
+  const isGuided = live.route.waypoints.length >= 2;
+  const deviation = useMemo(() => {
+    if (!isGuided || !lastPoint) return { isOffRoute: false, meters: 0 };
+    const proj = projectOnPolyline(lastPoint, routePolyline);
+    const meters = Math.round(haversineKm(lastPoint, proj.projection) * 1000);
+    return { isOffRoute: meters > 50, meters };
+  }, [isGuided, lastPoint, routePolyline]);
 
   const handlePause = async () => {
     await useActivityStore.getState().pauseActivity();
@@ -187,8 +250,50 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         }
         currentLocation={currentLocation}
         fitTo={routePolyline}
+        offlinePackPath={offlinePackPath}
         height={300}
       />
+
+      <View style={styles.mapLegend}>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendIndicator,
+              { backgroundColor: AndeanTheme.colors.primaryLight },
+            ]}
+          />
+          <Text style={styles.legendText}>Ruta creador</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View
+            style={[
+              styles.legendIndicator,
+              { backgroundColor: AndeanTheme.colors.trackOrange },
+            ]}
+          />
+          <Text style={styles.legendText}>Tu trazado</Text>
+        </View>
+        {offlinePackPath ? (
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendBadgeDot,
+                { backgroundColor: AndeanTheme.colors.primary },
+              ]}
+            />
+            <Text style={styles.legendBadgeText}>Offline</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {mode === "guide" && deviation.isOffRoute && (
+        <View style={styles.offRouteBanner}>
+          <AlertTriangle size={15} color={AndeanTheme.colors.amberLight} />
+          <Text style={styles.offRouteText}>
+            Atención: estás a {deviation.meters} m del sendero oficial.
+          </Text>
+        </View>
+      )}
 
       <View style={styles.hud}>
         <View style={styles.hudCol}>
@@ -560,5 +665,63 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
+  },
+  mapLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: AndeanTheme.colors.cardElevated,
+    borderRadius: 8,
+    alignSelf: "center",
+    marginTop: -8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.border,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendIndicator: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
+  },
+  legendBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  legendText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  legendBadgeText: {
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  offRouteBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.amberLight,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  offRouteText: {
+    color: AndeanTheme.colors.amberLight,
+    fontSize: 12,
+    fontWeight: "700",
+    flex: 1,
   },
 });

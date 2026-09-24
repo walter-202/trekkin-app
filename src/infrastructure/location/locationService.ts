@@ -20,6 +20,7 @@ export interface GpsPosition {
   accuracy?: number;
   altitude?: number;
   speed?: number;
+  heading?: number;
   timestamp: number;
 }
 
@@ -66,6 +67,7 @@ function toGpsPosition(pos: Location.LocationObject): GpsPosition {
     accuracy: pos.coords.accuracy ?? undefined,
     altitude: pos.coords.altitude ?? undefined,
     speed: pos.coords.speed ?? undefined,
+    heading: pos.coords.heading ?? undefined,
     timestamp: pos.timestamp ?? Date.now(),
   };
 }
@@ -150,6 +152,34 @@ export const locationService = {
         },
         (pos) => onUpdate(toGpsPosition(pos)),
       );
+      return sub;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * HU-08 — Observa la orientación/brújula del dispositivo en tiempo real (0-360°).
+   * Devuelve null si no hay sensor disponible o no se concedieron permisos.
+   */
+  async watchHeading(
+    onHeading: (heading: number) => void,
+  ): Promise<LocationWatch | null> {
+    try {
+      if (!(await this.hasForegroundPermission())) {
+        if (!(await this.requestForegroundPermission())) {
+          return null;
+        }
+      }
+      const sub = await Location.watchHeadingAsync((headingData) => {
+        const deg =
+          headingData.trueHeading >= 0
+            ? headingData.trueHeading
+            : headingData.magHeading;
+        if (typeof deg === "number" && !isNaN(deg)) {
+          onHeading(deg);
+        }
+      });
       return sub;
     } catch {
       return null;

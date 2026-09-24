@@ -61,7 +61,13 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
       const ok = await useActivityStore
         .getState()
         .startFreeRecording(
-          { lat: pos.latitude, lng: pos.longitude, altitude: pos.altitude },
+          {
+            lat: pos.latitude,
+            lng: pos.longitude,
+            altitude: pos.altitude,
+            accuracy: pos.accuracy,
+            fixTimestamp: pos.timestamp,
+          },
           currentUser.uid,
           currentUser.displayName,
         );

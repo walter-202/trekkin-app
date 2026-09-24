@@ -14,6 +14,7 @@ export interface SceneMarker {
   kind: SceneMarkerKind;
   label?: string;
   notes?: string;
+  heading?: number;
 }
 
 export interface TrekMapOfflinePack {
@@ -26,6 +27,7 @@ export interface TrekMapScene {
   trail: LngLat[];
   track: LngLat[];
   markers: SceneMarker[];
+  userLocation?: { lat: number; lng: number; heading?: number } | null;
   bounds: [LngLat, LngLat] | null;
   interactive: boolean;
   styleUrl: string;

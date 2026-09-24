@@ -18,7 +18,11 @@ import {
 import { AddCheckpointUseCase } from "../core/application/activity/AddCheckpoint.usecase";
 import { RecordPointUseCase } from "../core/application/activity/RecordPoint.usecase";
 import { StartRecordingFromPlanUseCase } from "../core/application/activity/StartRecordingFromPlan.usecase";
-import { StartFreeRecordingUseCase } from "../core/application/activity/StartFreeRecording.usecase";
+import {
+  StartFreeRecordingUseCase,
+  seedQualityCheck,
+  SEED_MAX_AGE_MS,
+} from "../core/application/activity/StartFreeRecording.usecase";
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
@@ -462,6 +466,56 @@ async function runTests() {
       false,
       e.message,
     );
+  }
+
+  // 17. seedQualityCheck valida matriz de calidad: precisión y frescura
+  try {
+    const now = Date.now();
+    const freshGood = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now }, now);
+    const stale = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now - SEED_MAX_AGE_MS - 5000 }, now);
+    const lowAcc = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 40, fixTimestamp: now }, now);
+    const noTimestamp = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10 }, now);
+
+    recordTest(
+      "seedQualityCheck valida matriz de calidad (frescura y precisión)",
+      freshGood.ok === true &&
+        stale.ok === false && stale.reason === "stale" &&
+        lowAcc.ok === false && lowAcc.reason === "low_accuracy" &&
+        noTimestamp.ok === true,
+      `fresh=${freshGood.ok} stale=${!stale.ok} lowAcc=${!lowAcc.ok}`,
+    );
+  } catch (e: any) {
+    recordTest("seedQualityCheck valida matriz de calidad (frescura y precisión)", false, e.message);
+  }
+
+  // 18. StartFreeRecording descarta semilla vieja o imprecisa evitando saltos iniciales
+  try {
+    const now = Date.now();
+    const staleStart = StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now - 60_000 },
+      userId: "user-free-stale",
+      userName: "Caminante",
+    });
+    const lowAccStart = StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.1, accuracy: 50, fixTimestamp: now },
+      userId: "user-free-lowacc",
+      userName: "Caminante",
+    });
+    const freshStart = StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now },
+      userId: "user-free-fresh",
+      userName: "Caminante",
+    });
+
+    recordTest(
+      "StartFreeRecording descarta semilla vieja o imprecisa (recordedPoints vacío)",
+      staleStart.recordedPoints.length === 0 &&
+        lowAccStart.recordedPoints.length === 0 &&
+        freshStart.recordedPoints.length === 1,
+      `stale=${staleStart.recordedPoints.length} lowAcc=${lowAccStart.recordedPoints.length} fresh=${freshStart.recordedPoints.length}`,
+    );
+  } catch (e: any) {
+    recordTest("StartFreeRecording descarta semilla vieja o imprecisa (recordedPoints vacío)", false, e.message);
   }
 
   // Imprimir reporte

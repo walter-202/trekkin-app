@@ -66,6 +66,14 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     });
   }
 
+  const userLocation = props.currentLocation
+    ? {
+        lat: props.currentLocation.lat,
+        lng: props.currentLocation.lng,
+        heading: props.currentLocation.heading,
+      }
+    : null;
+
   if (props.currentLocation) {
     markers.push({
       id: "user-location",
@@ -73,6 +81,7 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
       lng: props.currentLocation.lng,
       kind: "user",
       label: "Mi posición",
+      heading: props.currentLocation.heading,
     });
   }
 
@@ -103,6 +112,7 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     trail,
     track,
     markers,
+    userLocation,
     bounds: boundsFromPoints(fitPoints),
     interactive: props.interactive !== false,
     styleUrl: ONLINE_STYLE_URL,

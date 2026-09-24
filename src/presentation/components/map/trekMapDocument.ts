@@ -17,7 +17,7 @@ import { CALLOUT_CSS, MARKER_ROLE_LABEL } from "./markerCallout";
 export function buildTrekMapHtml(): string {
   const bg = AndeanTheme.colors.backgroundSecondary;
   const trail = AndeanTheme.colors.primaryLight;
-  const track = "#3B82F6";
+  const track = AndeanTheme.colors.trackOrange;
   const start = AndeanTheme.colors.primary;
   const end = AndeanTheme.colors.amberLight;
   const checkpoint = AndeanTheme.colors.amber;
@@ -33,6 +33,57 @@ export function buildTrekMapHtml(): string {
     html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: ${bg}; }
     .maplibregl-ctrl-attrib { font-size: 10px; }
     ${CALLOUT_CSS}
+    .trekkin-user-puck {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .user-cone-wrap {
+      position: absolute;
+      width: 96px;
+      height: 96px;
+      top: -24px;
+      left: -24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      transition: transform 0.25s cubic-bezier(0.2, 0, 0.2, 1);
+      transform-origin: 50% 50%;
+    }
+    .user-cone-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .user-halo {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(37, 99, 235, 0.28);
+      animation: trekkin-pulse 2s infinite ease-out;
+      pointer-events: none;
+    }
+    .user-dot {
+      position: relative;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #2563EB;
+      border: 2.5px solid #FFFFFF;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+    @keyframes trekkin-pulse {
+      0% { transform: scale(1); opacity: 0.85; }
+      70% { transform: scale(2.4); opacity: 0; }
+      100% { transform: scale(2.4); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -105,9 +156,10 @@ export function buildTrekMapHtml(): string {
 
       function markerData(markers) {
         if (!markers || !markers.length) return emptyPoints;
+        var nonUser = markers.filter(function (m) { return m.kind !== "user"; });
         return {
           type: "FeatureCollection",
-          features: markers.map(function (m) {
+          features: nonUser.map(function (m) {
             return {
               type: "Feature",
               properties: {
@@ -120,6 +172,61 @@ export function buildTrekMapHtml(): string {
             };
           })
         };
+      }
+
+      var userPuckMarker = null;
+      var userConeWrap = null;
+
+      function ensureUserPuck() {
+        if (userPuckMarker) return;
+        var container = document.createElement("div");
+        container.className = "trekkin-user-puck";
+
+        var coneWrap = document.createElement("div");
+        coneWrap.className = "user-cone-wrap";
+        coneWrap.style.display = "none";
+        coneWrap.innerHTML = '<svg class="user-cone-svg" viewBox="0 0 96 96">' +
+          '<defs>' +
+            '<radialGradient id="puck-cone-grad" cx="50%" cy="50%" r="50%">' +
+              '<stop offset="0%" stop-color="#2563EB" stop-opacity="0.55"/>' +
+              '<stop offset="45%" stop-color="#3B82F6" stop-opacity="0.25"/>' +
+              '<stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>' +
+            '</radialGradient>' +
+          '</defs>' +
+          '<path d="M 48 48 L 25 8.16 A 46 46 0 0 1 71 8.16 Z" fill="url(#puck-cone-grad)"/>' +
+        '</svg>';
+        container.appendChild(coneWrap);
+        userConeWrap = coneWrap;
+
+        var halo = document.createElement("div");
+        halo.className = "user-halo";
+        container.appendChild(halo);
+
+        var dot = document.createElement("div");
+        dot.className = "user-dot";
+        container.appendChild(dot);
+
+        userPuckMarker = new maplibregl.Marker({ element: container, anchor: "center" });
+      }
+
+      function updateUserPuck(userLoc) {
+        if (!userLoc || typeof userLoc.lat !== "number" || typeof userLoc.lng !== "number") {
+          if (userPuckMarker) userPuckMarker.remove();
+          return;
+        }
+        ensureUserPuck();
+        userPuckMarker.setLngLat([userLoc.lng, userLoc.lat]);
+        if (!userPuckMarker._map) {
+          userPuckMarker.addTo(map);
+        }
+        if (userConeWrap) {
+          if (typeof userLoc.heading === "number" && !isNaN(userLoc.heading)) {
+            userConeWrap.style.display = "flex";
+            userConeWrap.style.transform = "rotate(" + userLoc.heading + "deg)";
+          } else {
+            userConeWrap.style.display = "none";
+          }
+        }
       }
 
       function circleColor() {
@@ -225,6 +332,16 @@ export function buildTrekMapHtml(): string {
         map.getSource("trekkin-trail").setData(lineData(scene.trail));
         map.getSource("trekkin-track").setData(lineData(scene.track));
         map.getSource("trekkin-markers").setData(markerData(scene.markers));
+        var userLoc = scene.userLocation || null;
+        if (!userLoc && scene.markers) {
+          for (var i = 0; i < scene.markers.length; i++) {
+            if (scene.markers[i].kind === "user") {
+              userLoc = scene.markers[i];
+              break;
+            }
+          }
+        }
+        updateUserPuck(userLoc);
         map.dragPan.enable();
         map.scrollZoom.enable();
         map.touchZoomRotate.enable();

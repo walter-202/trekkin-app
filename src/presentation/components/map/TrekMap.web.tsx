@@ -15,6 +15,60 @@ import {
 import type { TrekMapScene } from "../../../infrastructure/map/mapBridge";
 import { buildCalloutHtml, CALLOUT_CSS } from "./markerCallout";
 
+const PUCK_CSS = `
+.trekkin-user-puck {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.user-cone-wrap {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  top: -24px;
+  left: -24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0.2, 1);
+  transform-origin: 50% 50%;
+}
+.user-cone-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.user-halo {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.28);
+  animation: trekkin-pulse 2s infinite ease-out;
+  pointer-events: none;
+}
+.user-dot {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #2563EB;
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+@keyframes trekkin-pulse {
+  0% { transform: scale(1); opacity: 0.85; }
+  70% { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+`;
+
 function loadMapLibre(): Promise<any> {
   const g = globalThis as any;
   if (g.maplibregl) return Promise.resolve(g.maplibregl);
@@ -36,6 +90,12 @@ function loadMapLibre(): Promise<any> {
       const style = doc.createElement("style");
       style.id = "trekkin-popup-css";
       style.textContent = CALLOUT_CSS;
+      doc.head.appendChild(style);
+    }
+    if (!doc.getElementById("trekkin-puck-css")) {
+      const style = doc.createElement("style");
+      style.id = "trekkin-puck-css";
+      style.textContent = PUCK_CSS;
       doc.head.appendChild(style);
     }
     const script = doc.createElement("script");
@@ -89,9 +149,10 @@ function lineData(coords: [number, number][]) {
 }
 
 function markerData(scene: TrekMapScene) {
+  const nonUser = scene.markers.filter((m) => m.kind !== "user");
   return {
     type: "FeatureCollection" as const,
-    features: scene.markers.map((m) => ({
+    features: nonUser.map((m) => ({
       type: "Feature" as const,
       properties: {
         kind: m.kind,
@@ -102,6 +163,67 @@ function markerData(scene: TrekMapScene) {
       geometry: { type: "Point" as const, coordinates: [m.lng, m.lat] },
     })),
   };
+}
+
+function updateUserPuck(
+  map: any,
+  maplibregl: any,
+  scene: TrekMapScene,
+  puckRef: React.MutableRefObject<{ marker: any; coneWrap: any } | null>,
+): void {
+  const userLoc =
+    scene.userLocation ?? scene.markers.find((m) => m.kind === "user") ?? null;
+  if (!userLoc || typeof userLoc.lat !== "number" || typeof userLoc.lng !== "number") {
+    if (puckRef.current?.marker) {
+      puckRef.current.marker.remove();
+      puckRef.current = null;
+    }
+    return;
+  }
+  if (!puckRef.current) {
+    const container = document.createElement("div");
+    container.className = "trekkin-user-puck";
+
+    const coneWrap = document.createElement("div");
+    coneWrap.className = "user-cone-wrap";
+    coneWrap.style.display = "none";
+    coneWrap.innerHTML = `<svg class="user-cone-svg" viewBox="0 0 96 96">
+      <defs>
+        <radialGradient id="puck-cone-grad-web" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#2563EB" stop-opacity="0.55"/>
+          <stop offset="45%" stop-color="#3B82F6" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <path d="M 48 48 L 25 8.16 A 46 46 0 0 1 71 8.16 Z" fill="url(#puck-cone-grad-web)"/>
+    </svg>`;
+    container.appendChild(coneWrap);
+
+    const halo = document.createElement("div");
+    halo.className = "user-halo";
+    container.appendChild(halo);
+
+    const dot = document.createElement("div");
+    dot.className = "user-dot";
+    container.appendChild(dot);
+
+    const marker = new maplibregl.Marker({ element: container, anchor: "center" });
+    puckRef.current = { marker, coneWrap };
+  }
+
+  const { marker, coneWrap } = puckRef.current;
+  marker.setLngLat([userLoc.lng, userLoc.lat]);
+  if (!marker._map) {
+    marker.addTo(map);
+  }
+  if (coneWrap) {
+    if (typeof userLoc.heading === "number" && !isNaN(userLoc.heading)) {
+      coneWrap.style.display = "flex";
+      coneWrap.style.transform = `rotate(${userLoc.heading}deg)`;
+    } else {
+      coneWrap.style.display = "none";
+    }
+  }
 }
 
 function ensureLayers(map: any): void {
@@ -122,7 +244,7 @@ function ensureLayers(map: any): void {
       type: "line",
       source: "trekkin-track",
       layout: { "line-join": "round", "line-cap": "round" },
-      paint: { "line-color": "#3B82F6", "line-width": 4 },
+      paint: { "line-color": AndeanTheme.colors.trackOrange, "line-width": 4 },
     });
   }
   if (!map.getSource("trekkin-markers")) {
@@ -141,7 +263,7 @@ function ensureLayers(map: any): void {
           "end",
           AndeanTheme.colors.amberLight,
           "user",
-          "#3B82F6",
+          AndeanTheme.colors.trackOrange,
           AndeanTheme.colors.amber,
         ],
         "circle-stroke-width": 2,
@@ -151,11 +273,19 @@ function ensureLayers(map: any): void {
   }
 }
 
-function paintScene(map: any, scene: TrekMapScene): void {
+function paintScene(
+  map: any,
+  scene: TrekMapScene,
+  maplibregl?: any,
+  puckRef?: React.MutableRefObject<{ marker: any; coneWrap: any } | null>,
+): void {
   ensureLayers(map);
   map.getSource("trekkin-trail")?.setData(lineData(scene.trail));
   map.getSource("trekkin-track")?.setData(lineData(scene.track));
   map.getSource("trekkin-markers")?.setData(markerData(scene));
+  if (maplibregl && puckRef) {
+    updateUserPuck(map, maplibregl, scene, puckRef);
+  }
   if (scene.interactive === false) {
     map.dragPan.disable();
     map.scrollZoom.disable();
@@ -188,6 +318,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
 
   const hostRef = useRef<any>(null);
   const mapRef = useRef<any>(null);
+  const maplibreRef = useRef<any>(null);
+  const puckRef = useRef<{ marker: any; coneWrap: any } | null>(null);
   const scene = useMemo(() => buildTrekMapScene(props), [props]);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
@@ -199,7 +331,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
   const applySceneWithPack = (map: any, next: TrekMapScene): void => {
     const nextUrl = packUrlOf(next);
     if (nextUrl === packUrlRef.current) {
-      paintScene(map, next);
+      paintScene(map, next, maplibreRef.current, puckRef);
       return;
     }
     if (switchingRef.current) return;
@@ -207,7 +339,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     map.once("style.load", () => {
       packUrlRef.current = nextUrl;
       switchingRef.current = false;
-      paintScene(map, sceneRef.current);
+      paintScene(map, sceneRef.current, maplibreRef.current, puckRef);
       onMapReady?.(Boolean(nextUrl));
     });
     map.setStyle(nextUrl ? buildOfflineVectorStyle(nextUrl) : ONLINE_STYLE_URL);
@@ -221,6 +353,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     void (async () => {
       try {
         const maplibregl = await loadMapLibre();
+        maplibreRef.current = maplibregl;
         try {
           const pmtilesLib = await loadPmtiles();
           const g = globalThis as any;
@@ -247,7 +380,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         mapRef.current = map;
         map.on("load", () => {
           if (cancelled) return;
-          paintScene(map, sceneRef.current);
+          paintScene(map, sceneRef.current, maplibreRef.current, puckRef);
           onMapReady?.(Boolean(packUrlRef.current));
         });
         map.on("error", (event: { error?: unknown }) => {
@@ -308,6 +441,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
 
     return () => {
       cancelled = true;
+      puckRef.current?.marker?.remove?.();
+      puckRef.current = null;
       mapRef.current?.remove?.();
       mapRef.current = null;
     };

@@ -1,10 +1,47 @@
 import type { LiveActivity, LiveRouteInfo } from "../../domain/activity";
+import { ACTIVITY_CONFIG } from "../../domain/activity";
 import { makeActivityId } from "./StartActivity.usecase";
 
 export interface FreeRecordingPosition {
   lat: number;
   lng: number;
   altitude?: number;
+  /** Precisión del fix GPS en metros. */
+  accuracy?: number | null;
+  /** Timestamp REAL del fix (ms). */
+  fixTimestamp?: number | null;
+}
+
+/**
+ * Edad máxima aceptada para el fix semilla (30 s). Por encima, el fix puede
+ * provenir de caché del OS anterior al desplazamiento del usuario.
+ */
+export const SEED_MAX_AGE_MS = 30_000;
+
+export type SeedQuality =
+  | { ok: true }
+  | { ok: false; reason: "stale" | "low_accuracy" };
+
+/**
+ * Juzga si una posición sirve como semilla inicial con criterio de precisión
+ * (MAX_ACCURACY_M) y frescura temporal (SEED_MAX_AGE_MS).
+ */
+export function seedQualityCheck(
+  position: FreeRecordingPosition,
+  now: number = Date.now(),
+): SeedQuality {
+  const timestamp = position.fixTimestamp ?? now;
+  const age = now - timestamp;
+  if (!Number.isFinite(age) || age < 0 || age > SEED_MAX_AGE_MS) {
+    return { ok: false, reason: "stale" };
+  }
+  if (
+    position.accuracy != null &&
+    position.accuracy > ACTIVITY_CONFIG.MAX_ACCURACY_M
+  ) {
+    return { ok: false, reason: "low_accuracy" };
+  }
+  return { ok: true };
 }
 
 export interface StartFreeRecordingArgs {
@@ -59,6 +96,18 @@ export function StartFreeRecordingUseCase(
     difficulty: "facil",
   };
 
+  const quality = seedQualityCheck(position, now);
+  const recordedPoints: LiveActivity["recordedPoints"] = quality.ok
+    ? [
+        {
+          lat: position.lat,
+          lng: position.lng,
+          altitude: position.altitude,
+          timestamp: position.fixTimestamp ?? now,
+        },
+      ]
+    : [];
+
   return {
     id: makeActivityId(),
     userId,
@@ -69,14 +118,7 @@ export function StartFreeRecordingUseCase(
     startedAt: null,
     lastResumedAt: null,
     accumulatedActiveMs: 0,
-    recordedPoints: [
-      {
-        lat: position.lat,
-        lng: position.lng,
-        altitude: position.altitude,
-        timestamp: now,
-      },
-    ],
+    recordedPoints,
     completedCheckpoints: [],
     newCheckpoints: [],
     createdAt: now,

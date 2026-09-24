@@ -30,7 +30,7 @@ export interface TrekMapProps {
   track?: Coordinates[];
   start?: { lat: number; lng: number; name?: string } | null;
   end?: { lat: number; lng: number; name?: string } | null;
-  currentLocation?: { lat: number; lng: number } | null;
+  currentLocation?: { lat: number; lng: number; heading?: number } | null;
   pointsOfInterest?: MapMarker[];
   markers?: MapMarker[];
   initialRegion?: MapRegion;
