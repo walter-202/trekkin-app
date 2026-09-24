@@ -677,6 +677,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         set({
           unsynced: history.filter((a) => !a.isSynced),
           activities: get().activities.map((a) => a.id === synced.id ? synced : a),
+          lastResult: get().lastResult?.id === synced.id ? synced : get().lastResult,
         });
         if (trackDb && synced.isSynced) {
           updateActivityHeader(trackDb, synced.id, { synced: 1, updatedAt: Date.now() });

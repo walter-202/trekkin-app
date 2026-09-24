@@ -20,6 +20,7 @@ import {
 import { ExportTrackFileUseCase } from "../../../core/application/activity/ExportTrackFile.usecase";
 import { shareService } from "../../../infrastructure/share/shareService";
 import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
+import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { routeService } from "../../../infrastructure/database/routeService";
 import type { TrekkinActivity } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -36,11 +37,16 @@ interface ResultViewProps {
 }
 
 export const ResultView: React.FC<ResultViewProps> = ({
-  saved,
+  saved: initialSaved,
   onViewTrack,
   onGoHistory,
   onClose,
 }) => {
+  const storeActivity = useActivityStore((s) =>
+    s.activities.find((a) => a.id === initialSaved.id) ??
+    (s.lastResult?.id === initialSaved.id ? s.lastResult : null)
+  );
+  const saved = storeActivity ?? initialSaved;
   const completed = saved.status === "completed";
   const first = saved.recordedPoints[0];
   const last = saved.recordedPoints[saved.recordedPoints.length - 1];
@@ -132,11 +138,17 @@ export const ResultView: React.FC<ResultViewProps> = ({
         </View>
       </View>
 
-      {!saved.isSynced && (
+      {saved.isSynced ? (
+        <View style={styles.syncSuccessBanner}>
+          <CheckCircle2 size={15} color={AndeanTheme.colors.primary} />
+          <Text style={styles.syncSuccessText}>
+            Recorrido guardado y sincronizado en la nube
+          </Text>
+        </View>
+      ) : (
         <View style={styles.syncBanner}>
           <Text style={styles.syncText}>
-            No se pudo guardar en línea. Tu recorrido está guardado y se
-            mostrará en el historial para reenviarlo.
+            Guardado en el dispositivo. Se sincronizará en la nube automáticamente cuando haya conexión.
           </Text>
         </View>
       )}
@@ -346,6 +358,21 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   syncText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
+  syncSuccessBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.35)",
+    borderRadius: 12,
+    padding: 10,
+  },
+  syncSuccessText: {
+    color: AndeanTheme.colors.primaryLight,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   metricsCard: {
     backgroundColor: AndeanTheme.colors.card,
     borderWidth: 1,

@@ -81,14 +81,18 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     );
   }
 
-  const completed = activity.status === "completed";
-  const first = activity.recordedPoints[0];
-  const last = activity.recordedPoints[activity.recordedPoints.length - 1];
+  const storeActivity = useActivityStore((s) =>
+    activity ? s.activities.find((a) => a.id === activity.id) : null
+  );
+  const displayActivity = storeActivity ?? activity;
+  const completed = displayActivity.status === "completed";
+  const first = displayActivity.recordedPoints[0];
+  const last = displayActivity.recordedPoints[displayActivity.recordedPoints.length - 1];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.head}>
-        <Text style={styles.title}>{activity.routeTitle}</Text>
+        <Text style={styles.title}>{displayActivity.routeTitle}</Text>
         <View
           style={[
             styles.badge,
@@ -108,11 +112,10 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         </View>
       </View>
 
-      {!activity.isSynced && (
+      {!displayActivity.isSynced && (
         <View style={styles.syncBanner}>
           <Text style={styles.syncText}>
-            Esta actividad aún no se sincroniza con la nube (conexión
-            restringida).
+            Esta actividad se encuentra guardada en el dispositivo y se sincronizará automáticamente al detectar conexión.
           </Text>
         </View>
       )}
@@ -129,7 +132,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             ? { lat: last.lat, lng: last.lng, name: "Fin del recorrido" }
             : undefined
         }
-        fitTo={activity.recordedPoints}
+        fitTo={displayActivity.recordedPoints}
         height={260}
       />
 
@@ -138,31 +141,31 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Distancia recorrida</Text>
           <Text style={styles.metricValue}>
-            {formatKm(activity.distanceCoveredKm)}
+            {formatKm(displayActivity.distanceCoveredKm)}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Distancia restante</Text>
           <Text style={styles.metricValue}>
-            {formatKm(activity.remainingDistanceKm)}
+            {formatKm(displayActivity.remainingDistanceKm)}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Duración</Text>
           <Text style={styles.metricValue}>
-            {formatDuration(activity.durationSeconds)}
+            {formatDuration(displayActivity.durationSeconds)}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Puntos registrados</Text>
           <Text style={styles.metricValue}>
-            {activity.recordedPoints.length}
+            {displayActivity.recordedPoints.length}
           </Text>
         </View>
         <View style={styles.metricRow}>
           <Text style={styles.metricKey}>Fecha</Text>
           <Text style={styles.metricValue}>
-            {formatDate(activity.createdAt)}
+            {formatDate(displayActivity.createdAt)}
           </Text>
         </View>
       </View>

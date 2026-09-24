@@ -283,14 +283,31 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             />
             <Text style={styles.legendBadgeText}>Offline</Text>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.legendItem}>
+            <View
+              style={[
+                styles.legendBadgeDot,
+                { backgroundColor: AndeanTheme.colors.amberLight },
+              ]}
+            />
+            <Text style={styles.legendBadgeText}>Online</Text>
+          </View>
+        )}
       </View>
 
       {mode === "guide" && deviation.isOffRoute && (
         <View style={styles.offRouteBanner}>
           <AlertTriangle size={15} color={AndeanTheme.colors.amberLight} />
           <Text style={styles.offRouteText}>
-            Atención: estás a {deviation.meters} m del sendero oficial.
+            Atención: te encuentras a{" "}
+            {deviation.meters >= 1000
+              ? `${(deviation.meters / 1000).toFixed(2)} km`
+              : `${deviation.meters} m`}{" "}
+            del sendero oficial.{" "}
+            {deviation.meters > 500 && offlinePackPath
+              ? "(El mapa offline cubre el área del sendero; aproxímate a la ruta para centrar tu posición)."
+              : ""}
           </Text>
         </View>
       )}

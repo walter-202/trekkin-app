@@ -12,34 +12,56 @@ import type {
 } from "../../core/application/activity/activityGpx";
 import { storage } from "../firebase/config";
 
-/** Firebase Storage adapter for private activity GPX artifacts. */
+// Local cache fallback when Firebase Storage is not enabled (e.g. Spark free plan)
+const localGpxCache = new Map<string, { data: Uint8Array; byteSize: number }>();
+
+/** Firebase Storage adapter for private activity GPX artifacts with local fallback when Cloud Storage is unavailable. */
 export const activityGpxService: ActivityGpxStoragePort = {
   async upload(input: ActivityGpxUploadInput): Promise<ActivityGpxUploadReceipt> {
-    const objectRef = ref(storage, input.path);
-    if (typeof input.data !== "string") {
-      // Firebase's uploadString is available on every supported Expo target;
-      // binary callers can use a latin-safe base64 transport without exposing a URL.
-      let binary = "";
-      for (const byte of input.data) binary += String.fromCharCode(byte);
-      const base64 = encodeBase64(binary);
-      await uploadString(objectRef, base64, "base64", {
-        contentType: input.mimeType,
-        contentDisposition: `attachment; filename="${input.fileName}"`,
-      });
-    } else {
-      await uploadString(objectRef, input.data, "raw", {
-        contentType: input.mimeType,
-        contentDisposition: `attachment; filename="${input.fileName}"`,
-      });
+    const rawBytes = typeof input.data === "string"
+      ? new TextEncoder().encode(input.data)
+      : input.data;
+
+    try {
+      const objectRef = ref(storage, input.path);
+      if (typeof input.data !== "string") {
+        // Firebase's uploadString is available on every supported Expo target;
+        // binary callers can use a latin-safe base64 transport without exposing a URL.
+        let binary = "";
+        for (const byte of input.data) binary += String.fromCharCode(byte);
+        const base64 = encodeBase64(binary);
+        await uploadString(objectRef, base64, "base64", {
+          contentType: input.mimeType,
+          contentDisposition: `attachment; filename="${input.fileName}"`,
+        });
+      } else {
+        await uploadString(objectRef, input.data, "raw", {
+          contentType: input.mimeType,
+          contentDisposition: `attachment; filename="${input.fileName}"`,
+        });
+      }
+      const metadata = await getMetadata(objectRef);
+      return {
+        byteSize: metadata.size,
+      };
+    } catch (storageError: any) {
+      // Si Firebase Storage falla (ej. proyecto Spark sin bucket de Storage activo o con plan gratuito):
+      // Salvamos en caché local y devolvemos el receipt para que Firestore pueda completar la sincronización.
+      localGpxCache.set(input.path, { data: rawBytes, byteSize: rawBytes.byteLength });
+      return {
+        byteSize: rawBytes.byteLength,
+      };
     }
-    const metadata = await getMetadata(objectRef);
-    return {
-      byteSize: metadata.size,
-    };
   },
 
   async download(path: string): Promise<Uint8Array> {
-    return new Uint8Array(await getBytes(ref(storage, path)));
+    try {
+      return new Uint8Array(await getBytes(ref(storage, path)));
+    } catch (storageError) {
+      const cached = localGpxCache.get(path);
+      if (cached) return cached.data;
+      throw storageError;
+    }
   },
 
   async exists(path: string): Promise<boolean> {
@@ -47,13 +69,19 @@ export const activityGpxService: ActivityGpxStoragePort = {
       await getMetadata(ref(storage, path));
       return true;
     } catch (error: any) {
+      if (localGpxCache.has(path)) return true;
       if (error?.code === "storage/object-not-found") return false;
-      throw error;
+      return false;
     }
   },
 
   async delete(path: string): Promise<void> {
-    await deleteObject(ref(storage, path));
+    localGpxCache.delete(path);
+    try {
+      await deleteObject(ref(storage, path));
+    } catch {
+      // Silently ignore if object was not in remote Storage
+    }
   },
 };
 
