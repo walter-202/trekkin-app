@@ -34,6 +34,7 @@ import { formatDurationMinutes } from "../../utils/format";
 import type { PlannedPoint } from "../../../core/domain/plan";
 import type { RouteModel } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
+import { Button } from "../../components/ui";
 
 /**
  * HU-06 — Vista de preparación de la actividad.
@@ -209,14 +210,14 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       {/* 2. Badge de estado offline o alerta de pre-flight */}
       {isDownloaded ? (
         <View style={styles.offlineReadyCard}>
-          <CheckCircle2 size={16} color={AndeanTheme.colors.primaryLight} />
+          <CheckCircle2 size={16} color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.offlineReadyText}>
             Paquete offline listo · Mapa vectorial y GPX descargados
           </Text>
         </View>
       ) : (
         <View style={styles.offlineWarningCard}>
-          <WifiOff size={16} color={AndeanTheme.colors.amberLight} />
+          <WifiOff size={16} color={AndeanTheme.colors.amber} />
           <View style={{ flex: 1 }}>
             <Text style={styles.offlineWarningTitle}>
               Sin mapa offline descargado
@@ -240,7 +241,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       {/* 3. Advertencia de proximidad si el usuario está a >500m del startPoint */}
       {isFarFromStart ? (
         <View style={styles.proximityCard}>
-          <AlertTriangle size={18} color={AndeanTheme.colors.amberLight} />
+          <AlertTriangle size={18} color={AndeanTheme.colors.amber} />
           <View style={{ flex: 1 }}>
             <Text style={styles.proximityTitle}>
               Estás a {distanceToStartKm != null ? distanceToStartKm.toFixed(2) : "0"} km del inicio
@@ -255,7 +256,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       <View style={styles.titleCard}>
         <Text style={styles.title}>{route.routeTitle}</Text>
         <View style={styles.chip}>
-          <Gauge size={12} color={AndeanTheme.colors.accentWarning} />
+          <Gauge size={12} color={AndeanTheme.colors.amber} />
           <Text style={styles.chipText}>
             {DIFFICULTY_LABEL[route.difficulty] ?? route.difficulty}
           </Text>
@@ -277,21 +278,21 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       <View style={styles.metricsCard}>
         <Text style={styles.metricRowLabel}>MÉTRICAS</Text>
         <View style={styles.metricRow}>
-          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
+          <MapPin size={14} color={AndeanTheme.colors.inkSecondary} />
           <Text style={styles.metricLabel}>Distancia total</Text>
           <Text style={styles.metricValue}>
             {route.distanceKm.toFixed(1)} km
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Gauge size={14} color={AndeanTheme.colors.textSecondary} />
+          <Gauge size={14} color={AndeanTheme.colors.inkSecondary} />
           <Text style={styles.metricLabel}>Tiempo estimado</Text>
           <Text style={styles.metricValue}>
             {formatDurationMinutes(route.durationMinutes)}
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <MapPin size={14} color={AndeanTheme.colors.textSecondary} />
+          <MapPin size={14} color={AndeanTheme.colors.inkSecondary} />
           <Text style={styles.metricLabel}>Punto de inicio</Text>
           <Text style={styles.metricValue}>
             {route.startPoint.name} · {route.startPoint.lat.toFixed(4)},{" "}
@@ -299,7 +300,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <Flag size={14} color={AndeanTheme.colors.accentWarning} />
+          <Flag size={14} color={AndeanTheme.colors.amber} />
           <Text style={styles.metricLabel}>Punto final</Text>
           <Text style={styles.metricValue}>
             {route.endPoint.name} · {route.endPoint.lat.toFixed(4)},{" "}
@@ -307,7 +308,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           </Text>
         </View>
         <View style={styles.metricRow}>
-          <ListChecks size={14} color={AndeanTheme.colors.textSecondary} />
+          <ListChecks size={14} color={AndeanTheme.colors.inkSecondary} />
           <Text style={styles.metricLabel}>Checkpoints</Text>
           <Text style={styles.metricValue}>{route.checkpoints.length}</Text>
         </View>
@@ -340,7 +341,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
           <Text
             style={[
               styles.distanceValue,
-              isFarFromStart && { color: AndeanTheme.colors.amberLight },
+              isFarFromStart && { color: AndeanTheme.colors.amber },
             ]}
           >
             {distanceToStartKm.toFixed(2)} km
@@ -348,26 +349,13 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
         </View>
       )}
 
-      <Pressable
+      <Button
+        title="INICIAR ACTIVIDAD"
         onPress={handleBeginClick}
-        disabled={beginning}
-        style={({ pressed }) => [
-          styles.beginBtn,
-          pressed && styles.pressed,
-          beginning && styles.beginBtnDisabled,
-        ]}
-        accessibilityRole="button"
+        loading={beginning}
+        icon={<Play size={16} color={AndeanTheme.colors.white} />}
         accessibilityLabel="Iniciar actividad"
-      >
-        {beginning ? (
-          <ActivityIndicator color="#064E3B" size="small" />
-        ) : (
-          <>
-            <Play size={16} color="#064E3B" />
-            <Text style={styles.beginText}>INICIAR ACTIVIDAD</Text>
-          </>
-        )}
-      </Pressable>
+      />
 
       {/* Modal de confirmación si está lejos del inicio */}
       <Modal
@@ -379,7 +367,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalIconWrap}>
-              <AlertTriangle size={24} color={AndeanTheme.colors.amberLight} />
+              <AlertTriangle size={24} color={AndeanTheme.colors.amber} />
             </View>
             <Text style={styles.modalTitle}>¿Iniciar lejos de la ruta?</Text>
             <Text style={styles.modalText}>
@@ -434,16 +422,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(52, 211, 153, 0.08)",
+    backgroundColor: AndeanTheme.colors.successBg,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.primary,
+    borderColor: AndeanTheme.colors.successBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   offlineReadyText: {
     flex: 1,
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.successText,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -458,13 +446,13 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   offlineWarningTitle: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.amber,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   offlineWarningText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
     lineHeight: 15,
     marginTop: 2,
@@ -473,13 +461,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: AndeanTheme.colors.primary,
+    backgroundColor: AndeanTheme.colors.cta,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   downloadActionText: {
-    color: "#FFFFFF",
+    color: AndeanTheme.colors.white,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -490,53 +478,53 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.accentWarning,
+    borderColor: AndeanTheme.colors.amber,
     borderRadius: 12,
     padding: 12,
   },
   proximityTitle: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.amber,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   proximityText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
     lineHeight: 15,
     marginTop: 3,
   },
   titleCard: { flexDirection: "row", alignItems: "center", gap: 10 },
-  title: { flex: 1, color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
+  title: { flex: 1, color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
   chip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 8,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   chipText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
   description: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
   photo: { width: "100%", height: 160, borderRadius: 12 },
   metricsCard: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 16,
     padding: 12,
     gap: 8,
   },
@@ -544,18 +532,18 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
   },
   metricRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  metricLabel: { flex: 1, color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  metricValue: { color: AndeanTheme.colors.text, fontSize: 12, fontWeight: "700" },
+  metricLabel: { flex: 1, color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
+  metricValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "700" },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 12,
   },
@@ -569,52 +557,35 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
   },
-  locationValue: { color: AndeanTheme.colors.text, fontSize: 12, marginTop: 2 },
+  locationValue: { color: AndeanTheme.colors.ink, fontSize: 12, marginTop: 2 },
   locationError: {
-    color: AndeanTheme.colors.danger,
+    color: AndeanTheme.colors.errorText,
     fontSize: 11,
     marginTop: 2,
     lineHeight: 15,
   },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  muted: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   distanceCard: {
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    borderRadius: 14,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 12,
     padding: 14,
     alignItems: "center",
     gap: 4,
   },
   distanceLabel: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-  distanceValue: { color: AndeanTheme.colors.text, fontSize: 20, fontWeight: "900" },
-  beginBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 15,
-  },
-  beginBtnDisabled: { opacity: 0.5 },
-  beginText: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    color: "#064E3B",
-  },
-  pressed: { opacity: 0.8 },
+  distanceValue: { color: AndeanTheme.colors.ink, fontSize: 20, fontWeight: "900" },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: AndeanTheme.colors.overlay,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -622,9 +593,9 @@ const styles = StyleSheet.create({
   modalCard: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 18,
     padding: 20,
     alignItems: "center",
@@ -639,14 +610,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalTitle: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 17,
     fontWeight: "800",
     textAlign: "center",
     marginBottom: 8,
   },
   modalText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 13,
     lineHeight: 18,
     textAlign: "center",
@@ -664,19 +635,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalCancel: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: AndeanTheme.colors.field,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
   modalCancelText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
   modalConfirm: {
-    backgroundColor: AndeanTheme.colors.accentWarning,
+    backgroundColor: AndeanTheme.colors.cta,
   },
   modalConfirmText: {
-    color: "#000000",
+    color: AndeanTheme.colors.white,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 0.5,

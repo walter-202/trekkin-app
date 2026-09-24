@@ -22,7 +22,7 @@
       "package": "com.walter202.trekkingapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#051712"
+        "backgroundColor": "#0F1412"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",

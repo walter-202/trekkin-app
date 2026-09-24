@@ -11,9 +11,17 @@ const difficultyLabel: Record<RouteModel["difficulty"], string> = {
   experto: "Experto",
 };
 
+const difficultyColor: Record<RouteModel["difficulty"], string> = {
+  facil: AndeanTheme.colors.primaryDark,
+  moderado: AndeanTheme.colors.amber,
+  dificil: AndeanTheme.colors.difficultyHard,
+  experto: AndeanTheme.colors.danger,
+};
+
 /**
  * HU-03 C5 — Tarjeta resumen (nombre, distancia, dificultad, imagen si aplica).
  * Colocalizada en explore (un solo uso); sin lógica de negocio.
+ * Hoja clara: fondo sheet, bordes fieldBorder, acentos de dificultad.
  */
 export const RouteCard: React.FC<{
   route: RouteModel;
@@ -35,7 +43,7 @@ export const RouteCard: React.FC<{
               accessibilityLabel={`Foto de ${route.title}`}
             />
           ) : (
-            <Mountain size={18} color={AndeanTheme.colors.textSecondary} />
+            <Mountain size={18} color={AndeanTheme.colors.fieldIcon} />
           )}
         </View>
         <View style={styles.titleWrap}>
@@ -48,18 +56,23 @@ export const RouteCard: React.FC<{
           </Text>
         </View>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>
+          <Text
+            style={[
+              styles.badgeText,
+              { color: difficultyColor[route.difficulty] },
+            ]}
+          >
             {difficultyLabel[route.difficulty]}
           </Text>
         </View>
       </View>
       <View style={styles.meta}>
         <View style={styles.metaItem}>
-          <Ruler size={12} color={AndeanTheme.colors.textSecondary} />
+          <Ruler size={12} color={AndeanTheme.colors.fieldIcon} />
           <Text style={styles.metaText}>{route.distanceKm.toFixed(1)} km</Text>
         </View>
         <View style={styles.metaItem}>
-          <Clock size={12} color={AndeanTheme.colors.textSecondary} />
+          <Clock size={12} color={AndeanTheme.colors.fieldIcon} />
           <Text style={styles.metaText}>
             {Math.round(route.durationMinutes / 60)} h
           </Text>
@@ -74,9 +87,9 @@ export const RouteCard: React.FC<{
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: AndeanTheme.borderRadius.lg,
     padding: AndeanTheme.spacing.md,
     gap: AndeanTheme.spacing.sm,
@@ -87,40 +100,39 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   thumbImage: { width: 40, height: 40, borderRadius: 12 },
   titleWrap: { flex: 1 },
-  title: { color: AndeanTheme.colors.text, fontSize: 14, fontWeight: "800" },
-  region: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
+  title: { color: AndeanTheme.colors.ink, fontSize: 14, fontWeight: "800" },
+  region: { color: AndeanTheme.colors.fieldLabel, fontSize: 11 },
   badge: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   badgeText: {
-    color: AndeanTheme.colors.textSecondary,
     fontSize: 10,
     fontWeight: "800",
   },
   meta: { flexDirection: "row", alignItems: "center", gap: 12 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   metaText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
     fontWeight: "700",
   },
   routeLine: {
     flex: 1,
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     textAlign: "right",
   },

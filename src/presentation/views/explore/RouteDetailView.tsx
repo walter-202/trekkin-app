@@ -20,7 +20,8 @@ import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { routeDetailCache } from "../../../infrastructure/persistence/routeDetailCache";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { AndeanTheme } from "../../theme";
-import { Banner } from "../../components/ui";
+import { Banner, Button } from "../../components/ui";
+import { ScreenShell, sheetStyles } from "../../components/layout";
 import { TrekMap } from "../../components/map/TrekMap";
 import { ShareModal } from "./ShareModal";
 import { DownloadRouteModal } from "./DownloadRouteModal";
@@ -161,252 +162,253 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Pressable
-        onPress={onBack}
-        style={styles.backBtn}
-        accessibilityLabel="Volver al catálogo"
+    <ScreenShell
+      body="none"
+      header={
+        <>
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={onBack}
+              style={styles.backBtn}
+              accessibilityLabel="Volver al catálogo"
+            >
+              <ChevronLeft size={16} color={AndeanTheme.colors.text} />
+              <Text style={styles.backText}>Catálogo</Text>
+            </Pressable>
+            <View style={styles.badge}>
+              <View style={styles.badgeDot} />
+              <Text style={styles.badgeText}>DETALLE</Text>
+            </View>
+          </View>
+          <View style={styles.titleBlock}>
+            {route.region ? (
+              <Text style={styles.region}>{route.region.toUpperCase()}</Text>
+            ) : null}
+            <Text style={styles.title}>{route.title}</Text>
+            <Text style={styles.terminals}>
+              {route.startPoint.name} → {route.endPoint.name}
+            </Text>
+            <View style={styles.diffBadge}>
+              <Text style={styles.diffBadgeText}>
+                {difficultyLabel[route.difficulty]}
+              </Text>
+            </View>
+          </View>
+        </>
+      }
+    >
+      <ScrollView
+        style={styles.sheetScroll}
+        contentContainerStyle={styles.content}
       >
-        <ChevronLeft size={16} color={AndeanTheme.colors.text} />
-        <Text style={styles.backText}>Catálogo</Text>
-      </Pressable>
-
-      {/* 1. Header hero */}
-      <View style={styles.heroHeader}>
-        <Text style={styles.brand}>TREKKIN BOLIVIA</Text>
-        <Text style={styles.heroTitle}>Consulta de Ruta</Text>
-      </View>
-
-      {/* 2. Visual block: mapa nativo compartido + badge de desnivel */}
-      <View style={styles.visualBlock}>
-        <TrekMap
-          start={{
-            lat: route.startPoint.lat,
-            lng: route.startPoint.lng,
-            name: route.startPoint.name,
-          }}
-          end={{
-            lat: route.endPoint.lat,
-            lng: route.endPoint.lng,
-            name: route.endPoint.name,
-          }}
-          trail={routeTrail}
-          pointsOfInterest={route.checkpoints}
-          height={260}
-          accessibilityLabel={`Mapa de ${route.title}`}
-        />
-        {route.elevationGainM ? (
-          <View style={styles.maxPoint} pointerEvents="none">
-            <Text style={styles.maxPointLabel}>DESNIVEL</Text>
-            <Text style={styles.maxPointValue}>
-              +{route.elevationGainM.toLocaleString("es-BO")}{" "}
-              <Text style={styles.maxPointUnit}>m</Text>
-            </Text>
-          </View>
-        ) : null}
-      </View>
-      {routeTrail.length < 2 ? (
-        <Text style={styles.downloadNotice} accessibilityRole="alert">
-          Esta ruta todavía no tiene una traza visible. Se muestran solo sus puntos de inicio y fin.
-        </Text>
-      ) : null}
-      {cacheMessage ? (
-        <Text style={styles.cacheNotice} accessibilityRole="alert">
-          {cacheMessage}
-        </Text>
-      ) : null}
-
-      {/* 3. Título, región y dificultad */}
-      <View>
-        {route.region ? (
-          <Text style={styles.region}>{route.region.toUpperCase()}</Text>
-        ) : null}
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{route.title}</Text>
-          <View style={styles.diffBadge}>
-            <Text style={styles.diffBadgeText}>
-              {difficultyLabel[route.difficulty]}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.terminals}>
-          {route.startPoint.name} → {route.endPoint.name}
-        </Text>
-      </View>
-
-      {/* 4. Acciones: compartir (HU-05) y descarga del paquete offline (HU-04) */}
-      <View style={styles.actionsRow}>
-        <Pressable
-          onPress={() => setShareOpen(true)}
-          style={styles.actionBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Compartir ruta"
-        >
-          <Share2 size={18} color={AndeanTheme.colors.primaryLight} />
-        </Pressable>
-        <Pressable
-          onPress={requestDownload}
-          style={styles.actionBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Descargar ruta para uso offline"
-        >
-          <Download
-            size={18}
-            color={
-              downloaded
-                ? AndeanTheme.colors.primaryLight
-                : AndeanTheme.colors.textSecondary
-            }
+        {/* 1. Visual block: mapa nativo compartido + badge de desnivel */}
+        <View style={styles.visualBlock}>
+          <TrekMap
+            start={{
+              lat: route.startPoint.lat,
+              lng: route.startPoint.lng,
+              name: route.startPoint.name,
+            }}
+            end={{
+              lat: route.endPoint.lat,
+              lng: route.endPoint.lng,
+              name: route.endPoint.name,
+            }}
+            trail={routeTrail}
+            pointsOfInterest={route.checkpoints}
+            height={260}
+            accessibilityLabel={`Mapa de ${route.title}`}
           />
-        </Pressable>
-      </View>
-      {downloadMessage ? (
-        <Text style={styles.downloadNotice} accessibilityRole="alert">
-          {downloadMessage}
-        </Text>
-      ) : null}
-
-      {/* 5. Tarjeta horizontal de métricas */}
-      <View style={styles.metricsCard}>
-        <View style={styles.metricCell}>
-          <Text style={styles.metricLabel}>Distancia</Text>
-          <Text style={styles.metricValue}>
-            {route.distanceKm.toFixed(1)}{" "}
-            <Text style={styles.metricUnit}>km</Text>
-          </Text>
-        </View>
-        <View style={styles.metricDivider} />
-        <View style={styles.metricCell}>
-          <Text style={styles.metricLabel}>Desnivel</Text>
-          <Text style={styles.metricValue}>
-            {(route.elevationGainM ?? 0).toLocaleString("es-BO")}{" "}
-            <Text style={styles.metricUnit}>m</Text>
-          </Text>
-        </View>
-        <View style={styles.metricDivider} />
-        <View style={styles.metricCell}>
-          <Text style={styles.metricLabel}>Tiempo</Text>
-          <Text style={styles.metricValue}>
-            {formatDuration(route.durationMinutes)}
-          </Text>
-        </View>
-        <View style={styles.metricDivider} />
-        <View style={styles.metricCell}>
-          <Text style={styles.metricLabel}>Modalidad</Text>
-          <Text style={styles.metricValueAccent}>
-            {route.modality === "solo" ? "Solo" : "Acompañado"}
-          </Text>
-        </View>
-      </View>
-
-      {/* 6. Descripción / detalle del itinerario */}
-      <View style={styles.itineraryCard}>
-        <Text style={styles.itineraryTitle}>
-          ●&nbsp;&nbsp;DETALLE DEL ITINERARIO
-        </Text>
-        <Text style={styles.description}>{route.description}</Text>
-      </View>
-
-      {/* 7. Puntos relevantes */}
-      <Text style={styles.section}>
-        Puntos relevantes ({route.checkpoints.length})
-      </Text>
-      {route.checkpoints.length === 0 ? (
-        <Text style={styles.muted}>Sin puntos registrados para esta ruta.</Text>
-      ) : (
-        route.checkpoints.map((cp) => (
-          <View key={cp.id} style={styles.checkpoint}>
-            <Text style={styles.checkpointName}>
-              {cp.name} · {cp.category}
-            </Text>
-            {cp.notes ? <Text style={styles.muted}>{cp.notes}</Text> : null}
-          </View>
-        ))
-      )}
-
-      {/* 8. Banner de invitado */}
-      {!isAuthenticated ? (
-        <View style={styles.guestBox}>
-          <Text style={styles.guestText}>
-            Exploras como invitado. Inicia sesión para registrar actividad GPS o
-            descargar offline.
-          </Text>
-          <Pressable
-            onPress={onRequireAuth ?? exitGuest}
-            style={styles.guestBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Iniciar sesión o crear cuenta"
-          >
-            <Text style={styles.guestBtnText}>
-              Iniciar sesión / Crear cuenta
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.downloadBox}>
-          {downloaded ? (
-            <View style={styles.downloadedRow}>
-              <CheckCircle2
-                size={14}
-                color={AndeanTheme.colors.primaryLight}
-              />
-              <Text style={styles.downloadedText}>
-                Ruta descargada · disponible sin conexión
+          {route.elevationGainM ? (
+            <View style={styles.maxPoint} pointerEvents="none">
+              <Text style={styles.maxPointLabel}>DESNIVEL</Text>
+              <Text style={styles.maxPointValue}>
+                +{route.elevationGainM.toLocaleString("es-BO")}{" "}
+                <Text style={styles.maxPointUnit}>m</Text>
               </Text>
             </View>
           ) : null}
+        </View>
+        {routeTrail.length < 2 ? (
+          <Text style={styles.downloadNotice} accessibilityRole="alert">
+            Esta ruta todavía no tiene una traza visible. Se muestran solo sus puntos de inicio y fin.
+          </Text>
+        ) : null}
+        {cacheMessage ? (
+          <Text style={styles.cacheNotice} accessibilityRole="alert">
+            {cacheMessage}
+          </Text>
+        ) : null}
+
+        {/* 2. Acciones: compartir (HU-05) y descarga del paquete offline (HU-04) */}
+        <View style={styles.actionsRow}>
           <Pressable
-            onPress={() => (route && onStartActivity ? onStartActivity(route) : null)}
-            style={styles.startActivityBtn}
+            onPress={() => setShareOpen(true)}
+            style={styles.actionBtn}
             accessibilityRole="button"
-            accessibilityLabel="Iniciar recorrido guiado con GPS"
+            accessibilityLabel="Compartir ruta"
           >
-            <Activity size={15} color={AndeanTheme.colors.white} />
-            <Text style={styles.startActivityBtnText}>
-              Iniciar recorrido (GPS)
-            </Text>
+            <Share2 size={18} color={AndeanTheme.colors.primaryDark} />
           </Pressable>
           <Pressable
             onPress={requestDownload}
-            style={styles.downloadBtn}
+            style={styles.actionBtn}
             accessibilityRole="button"
-            accessibilityLabel="Descargar ruta para consulta offline"
+            accessibilityLabel="Descargar ruta para uso offline"
           >
-            <Download size={15} color={AndeanTheme.colors.white} />
-            <Text style={styles.downloadBtnText}>
-              {downloaded ? "Volver a descargar ruta" : "Descargar ruta (offline)"}
-            </Text>
+            <Download
+              size={18}
+              color={
+                downloaded
+                  ? AndeanTheme.colors.primaryDark
+                  : AndeanTheme.colors.inkSecondary
+              }
+            />
           </Pressable>
         </View>
-      )}
+        {downloadMessage ? (
+          <Text style={styles.downloadNotice} accessibilityRole="alert">
+            {downloadMessage}
+          </Text>
+        ) : null}
 
-      {/* 9. Modal de compartir (HU-05) */}
-      {shareOpen ? (
-        <ShareModal route={route} onClose={() => setShareOpen(false)} />
-      ) : null}
+        {/* 3. Tarjeta horizontal de métricas */}
+        <View style={[styles.metricsCard, sheetStyles.card]}>
+          <View style={styles.metricCell}>
+            <Text style={styles.metricLabel}>Distancia</Text>
+            <Text style={styles.metricValue}>
+              {route.distanceKm.toFixed(1)}{" "}
+              <Text style={styles.metricUnit}>km</Text>
+            </Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricCell}>
+            <Text style={styles.metricLabel}>Desnivel</Text>
+            <Text style={styles.metricValue}>
+              {(route.elevationGainM ?? 0).toLocaleString("es-BO")}{" "}
+              <Text style={styles.metricUnit}>m</Text>
+            </Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricCell}>
+            <Text style={styles.metricLabel}>Tiempo</Text>
+            <Text style={styles.metricValue}>
+              {formatDuration(route.durationMinutes)}
+            </Text>
+          </View>
+          <View style={styles.metricDivider} />
+          <View style={styles.metricCell}>
+            <Text style={styles.metricLabel}>Modalidad</Text>
+            <Text style={styles.metricValueAccent}>
+              {route.modality === "solo" ? "Solo" : "Acompañado"}
+            </Text>
+          </View>
+        </View>
 
-      {/* 10. Modal de descarga offline (HU-04) */}
-      {downloadOpen && downloadAvailability.available ? (
-        <DownloadRouteModal
-          route={route}
-          visible
-          onClose={() => setDownloadOpen(false)}
-          onCompleted={(record: OfflineRoute) => {
-            setDownloaded(true);
-            void record;
-          }}
-        />
-      ) : null}
-    </ScrollView>
+        {/* 4. Descripción / detalle del itinerario */}
+        <View style={[styles.itineraryCard, sheetStyles.card]}>
+          <Text style={styles.itineraryTitle}>
+            ●&nbsp;&nbsp;DETALLE DEL ITINERARIO
+          </Text>
+          <Text style={styles.description}>{route.description}</Text>
+        </View>
+
+        {/* 5. Puntos relevantes */}
+        <Text style={sheetStyles.sectionTitle}>
+          Puntos relevantes ({route.checkpoints.length})
+        </Text>
+        {route.checkpoints.length === 0 ? (
+          <Text style={sheetStyles.muted}>
+            Sin puntos registrados para esta ruta.
+          </Text>
+        ) : (
+          route.checkpoints.map((cp) => (
+            <View key={cp.id} style={styles.checkpoint}>
+              <Text style={styles.checkpointName}>
+                {cp.name} · {cp.category}
+              </Text>
+              {cp.notes ? (
+                <Text style={sheetStyles.muted}>{cp.notes}</Text>
+              ) : null}
+            </View>
+          ))
+        )}
+
+        {/* 6. Banner de invitado */}
+        {!isAuthenticated ? (
+          <View style={styles.guestBox}>
+            <Text style={styles.guestText}>
+              Exploras como invitado. Inicia sesión para registrar actividad GPS o
+              descargar offline.
+            </Text>
+            <Button
+              title="Iniciar sesión / Crear cuenta"
+              onPress={onRequireAuth ?? exitGuest}
+              accessibilityLabel="Iniciar sesión o crear cuenta"
+            />
+          </View>
+        ) : (
+          <View style={styles.downloadBox}>
+            {downloaded ? (
+              <View style={styles.downloadedRow}>
+                <CheckCircle2
+                  size={14}
+                  color={AndeanTheme.colors.primaryDark}
+                />
+                <Text style={styles.downloadedText}>
+                  Ruta descargada · disponible sin conexión
+                </Text>
+              </View>
+            ) : null}
+            <Button
+              title="Iniciar recorrido (GPS)"
+              icon={<Activity size={16} color={AndeanTheme.colors.white} />}
+              onPress={() =>
+                route && onStartActivity ? onStartActivity(route) : null
+              }
+              accessibilityLabel="Iniciar recorrido guiado con GPS"
+            />
+            <Button
+              title={
+                downloaded ? "Volver a descargar ruta" : "Descargar ruta (offline)"
+              }
+              icon={<Download size={16} color={AndeanTheme.colors.white} />}
+              onPress={requestDownload}
+              accessibilityLabel="Descargar ruta para consulta offline"
+            />
+          </View>
+        )}
+
+        {/* 7. Modal de compartir (HU-05) */}
+        {shareOpen ? (
+          <ShareModal route={route} onClose={() => setShareOpen(false)} />
+        ) : null}
+
+        {/* 8. Modal de descarga offline (HU-04) */}
+        {downloadOpen && downloadAvailability.available ? (
+          <DownloadRouteModal
+            route={route}
+            visible
+            onClose={() => setDownloadOpen(false)}
+            onCompleted={(record: OfflineRoute) => {
+              setDownloaded(true);
+              void record;
+            }}
+          />
+        ) : null}
+      </ScrollView>
+    </ScreenShell>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: AndeanTheme.colors.background },
+  sheetScroll: { flex: 1 },
   content: {
-    padding: AndeanTheme.spacing.lg,
-    gap: 12,
-    paddingBottom: 32,
+    paddingHorizontal: AndeanTheme.spacing.xl,
+    paddingTop: AndeanTheme.spacing.xl,
+    paddingBottom: AndeanTheme.spacing.xxl,
+    gap: AndeanTheme.spacing.lg,
   },
   center: {
     flex: 1,
@@ -414,6 +416,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 9999,
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: AndeanTheme.colors.primary,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: AndeanTheme.colors.primaryLight,
   },
   backBtn: {
     flexDirection: "row",
@@ -426,19 +458,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
   },
-  heroHeader: { alignItems: "center", gap: 2, marginTop: 2 },
-  brand: {
+  titleBlock: { gap: 6 },
+  region: {
     color: AndeanTheme.colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 1.2,
+    letterSpacing: 0.8,
   },
-  heroTitle: {
-    color: AndeanTheme.colors.text,
-    fontSize: 20,
+  title: {
+    color: AndeanTheme.colors.white,
+    fontSize: 24,
     fontWeight: "900",
-    letterSpacing: 0.5,
-    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  terminals: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+  },
+  diffBadge: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.borderLight,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  diffBadgeText: {
+    color: AndeanTheme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   visualBlock: { position: "relative" },
   maxPoint: {
@@ -465,44 +515,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   maxPointUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
-  region: {
-    color: AndeanTheme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 2,
-  },
-  title: {
-    flex: 1,
-    color: AndeanTheme.colors.text,
-    fontSize: 22,
-    fontWeight: "900",
-    letterSpacing: -0.3,
-  },
-  diffBadge: {
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  diffBadgeText: {
-    color: AndeanTheme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  terminals: {
-    color: AndeanTheme.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 4,
-  },
   actionsRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -513,77 +525,63 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
     alignItems: "center",
     justifyContent: "center",
   },
   actionDisabled: { opacity: 0.55 },
   metricsCard: {
     flexDirection: "row",
-    backgroundColor: AndeanTheme.colors.card,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: AndeanTheme.borderRadius.lg,
     paddingVertical: 14,
     paddingHorizontal: 6,
   },
   metricCell: { flex: 1, alignItems: "center", gap: 4 },
   metricDivider: {
     width: 1,
-    backgroundColor: AndeanTheme.colors.border,
+    backgroundColor: AndeanTheme.colors.fieldBorder,
     marginVertical: 2,
   },
   metricLabel: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 11,
   },
   metricValue: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 16,
     fontWeight: "900",
   },
-  metricUnit: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  metricUnit: { color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
   metricValueAccent: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.amber,
     fontSize: 14,
     fontWeight: "800",
   },
   itineraryCard: {
-    backgroundColor: AndeanTheme.colors.card,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: AndeanTheme.borderRadius.lg,
     padding: 14,
     gap: 10,
   },
   itineraryTitle: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
   description: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 13,
     lineHeight: 19,
   },
-  section: {
-    color: AndeanTheme.colors.text,
-    fontSize: 13,
-    fontWeight: "800",
-    marginTop: 4,
-  },
   checkpoint: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 10,
     gap: 2,
   },
   checkpointName: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -594,40 +592,27 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   cacheNotice: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     lineHeight: 17,
   },
   guestBox: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 12,
     gap: 8,
   },
   guestText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     lineHeight: 17,
   },
-  guestBtn: {
-    backgroundColor: AndeanTheme.colors.backgroundSecondary,
-    borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  guestBtnText: {
-    color: AndeanTheme.colors.text,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   downloadBox: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 12,
     gap: 8,
@@ -638,37 +623,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   downloadedText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 12,
     fontWeight: "700",
-  },
-  downloadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primaryDark,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  downloadBtnText: {
-    color: AndeanTheme.colors.white,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  startActivityBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  startActivityBtnText: {
-    color: AndeanTheme.colors.white,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.5,
   },
 });

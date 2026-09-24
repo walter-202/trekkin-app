@@ -141,71 +141,82 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
         )}
       </View>
 
-      {step === "locating" && (
-        <View style={styles.center}>
-          {locating ? (
-            <>
-              <ActivityIndicator color={AndeanTheme.colors.primary} size="large" />
-              <Text style={styles.centerTitle}>
-                Obteniendo tu ubicación GPS…
-              </Text>
-              <Text style={styles.centerText}>
-                Quédate al aire libre unos segundos para un fix preciso.
-              </Text>
-            </>
-          ) : (
-            <>
-              <Crosshair size={32} color={AndeanTheme.colors.textSecondary} />
-              <Text style={styles.centerTitle}>Graba desde donde estás</Text>
-              <Text style={styles.centerText}>
-                Usaremos tu ubicación GPS actual como punto inicial. No
-                necesitas planificar ni elegir destino.
-              </Text>
-              {locError && (
-                <View style={styles.errorBanner}>
-                  <AlertTriangle size={14} color={AndeanTheme.colors.danger} />
-                  <Text style={styles.errorText}>{locError}</Text>
-                </View>
-              )}
-              <Pressable
-                onPress={requestFixAndStart}
-                style={({ pressed }) => [
-                  styles.startBtn,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.startBtnText}>
-                  OBTENER UBICACIÓN E INICIAR
+      {/* Hoja blanca: locating/tracking/result/detail sobre hoja clara. */}
+      <View style={styles.sheet}>
+        {step === "locating" && (
+          <View style={styles.center}>
+            {locating ? (
+              <>
+                <ActivityIndicator
+                  color={AndeanTheme.colors.primaryDark}
+                  size="large"
+                />
+                <Text style={styles.centerTitle}>
+                  Obteniendo tu ubicación GPS…
                 </Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      )}
+                <Text style={styles.centerText}>
+                  Quédate al aire libre unos segundos para un fix preciso.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Crosshair size={32} color={AndeanTheme.colors.fieldIcon} />
+                <Text style={styles.centerTitle}>Graba desde donde estás</Text>
+                <Text style={styles.centerText}>
+                  Usaremos tu ubicación GPS actual como punto inicial. No
+                  necesitas planificar ni elegir destino.
+                </Text>
+                {locError && (
+                  <View style={styles.errorBanner}>
+                    <AlertTriangle
+                      size={14}
+                      color={AndeanTheme.colors.errorText}
+                    />
+                    <Text style={styles.errorText}>{locError}</Text>
+                  </View>
+                )}
+                <Pressable
+                  onPress={requestFixAndStart}
+                  style={({ pressed }) => [
+                    styles.startBtn,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Obtener ubicación e iniciar grabación"
+                >
+                  <Text style={styles.startBtnText}>
+                    OBTENER UBICACIÓN E INICIAR
+                  </Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        )}
 
-      {step === "tracking" && (
-        <TrackingView
-          onFinish={handleFinished}
-          watchOptions={RECORDING_WATCH_OPTIONS}
-          mode="free"
-        />
-      )}
+        {step === "tracking" && (
+          <TrackingView
+            onFinish={handleFinished}
+            watchOptions={RECORDING_WATCH_OPTIONS}
+            mode="free"
+          />
+        )}
 
-      {step === "result" && lastSaved && (
-        <ResultView
-          saved={lastSaved}
-          onViewTrack={() => setStep("detail")}
-          onGoHistory={() => setStep("detail")}
-          onClose={handleDone}
-        />
-      )}
+        {step === "result" && lastSaved && (
+          <ResultView
+            saved={lastSaved}
+            onViewTrack={() => setStep("detail")}
+            onGoHistory={() => setStep("detail")}
+            onClose={handleDone}
+          />
+        )}
 
-      {step === "detail" && lastSaved && (
-        <ActivityDetailView
-          activity={lastSaved}
-          onBack={() => setStep("result")}
-        />
-      )}
+        {step === "detail" && lastSaved && (
+          <ActivityDetailView
+            activity={lastSaved}
+            onBack={() => setStep("result")}
+          />
+        )}
+      </View>
     </View>
   );
 };
@@ -216,7 +227,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16,
+    paddingBottom: 14,
     gap: 12,
   },
   headerBtn: {
@@ -230,6 +242,12 @@ const styles = StyleSheet.create({
     borderColor: AndeanTheme.colors.border,
   },
   headerTitle: { flex: 1, color: AndeanTheme.colors.text, fontSize: 15, fontWeight: "900" },
+  sheet: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+  },
   center: {
     flex: 1,
     alignItems: "center",
@@ -238,13 +256,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   centerTitle: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.ink,
     fontSize: 16,
     fontWeight: "900",
     textAlign: "center",
   },
   centerText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     textAlign: "center",
     lineHeight: 17,
@@ -253,22 +271,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "rgba(239,68,68,0.12)",
+    backgroundColor: AndeanTheme.colors.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.35)",
+    borderColor: AndeanTheme.colors.errorBorder,
     borderRadius: 12,
     padding: 10,
   },
-  errorText: { color: AndeanTheme.colors.danger, fontSize: 11, flex: 1 },
+  errorText: { color: AndeanTheme.colors.errorText, fontSize: 11, flex: 1 },
   startBtn: {
-    backgroundColor: AndeanTheme.colors.primary,
+    backgroundColor: AndeanTheme.colors.cta,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 24,
     marginTop: 8,
   },
   startBtnText: {
-    color: "#064E3B",
+    color: AndeanTheme.colors.white,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 0.6,

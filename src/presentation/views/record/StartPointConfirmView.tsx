@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { Navigation, CheckCircle2 } from 'lucide-react-native';
 import { TrekMap } from '../../components/map/TrekMap';
+import { Button } from '../../components/ui';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import { AndeanTheme } from '../../theme';
@@ -78,7 +79,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 
       {locating ? (
         <View style={[styles.mapPlaceholder, { height: 260 }]}>
-          <ActivityIndicator color={AndeanTheme.colors.primary} />
+          <ActivityIndicator color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.muted}>Obteniendo tu ubicación…</Text>
         </View>
       ) : (
@@ -91,7 +92,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
       )}
 
       <View style={styles.infoCard}>
-        <Navigation size={14} color={AndeanTheme.colors.textSecondary} />
+        <Navigation size={14} color={AndeanTheme.colors.fieldIcon} />
         <View style={{ flex: 1 }}>
           <Text style={styles.infoLabel}>PUNTO DE INICIO A CONFIRMAR</Text>
           {target ? (
@@ -105,30 +106,21 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
       </View>
 
       {current && !pending && (
-        <Pressable onPress={() => setPending(current)} style={styles.useCurrentBtn}>
-          <Navigation size={14} color={AndeanTheme.colors.primary} />
-          <Text style={styles.useCurrentText}>USAR MI UBICACIÓN ACTUAL</Text>
-        </Pressable>
+        <Button
+          title="USAR MI UBICACIÓN ACTUAL"
+          variant="outline-green"
+          onPress={() => setPending(current)}
+          icon={<Navigation size={14} color={AndeanTheme.colors.primaryDark} />}
+        />
       )}
 
-      <Pressable
+      <Button
+        title="CONFIRMAR PUNTO DE INICIO"
         onPress={handleConfirm}
-        disabled={saving || !target}
-        style={({ pressed }) => [
-          styles.confirmBtn,
-          pressed && styles.pressed,
-          !target && styles.confirmBtnDisabled,
-        ]}
-      >
-        {saving ? (
-          <ActivityIndicator color="#064E3B" size="small" />
-        ) : (
-          <>
-            <CheckCircle2 size={15} color="#064E3B" />
-            <Text style={styles.confirmBtnText}>CONFIRMAR PUNTO DE INICIO</Text>
-          </>
-        )}
-      </Pressable>
+        loading={saving}
+        disabled={!target}
+        icon={<CheckCircle2 size={15} color={AndeanTheme.colors.white} />}
+      />
     </ScrollView>
   );
 };
@@ -136,50 +128,30 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
-  help: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
-  helpStrong: { color: AndeanTheme.colors.text, fontWeight: '800' },
-  locationWarning: { color: AndeanTheme.colors.danger, fontSize: 11 },
+  help: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
+  helpStrong: { color: AndeanTheme.colors.ink, fontWeight: '800' },
+  locationWarning: { color: AndeanTheme.colors.errorText, fontSize: 11 },
   mapPlaceholder: {
     width: '100%',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
-    backgroundColor: AndeanTheme.colors.card,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    backgroundColor: AndeanTheme.colors.field,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 12 },
+  muted: { color: AndeanTheme.colors.fieldHint, fontSize: 12 },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 12,
     padding: 12,
   },
-  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: AndeanTheme.colors.textMuted },
-  infoValue: { color: AndeanTheme.colors.text, fontSize: 12, marginTop: 2 },
-  useCurrentBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-  },
-  useCurrentText: { color: AndeanTheme.colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 0.6 },
-  confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  confirmBtnDisabled: { opacity: 0.4 },
-  pressed: { opacity: 0.8 },
-  confirmBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6, color: '#064E3B' },
+  infoLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: AndeanTheme.colors.fieldHint },
+  infoValue: { color: AndeanTheme.colors.ink, fontSize: 12, marginTop: 2 },
 });

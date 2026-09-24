@@ -50,7 +50,7 @@ src/presentation/views/explore/ExploreView.tsx       (catálogo + detalle + mapa
 - ❌ Validar solo en el formulario sin esquema zod en dominio.
 - ❌ Guardar el rol desde el cliente sin verificarlo en `firestore.rules`.
 - ❌ Poner lógica de negocio dentro del `View` (debe vivir en el use case).
-- ❌ Romper la paleta (`#051712` fondo, `#0E2E24` tarjeta, `#1A4537` borde, `#10B981` acento).
+- ❌ Romper la paleta (`#0F1412` fondo, `#1C2420` tarjeta, `#2A3630` borde, `#10B981` acento).
 - ❌ Segundo motor de mapas (`react-native-maps`, `PlanMap`, Google SDK). Usar `<TrekMap />`.
 
 ## 10. Mapas (HU-03/04/06/07/08)

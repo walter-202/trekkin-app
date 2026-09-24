@@ -298,7 +298,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
 
       {mode === "guide" && deviation.isOffRoute && (
         <View style={styles.offRouteBanner}>
-          <AlertTriangle size={15} color={AndeanTheme.colors.amberLight} />
+          <AlertTriangle size={15} color={AndeanTheme.colors.amber} />
           <Text style={styles.offRouteText}>
             Atención: te encuentras a{" "}
             {deviation.meters >= 1000
@@ -349,7 +349,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
                   {visited ? (
                     <CheckCircle2 size={16} color={AndeanTheme.colors.primary} />
                   ) : (
-                    <Circle size={16} color={AndeanTheme.colors.borderLight} />
+                    <Circle size={16} color={AndeanTheme.colors.fieldIcon} />
                   )}
                   <Text
                     style={[
@@ -410,7 +410,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             accessibilityRole="button"
             accessibilityLabel="Pausar actividad"
           >
-            <Pause size={16} color={AndeanTheme.colors.textSecondary} />
+            <Pause size={16} color={AndeanTheme.colors.inkSecondary} />
             <Text style={styles.secondaryText}>PAUSAR</Text>
           </Pressable>
         ) : (
@@ -424,7 +424,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
               accessibilityRole="button"
               accessibilityLabel="Reanudar actividad"
             >
-              <Play size={16} color="#064E3B" />
+              <Play size={16} color={AndeanTheme.colors.white} />
               <Text style={styles.resumeText}>REANUDAR</Text>
             </Pressable>
           )
@@ -442,10 +442,10 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
           accessibilityLabel="Finalizar actividad"
         >
           {finishing ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={AndeanTheme.colors.white} size="small" />
           ) : (
             <>
-              <Flag size={16} color="#FFFFFF" />
+              <Flag size={16} color={AndeanTheme.colors.white} />
               <Text style={styles.finishText}>FINALIZAR</Text>
             </>
           )}
@@ -512,27 +512,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
   },
-  warningText: { color: "#FDE68A", fontSize: 11, lineHeight: 15 },
+  warningText: { color: AndeanTheme.colors.amber, fontSize: 11, lineHeight: 15 },
   hud: {
     flexDirection: "row",
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 14,
   },
   hudCol: { flex: 1, alignItems: "center", gap: 4 },
   hudLabel: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
-  hudValue: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
+  hudValue: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
   checkpointsCard: {
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 14,
     gap: 8,
@@ -544,16 +544,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   checkpointsTitle: {
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1,
   },
   checkpointRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  checkpointName: { flex: 1, color: AndeanTheme.colors.textSecondary, fontSize: 12 },
-  checkpointNameVisited: { color: AndeanTheme.colors.text },
-  checkpointState: { color: AndeanTheme.colors.textMuted, fontSize: 10, fontWeight: "800" },
-  checkpointStateVisited: { color: AndeanTheme.colors.primary },
+  checkpointName: { flex: 1, color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
+  checkpointNameVisited: { color: AndeanTheme.colors.ink },
+  checkpointState: { color: AndeanTheme.colors.fieldHint, fontSize: 10, fontWeight: "800" },
+  checkpointStateVisited: { color: AndeanTheme.colors.primaryDark },
   pausedBanner: {
     backgroundColor: "rgba(245,158,11,0.12)",
     borderWidth: 1,
@@ -562,19 +562,19 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   pausedText: {
-    color: AndeanTheme.colors.accentWarning,
+    color: AndeanTheme.colors.amber,
     fontSize: 10,
     fontWeight: "800",
     textAlign: "center",
   },
   errorBanner: {
-    backgroundColor: "rgba(239,68,68,0.12)",
+    backgroundColor: AndeanTheme.colors.errorBg,
     borderWidth: 1,
-    borderColor: "rgba(239,68,68,0.35)",
+    borderColor: AndeanTheme.colors.errorBorder,
     borderRadius: 12,
     padding: 10,
   },
-  errorText: { color: AndeanTheme.colors.danger, fontSize: 11, lineHeight: 15 },
+  errorText: { color: AndeanTheme.colors.errorText, fontSize: 11, lineHeight: 15 },
   actions: { flexDirection: "row", gap: 10 },
   secondaryBtn: {
     flex: 1,
@@ -582,14 +582,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 14,
   },
   secondaryText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -600,12 +600,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.primary,
+    backgroundColor: AndeanTheme.colors.cta,
     borderRadius: 14,
     paddingVertical: 14,
   },
   resumeText: {
-    color: "#064E3B",
+    color: AndeanTheme.colors.white,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   },
   finishBtnDisabled: { opacity: 0.5 },
   finishText: {
-    color: "#FFFFFF",
+    color: AndeanTheme.colors.white,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -636,26 +636,26 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    backgroundColor: AndeanTheme.colors.card,
+    backgroundColor: AndeanTheme.colors.sheet,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 20,
     padding: 20,
     gap: 10,
   },
-  modalTitle: { color: AndeanTheme.colors.text, fontSize: 16, fontWeight: "900" },
-  modalText: { color: AndeanTheme.colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  modalTitle: { color: AndeanTheme.colors.ink, fontSize: 16, fontWeight: "900" },
+  modalText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 8 },
   modalCancel: {
     flex: 1,
     alignItems: "center",
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 12,
   },
-  modalCancelText: { color: AndeanTheme.colors.textSecondary, fontSize: 11, fontWeight: "800" },
+  modalCancelText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "800" },
   modalConfirm: {
     flex: 1,
     alignItems: "center",
@@ -663,22 +663,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 12,
   },
-  modalConfirmText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
+  modalConfirmText: { color: AndeanTheme.colors.white, fontSize: 11, fontWeight: "800" },
   pressed: { opacity: 0.8 },
-  muted: { color: AndeanTheme.colors.textSecondary, fontSize: 11 },
+  muted: { color: AndeanTheme.colors.fieldHint, fontSize: 11 },
   checkpointBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.borderLight,
+    borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 14,
     paddingVertical: 12,
   },
   checkpointBtnText: {
-    color: AndeanTheme.colors.text,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.6,
@@ -690,13 +690,13 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: AndeanTheme.colors.cardElevated,
+    backgroundColor: AndeanTheme.colors.field,
     borderRadius: 8,
     alignSelf: "center",
     marginTop: -8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.border,
+    borderColor: AndeanTheme.colors.fieldBorder,
   },
   legendItem: {
     flexDirection: "row",
@@ -714,12 +714,12 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   legendText: {
-    color: AndeanTheme.colors.textSecondary,
+    color: AndeanTheme.colors.inkSecondary,
     fontSize: 10,
     fontWeight: "700",
   },
   legendBadgeText: {
-    color: AndeanTheme.colors.primaryLight,
+    color: AndeanTheme.colors.primaryDark,
     fontSize: 10,
     fontWeight: "800",
   },
@@ -729,14 +729,14 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "rgba(245, 158, 11, 0.12)",
     borderWidth: 1,
-    borderColor: AndeanTheme.colors.amberLight,
+    borderColor: AndeanTheme.colors.amber,
     borderRadius: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginBottom: 10,
   },
   offRouteText: {
-    color: AndeanTheme.colors.amberLight,
+    color: AndeanTheme.colors.amber,
     fontSize: 12,
     fontWeight: "700",
     flex: 1,

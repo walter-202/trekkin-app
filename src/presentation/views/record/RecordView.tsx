@@ -160,12 +160,12 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={goBack} style={styles.headerBtn} accessibilityLabel="Volver">
+        <Pressable onPress={goBack} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Volver">
           <ArrowLeft size={18} color={AndeanTheme.colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>{STEP_TITLES[step]}</Text>
         {step === 'drafts' && onClose ? (
-          <Pressable onPress={onClose} style={styles.headerBtn} accessibilityLabel="Cerrar">
+          <Pressable onPress={onClose} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="Cerrar">
             <X size={18} color={AndeanTheme.colors.textSecondary} />
           </Pressable>
         ) : (
@@ -173,46 +173,49 @@ export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
         )}
       </View>
 
-      {step === 'drafts' && <DraftsView onCreate={handleCreate} onOpen={handleOpenDraft} />}
-      {step === 'create' && <CreateRouteView onSaved={handleSaved} />}
-      {step === 'editor' && <PlanEditorView onContinue={() => setStep('confirm')} />}
-      {step === 'confirm' && (
-        <StartPointConfirmView
-          onConfirmed={async () => {
-            await usePlanStore.getState().markReadyForGps();
-            setStep('ready');
-          }}
-        />
-      )}
-      {step === 'ready' && (
-        <ReadyForGpsView
-          onStartRecording={handleStartRecording}
-          onDone={() => {
-            usePlanStore.getState().clearPlan();
-            setStep('drafts');
-          }}
-        />
-      )}
-      {step === 'recording' && (
-        <TrackingView
-          onFinish={handleFinished}
-          watchOptions={RECORDING_WATCH_OPTIONS}
-        />
-      )}
-      {step === 'summary' && lastSaved && (
-        <ResultView
-          saved={lastSaved}
-          onViewTrack={() => setStep('detail')}
-          onClose={handleSummaryDone}
-        />
-      )}
-      {step === 'detail' && lastSaved && (
-        <ActivityDetailView activity={lastSaved} onBack={() => setStep('summary')} />
-      )}
+      {/* Hoja blanca: todos los pasos viven sobre la hoja clara (capas duales). */}
+      <View style={styles.sheet}>
+        {step === 'drafts' && <DraftsView onCreate={handleCreate} onOpen={handleOpenDraft} />}
+        {step === 'create' && <CreateRouteView onSaved={handleSaved} />}
+        {step === 'editor' && <PlanEditorView onContinue={() => setStep('confirm')} />}
+        {step === 'confirm' && (
+          <StartPointConfirmView
+            onConfirmed={async () => {
+              await usePlanStore.getState().markReadyForGps();
+              setStep('ready');
+            }}
+          />
+        )}
+        {step === 'ready' && (
+          <ReadyForGpsView
+            onStartRecording={handleStartRecording}
+            onDone={() => {
+              usePlanStore.getState().clearPlan();
+              setStep('drafts');
+            }}
+          />
+        )}
+        {step === 'recording' && (
+          <TrackingView
+            onFinish={handleFinished}
+            watchOptions={RECORDING_WATCH_OPTIONS}
+          />
+        )}
+        {step === 'summary' && lastSaved && (
+          <ResultView
+            saved={lastSaved}
+            onViewTrack={() => setStep('detail')}
+            onClose={handleSummaryDone}
+          />
+        )}
+        {step === 'detail' && lastSaved && (
+          <ActivityDetailView activity={lastSaved} onBack={() => setStep('summary')} />
+        )}
 
-      {plan && (step === 'create' || step === 'editor' || step === 'confirm') && (
-        <Text style={styles.footNote}>Autosave activo · No perderás tu planificación</Text>
-      )}
+        {plan && (step === 'create' || step === 'editor' || step === 'confirm') && (
+          <Text style={styles.footNote}>Autosave activo · No perderás tu planificación</Text>
+        )}
+      </View>
     </View>
   );
 };
@@ -223,7 +226,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 16,
+    paddingBottom: 14,
     gap: 12,
   },
   headerBtn: {
@@ -237,10 +241,17 @@ const styles = StyleSheet.create({
     borderColor: AndeanTheme.colors.border,
   },
   headerTitle: { flex: 1, color: AndeanTheme.colors.text, fontSize: 15, fontWeight: '900' },
+  sheet: {
+    flex: 1,
+    backgroundColor: AndeanTheme.colors.sheet,
+    borderTopLeftRadius: 36,
+    borderTopRightRadius: 36,
+  },
   footNote: {
     textAlign: 'center',
-    color: AndeanTheme.colors.textMuted,
+    color: AndeanTheme.colors.fieldHint,
     fontSize: 10,
-    paddingBottom: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
 });
