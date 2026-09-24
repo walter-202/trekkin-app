@@ -45,19 +45,20 @@ User loaded `INFORME_TEMPLATE.docx` and asked to start the formal report with th
 - [x] T2 — Write `01-parte-teorica.md`, `02-marco-practico.md`
 - [x] T3 — Write `03-sprints.md` (per-sprint analysis/design/implementation/tests)
 - [x] T4 — Write `04-casos-uso-uml.md`, `05-ui-bibliografia-anexos.md`, `README.md`
-- [ ] T5 — Structural readback + work-unit commit (docs only)
+- [x] T5 — Structural readback + work-unit commit (docs only)
 
 ## Acceptance criteria
 
 - [x] Structure follows template: theory → practical → Scrum (RF/HU/PB/sprints) → CU/UML → UI → biblio → annexes
 - [x] Each sprint documents análisis, diseño, implementación, pruebas
 - [x] HU % match `USER_STORIES.md`; BK statuses match `BACKLOG.md`
-- [ ] 11 image refs under `docs/assets/informe/` resolve from report files
-- [ ] Commit touches only intended docs paths
+- [x] 11 image refs under `docs/assets/informe/` resolve from report files
+- [x] Commit touches only intended docs paths
 
 ## Progress
 
-- 2026-09-24: T1–T4 written (`docs/informe-formal/` 6 files); T5 readback in progress
+- 2026-09-24: T1–T5 done; work-unit commit on `main`
+- Structural readback PASS: 6 files, 11/11 images, no leaked keys, false claims only as Won't-have negations
 
 ## Evidence
 
