@@ -23,11 +23,14 @@ import { sheetStyles } from "../../components/layout";
 interface HistoryViewProps {
   onSelect: (id: string) => void;
   onBack: () => void;
+  /** Oculta el título de sección cuando el padre ya lo muestra (p. ej. HistoryHubView). */
+  showHeader?: boolean;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
   onSelect,
   onBack,
+  showHeader = true,
 }) => {
   const { currentUser } = useAuth();
   const activities = useActivityStore((s) => s.activities);
@@ -42,9 +45,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={sheetStyles.sectionTitle}>Mis actividades</Text>
-      </View>
+      {showHeader ? (
+        <View style={styles.headerRow}>
+          <Text style={sheetStyles.sectionTitle}>Mis actividades</Text>
+        </View>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.center}>

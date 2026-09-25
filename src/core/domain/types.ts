@@ -28,6 +28,12 @@ export interface RouteArtifactMetadata {
   fileName: "route.gpx" | "basemap.pmtiles";
   mimeType: "application/gpx+xml" | "application/vnd.pmtiles";
   byteSize: number;
+  /**
+   * URL HTTPS pública del artefacto (p. ej. PMTiles extraído con Protomaps CLI
+   * y hosteado en CDN). Si está presente, la app descarga desde aquí antes que
+   * Firebase Storage.
+   */
+  downloadUrl?: string;
   /** Optional while an upload is pending; when present it is a SHA-256 digest. */
   sha256?: string;
   status: RouteArtifactStatus;

@@ -24,7 +24,7 @@ function artifacts(): RoutePublicationArtifacts {
     },
     pmtiles: {
       kind: "pmtiles", version, storagePath: routeArtifactStoragePath("detail-route", version, "pmtiles"),
-      fileName: "basemap.pmtiles", mimeType: "application/vnd.pmtiles", byteSize: 256,
+      fileName: "basemap.pmtiles", mimeType: "application/vnd.pmtiles", byteSize: 5 * 1024 * 1024,
       sha256: "b".repeat(64), status: "uploaded", updatedAt: 1,
     },
   };

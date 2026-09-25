@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,9 +19,16 @@ import {
   AlertTriangle,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
+import { MapThemeSelector } from "../../components/map/MapThemeSelector";
+import { GetRoutePreviewPointsUseCase } from "../../../core/application/explore/RouteDetailSupport.usecase";
+import type { OnlineMapTheme } from "../../../infrastructure/map/mapStyle";
+import { routeService } from "../../../infrastructure/database/routeService";
+import type { Coordinates } from "../../../core/domain/types";
 import { AddCheckpointModal } from "./AddCheckpointModal";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
+import { isUsableOfflineBasemap } from "../../../core/domain/offline";
+import { getBundledPmtilesCachedPath } from "../../../infrastructure/map/bundledPmtiles";
 import {
   activeElapsedMs,
   ACTIVITY_CONFIG,
@@ -105,13 +112,24 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   const [compassHeading, setCompassHeading] = useState<number | undefined>(
     undefined,
   );
+  const headingRef = useRef<number | undefined>(undefined);
+  const [mapTheme, setMapTheme] = useState<OnlineMapTheme>("dark");
+  const [packReady, setPackReady] = useState(false);
+  const [routeTrail, setRouteTrail] = useState<Coordinates[]>([]);
+  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let watch: { remove: () => void } | null = null;
     let mounted = true;
     void locationService
       .watchHeading((deg) => {
-        if (mounted) setCompassHeading(deg);
+        if (!mounted) return;
+        const prev = headingRef.current;
+        if (prev != null && Math.abs(deg - prev) < 5) return;
+        headingRef.current = deg;
+        setCompassHeading(deg);
       })
       .then((sub) => {
         if (!mounted) {
@@ -126,10 +144,76 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId || mode === "free" || routeId.startsWith("free-")) {
+      setOfflinePackPath(undefined);
+      return;
+    }
+    void (async () => {
+      try {
+        const record = await tileCacheDB.get(routeId);
+        if (record && isUsableOfflineBasemap(record)) {
+          setOfflinePackPath(record.pmtilesPath);
+          return;
+        }
+        const bundled = await getBundledPmtilesCachedPath(routeId);
+        setOfflinePackPath(bundled ?? undefined);
+      } catch {
+        setOfflinePackPath(undefined);
+      }
+    })();
+  }, [live?.route?.routeId, mode]);
+
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId || mode === "free" || routeId.startsWith("free-")) {
+      setRouteTrail([]);
+      return;
+    }
+    let active = true;
+    void routeService.getRouteById(routeId).then((full) => {
+      if (!active) return;
+      if (full) {
+        setRouteTrail(GetRoutePreviewPointsUseCase(full));
+        return;
+      }
+      const fallback = live?.route?.waypoints ?? [];
+      setRouteTrail(fallback.length >= 2 ? fallback : []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [live?.route?.routeId, live?.route?.waypoints, mode]);
+
+  const routePolyline = useMemo(() => {
+    if (!live) return [];
+    const trail =
+      mode === "guide" && routeTrail.length >= 2
+        ? routeTrail
+        : live.route.waypoints;
+    return [
+      ...trail,
+      { lat: live.route.endPoint.lat, lng: live.route.endPoint.lng },
+    ];
+  }, [live, mode, routeTrail]);
+
+  const lastPoint = live?.recordedPoints[live.recordedPoints.length - 1];
+
+  const deviation = useMemo(() => {
+    const isGuided =
+      mode === "guide" && (live?.route.waypoints.length ?? 0) >= 2;
+    if (!isGuided || !lastPoint || routePolyline.length < 2) {
+      return { isOffRoute: false, meters: 0 };
+    }
+    const proj = projectOnPolyline(lastPoint, routePolyline);
+    const meters = Math.round(haversineKm(lastPoint, proj.projection) * 1000);
+    return { isOffRoute: meters > 50, meters };
+  }, [lastPoint, live?.route.waypoints.length, mode, routePolyline]);
+
   if (!live) return null;
 
   const startTwice = live.recordedPoints[0];
-  const lastPoint = live.recordedPoints[live.recordedPoints.length - 1];
   const currentLocation = lastPoint
     ? {
         lat: lastPoint.lat,
@@ -152,40 +236,24 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
       maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
     });
-  const routePolyline = [
-    ...live.route.waypoints,
-    { lat: live.route.endPoint.lat, lng: live.route.endPoint.lng },
-  ];
   const remainingKm = lastPoint
     ? remainingDistanceToEndKm(lastPoint, routePolyline)
     : live.route.distanceKm;
   const elapsedSeconds = Math.round(activeElapsedMs(live) / 1000);
-
-  // Soporte de mapa offline (PMTiles) si la ruta fue descargada previamente
-  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(
-    undefined,
-  );
-  useEffect(() => {
-    const routeId = live?.route?.routeId;
-    if (!routeId) return;
-    tileCacheDB
-      .get(routeId)
-      .then((record) => {
-        if (record?.pmtilesPath) {
-          setOfflinePackPath(record.pmtilesPath);
-        }
-      })
-      .catch(() => {});
-  }, [live?.route?.routeId]);
-
-  // Detección de desvío sobre la ruta oficial del creador
-  const isGuided = live.route.waypoints.length >= 2;
-  const deviation = useMemo(() => {
-    if (!isGuided || !lastPoint) return { isOffRoute: false, meters: 0 };
-    const proj = projectOnPolyline(lastPoint, routePolyline);
-    const meters = Math.round(haversineKm(lastPoint, proj.projection) * 1000);
-    return { isOffRoute: meters > 50, meters };
-  }, [isGuided, lastPoint, routePolyline]);
+  const officialTrail =
+    mode === "guide" && routeTrail.length >= 2
+      ? routeTrail
+      : live.route.waypoints;
+  const mapFitTo =
+    mode === "free"
+      ? mapTrack.length > 0
+        ? mapTrack
+        : live.recordedPoints.length > 0
+          ? live.recordedPoints
+          : live.route.startPoint
+            ? [live.route.startPoint]
+            : []
+      : routePolyline;
 
   const handlePause = async () => {
     await useActivityStore.getState().pauseActivity();
@@ -258,36 +326,49 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         </View>
       )}
 
-      <TrekMap
-        trail={live.route.waypoints}
-        track={mapTrack}
-        pointsOfInterest={listedCheckpoints}
-        start={
-          live.route
-            ? {
-                lat: live.route.startPoint.lat,
-                lng: live.route.startPoint.lng,
-                name: "Inicio",
-              }
-            : undefined
-        }
-        end={
-          mode === "free"
-            ? undefined
-            : live.route
+      <View style={styles.mapBlock}>
+        <TrekMap
+          trail={officialTrail}
+          track={mapTrack}
+          pointsOfInterest={listedCheckpoints}
+          start={
+            live.route
               ? {
-                  lat: live.route.endPoint.lat,
-                  lng: live.route.endPoint.lng,
-                  name: "Final",
+                  lat: live.route.startPoint.lat,
+                  lng: live.route.startPoint.lng,
+                  name: "Inicio",
                 }
               : undefined
-        }
-        currentLocation={currentLocation}
-        fitTo={routePolyline}
-        followUser={mode === "free" ? false : undefined}
-        offlinePackPath={offlinePackPath}
-        height={300}
-      />
+          }
+          end={
+            mode === "free"
+              ? undefined
+              : live.route
+                ? {
+                    lat: live.route.endPoint.lat,
+                    lng: live.route.endPoint.lng,
+                    name: "Final",
+                  }
+                : undefined
+          }
+          currentLocation={currentLocation}
+          fitTo={mapFitTo}
+          followUser={false}
+          mapTheme={mapTheme}
+          offlinePackPath={offlinePackPath}
+          onMapReady={setPackReady}
+          height={300}
+          accessibilityLabel={
+            mode === "free" ? "Mapa de grabación libre" : "Mapa del recorrido"
+          }
+        >
+          <MapThemeSelector
+            value={mapTheme}
+            onChange={setMapTheme}
+            offlinePackActive={packReady}
+          />
+        </TrekMap>
+      </View>
 
       <View style={styles.mapLegend}>
         <View style={styles.legendItem}>
@@ -308,7 +389,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
           />
           <Text style={styles.legendText}>Tu trazado</Text>
         </View>
-        {offlinePackPath ? (
+        {packReady ? (
           <View style={styles.legendItem}>
             <View
               style={[
@@ -362,7 +443,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
               ? `${(deviation.meters / 1000).toFixed(2)} km`
               : `${deviation.meters} m`}{" "}
             del sendero oficial.{" "}
-            {deviation.meters > 500 && offlinePackPath
+            {deviation.meters > 500 && packReady
               ? "(El mapa offline cubre el área del sendero; aproxímate a la ruta para centrar tu posición)."
               : ""}
           </Text>
@@ -568,6 +649,10 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
+  mapBlock: {
+    borderRadius: AndeanTheme.borderRadius.lg,
+    overflow: "hidden",
+  },
   warningBanner: {
     backgroundColor: "rgba(250,204,21,0.12)",
     borderWidth: 1,

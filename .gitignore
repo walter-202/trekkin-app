@@ -12,6 +12,9 @@ coverage/
 .atl/
 .gentle-ai*
 
+# PMTiles generados localmente (pnpm pmtiles:extract:seed) — opcional en git
+assets/offline-pmtiles/**/*.pmtiles
+
 
 # OpenCode local state
 .opencode/

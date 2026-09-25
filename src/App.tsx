@@ -17,6 +17,7 @@ import { FreeRecordView } from "./presentation/views/record/FreeRecordView";
 import { UserManagementView } from "./presentation/views/profile/UserManagementView";
 import { DownloadsView } from "./presentation/views/downloads/DownloadsView";
 import { ActivityView } from "./presentation/views/activity/ActivityView";
+import { HistoryHubView } from "./presentation/views/activity/HistoryHubView";
 import { Drawer, type DrawerRoute } from "./presentation/components/nav/Drawer";
 import { AndeanTheme } from "./presentation/theme";
 import { parseShareLink } from "./core/domain/share.schemas";
@@ -31,7 +32,8 @@ type Screen =
   | "free-record"
   | "users"
   | "downloads"
-  | "activity";
+  | "activity"
+  | "history";
 
 function Gate() {
   const { currentUser, loading, isAdmin } = useAuth();
@@ -88,6 +90,13 @@ function Gate() {
         setScreen("activity");
       } else {
         setAuthRedirectScreen("activity");
+        setAuthOpen(true);
+      }
+    } else if (route === "historial") {
+      if (currentUser) {
+        setScreen("history");
+      } else {
+        setAuthRedirectScreen("history");
         setAuthOpen(true);
       }
     } else if (route === "descargas") {
@@ -156,7 +165,9 @@ function Gate() {
           ? "free-record"
           : screen === "activity"
             ? "actividad"
-            : screen === "downloads"
+            : screen === "history"
+              ? "historial"
+              : screen === "downloads"
               ? "descargas"
               : screen === "profile"
                 ? "perfil"
@@ -205,6 +216,8 @@ function Gate() {
     mainContent = <FreeRecordView onClose={() => setScreen("explore")} />;
   } else if (screen === "activity") {
     mainContent = <ActivityView onClose={() => setScreen("explore")} />;
+  } else if (screen === "history" && currentUser) {
+    mainContent = <HistoryHubView onClose={() => setScreen("explore")} />;
   } else if (screen === "downloads") {
     mainContent = <DownloadsView onBack={() => setScreen("explore")} />;
   } else if (screen === "users" && isAdmin) {

@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import { Navigation, CheckCircle2 } from 'lucide-react-native';
 import { TrekMap } from '../../components/map/TrekMap';
+import { MapThemeSelector } from '../../components/map/MapThemeSelector';
+import type { OnlineMapTheme } from '../../../infrastructure/map/mapStyle';
 import { Button } from '../../components/ui';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import type { PlannedPoint } from '../../../core/domain/plan';
@@ -25,6 +27,7 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
   const [pending, setPending] = useState<PlannedPoint | null>(plan?.startPoint ?? null);
   const [locating, setLocating] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapTheme, setMapTheme] = useState<OnlineMapTheme>('dark');
 
   useEffect(() => {
     let active = true;
@@ -61,6 +64,10 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
   }, []);
 
   const target = pending ?? current ?? plan?.startPoint;
+  const fitTo = useMemo(
+    () => (target ? [target] : []),
+    [target?.lat, target?.lng],
+  );
 
   const handleConfirm = async () => {
     if (!target) return;
@@ -83,12 +90,26 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
           <Text style={styles.muted}>Obteniendo tu ubicación…</Text>
         </View>
       ) : (
-        <TrekMap
-          start={target}
-          currentLocation={current}
-          onPressCoordinate={(c) => setPending({ lat: c.lat, lng: c.lng, name: 'Inicio confirmado' })}
-          height={260}
-        />
+        <View style={styles.mapBlock}>
+          <TrekMap
+            start={target}
+            currentLocation={current}
+            fitTo={fitTo}
+            followUser={false}
+            mapTheme={mapTheme}
+            onPressCoordinate={(c) =>
+              setPending({ lat: c.lat, lng: c.lng, name: 'Inicio confirmado' })
+            }
+            height={260}
+            accessibilityLabel="Mapa para confirmar punto de inicio"
+          >
+            <MapThemeSelector
+              value={mapTheme}
+              onChange={setMapTheme}
+              offlinePackActive={false}
+            />
+          </TrekMap>
+        </View>
       )}
 
       <View style={styles.infoCard}>
@@ -128,6 +149,10 @@ export const StartPointConfirmView: React.FC<StartPointConfirmViewProps> = ({ on
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
+  mapBlock: {
+    borderRadius: AndeanTheme.borderRadius.lg,
+    overflow: 'hidden',
+  },
   help: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
   helpStrong: { color: AndeanTheme.colors.ink, fontWeight: '800' },
   locationWarning: { color: AndeanTheme.colors.errorText, fontSize: 11 },

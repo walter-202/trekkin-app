@@ -10,6 +10,7 @@ import {
   HardDrive,
   Activity,
   LocateFixed,
+  History,
 } from "lucide-react-native";
 import type { UserProfile } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -19,6 +20,7 @@ export type DrawerRoute =
   | "record"
   | "free-record"
   | "actividad"
+  | "historial"
   | "descargas"
   | "perfil"
   | "usuarios"
@@ -231,6 +233,34 @@ export const Drawer: React.FC<DrawerProps> = ({
               ACTIVIDAD GPS
             </Text>
             <Text style={styles.itemSub}>Seguimiento y grabación en vivo</Text>
+          </View>
+        </Pressable>
+
+        {/* 3b. Historial de actividades (HU-06) */}
+        <Pressable
+          onPress={() => go("historial")}
+          style={[styles.item, active === "historial" && styles.itemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Ver historial de actividades"
+        >
+          <History
+            size={18}
+            color={
+              active === "historial"
+                ? AndeanTheme.colors.primaryLight
+                : AndeanTheme.colors.textSecondary
+            }
+          />
+          <View style={styles.itemTextWrap}>
+            <Text
+              style={[
+                styles.itemTitle,
+                active === "historial" && styles.itemTitleActive,
+              ]}
+            >
+              HISTORIAL
+            </Text>
+            <Text style={styles.itemSub}>Actividades realizadas</Text>
           </View>
         </Pressable>
 

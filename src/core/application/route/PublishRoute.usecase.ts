@@ -3,6 +3,7 @@ import type {
   RoutePreview,
   RoutePublicationArtifacts,
 } from "../../domain/types";
+import { MIN_OFFLINE_PMTILES_BYTES } from "../../domain/offline";
 import { RoutePublicationArtifactsSchema } from "../../domain/routeArtifacts.schemas";
 import { buildRoutePreview } from "../../domain/routePreview";
 import { RoutePreviewSchema } from "../../domain/routePreview.schemas";
@@ -79,6 +80,22 @@ export function ValidateRoutePublicationUseCase(
     }
     if (artifact.status !== "uploaded") {
       throw new Error(`El artefacto ${kind} todavía no está cargado.`);
+    }
+    if (
+      kind === "pmtiles" &&
+      artifact.byteSize < MIN_OFFLINE_PMTILES_BYTES &&
+      !artifact.downloadUrl
+    ) {
+      throw new Error(
+        "El PMTiles publicado debe tener un tamaño real (≥ 4 KB) o una downloadUrl HTTPS (Protomaps/CDN).",
+      );
+    }
+    if (
+      kind === "pmtiles" &&
+      artifact.downloadUrl &&
+      !artifact.downloadUrl.startsWith("https://")
+    ) {
+      throw new Error("La downloadUrl del PMTiles debe ser HTTPS.");
     }
   }
   return artifacts;

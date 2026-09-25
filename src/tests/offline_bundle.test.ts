@@ -19,11 +19,11 @@ const route = (): RouteModel => ({
   checkpoints: [], photos: [], createdAt: 1, updatedAt: 1,
   artifacts: { version: 1,
     gpx: { kind: "gpx", version: 1, storagePath: routeArtifactStoragePath("offline-bundle", 1, "gpx"), fileName: "route.gpx", mimeType: "application/gpx+xml", byteSize: 10, sha256: "a".repeat(64), status: "uploaded", updatedAt: 1 },
-    pmtiles: { kind: "pmtiles", version: 1, storagePath: routeArtifactStoragePath("offline-bundle", 1, "pmtiles"), fileName: "basemap.pmtiles", mimeType: "application/vnd.pmtiles", byteSize: 8, sha256: "b".repeat(64), status: "uploaded", updatedAt: 1 },
+    pmtiles: { kind: "pmtiles", version: 1, storagePath: routeArtifactStoragePath("offline-bundle", 1, "pmtiles"), fileName: "basemap.pmtiles", mimeType: "application/vnd.pmtiles", byteSize: 5 * 1024 * 1024, sha256: "b".repeat(64), status: "uploaded", updatedAt: 1 },
   },
 });
 const file = (kind: "gpx" | "pmtiles", overrides: Partial<DownloadedOfflineArtifact> = {}): DownloadedOfflineArtifact => ({
-  tempPath: `${kind}.part`, finalPath: `${kind}.final`, byteSize: kind === "gpx" ? 10 : 8,
+  tempPath: `${kind}.part`, finalPath: `${kind}.final`, byteSize: kind === "gpx" ? 10 : 5 * 1024 * 1024,
   ...(kind === "gpx" ? { readTrackPoints: async () => DOWNLOADED_TRACK_POINTS } : {}),
   sha256: kind === "gpx" ? "a".repeat(64) : "b".repeat(64), headerBytes: kind === "pmtiles" ? "PMTiles\u0003" : "<gpx", ...overrides,
 });
@@ -46,7 +46,7 @@ async function main() {
   await assert.rejects(() => DownloadRouteOfflineUseCase(route(), ports(async (kind) => kind === "pmtiles" ? file(kind) : Promise.reject(new Error("network")))), /network/);
   const cleanupCase = ports(async (kind) => kind === "pmtiles" ? file(kind) : Promise.reject(new Error("network")));
   await assert.rejects(() => DownloadRouteOfflineUseCase(route(), cleanupCase));
-  assert.deepEqual(cleanupCase.cleaned, ["pmtiles.part"]);
+  assert.deepEqual(cleanupCase.cleaned, [], "network errors keep verified map temp for resume");
   const previousBundle = { gpx: "old/route.gpx", pmtiles: "old/basemap.pmtiles", manifest: "old-manifest" };
   const replacement = ports(async (kind) => file(kind));
   replacement.finalize = async () => { throw new Error("manifest persistence failed"); };

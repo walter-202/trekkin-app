@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -22,17 +22,26 @@ import {
   Download,
 } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
+import { MapThemeSelector } from "../../components/map/MapThemeSelector";
+import { GetRoutePreviewPointsUseCase } from "../../../core/application/explore/RouteDetailSupport.usecase";
+import type { OnlineMapTheme } from "../../../infrastructure/map/mapStyle";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import {
   locationService,
   type GpsPosition,
 } from "../../../infrastructure/location/locationService";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
+import { routeService } from "../../../infrastructure/database/routeService";
+import { isUsableOfflineBasemap } from "../../../core/domain/offline";
+import {
+  getBundledPmtilesCachedPath,
+  hasBundledPmtilesModule,
+} from "../../../infrastructure/map/bundledPmtiles";
 import { DownloadRouteModal } from "../explore/DownloadRouteModal";
 import { distanceM } from "../../../core/domain/calculations";
 import { formatDurationMinutes } from "../../utils/format";
 import type { PlannedPoint } from "../../../core/domain/plan";
-import type { RouteModel } from "../../../core/domain/types";
+import type { Coordinates, RouteModel } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
 import { Button } from "../../components/ui";
 
@@ -68,12 +77,18 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
   const [position, setPosition] = useState<GpsPosition | null>(null);
   const [locating, setLocating] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [compassHeading, setCompassHeading] = useState<number | undefined>(undefined);
+  const [compassHeading, setCompassHeading] = useState<number | undefined>(
+    undefined,
+  );
+  const headingRef = useRef<number | undefined>(undefined);
+  const [mapTheme, setMapTheme] = useState<OnlineMapTheme>("dark");
+  const [routeTrail, setRouteTrail] = useState<Coordinates[]>([]);
 
   // HU-04: Verificación pre-flight offline
   const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
-  const [offlinePackPath, setOfflinePackPath] = useState<string | undefined>(undefined);
+  const [bundledReady, setBundledReady] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [downloadRoute, setDownloadRoute] = useState<RouteModel | null>(null);
   const [showFarConfirm, setShowFarConfirm] = useState(false);
 
   useEffect(() => {
@@ -101,7 +116,11 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
     let active = true;
     void locationService
       .watchHeading((deg) => {
-        if (active) setCompassHeading(deg);
+        if (!active) return;
+        const prev = headingRef.current;
+        if (prev != null && Math.abs(deg - prev) < 5) return;
+        headingRef.current = deg;
+        setCompassHeading(deg);
       })
       .then((sub) => {
         if (!active) sub?.remove();
@@ -122,12 +141,15 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       .get(routeId)
       .then((record) => {
         if (!active) return;
-        if (record?.pmtilesPath) {
-          setIsDownloaded(true);
-          setOfflinePackPath(record.pmtilesPath);
+        const ok = Boolean(record && isUsableOfflineBasemap(record));
+        setIsDownloaded(ok);
+        if (!ok && hasBundledPmtilesModule(routeId)) {
+          void getBundledPmtilesCachedPath(routeId).then((path) => {
+            if (!active) return;
+            setBundledReady(Boolean(path));
+          });
         } else {
-          setIsDownloaded(false);
-          setOfflinePackPath(undefined);
+          setBundledReady(false);
         }
       })
       .catch(() => {});
@@ -136,10 +158,29 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
     };
   }, [live?.route?.routeId]);
 
+  useEffect(() => {
+    const routeId = live?.route?.routeId;
+    if (!routeId) return;
+    let active = true;
+    void routeService.getRouteById(routeId).then((full) => {
+      if (!active) return;
+      if (full) {
+        setRouteTrail(GetRoutePreviewPointsUseCase(full));
+        return;
+      }
+      const fallback = live?.route?.waypoints ?? [];
+      setRouteTrail(fallback.length >= 2 ? fallback : []);
+    });
+    return () => {
+      active = false;
+    };
+  }, [live?.route?.routeId, live?.route?.waypoints]);
+
   if (!live) return null;
   const route = live.route;
+  const trail = routeTrail.length >= 2 ? routeTrail : route.waypoints;
   const fitTo = [
-    ...route.waypoints,
+    ...trail,
     { lat: route.startPoint.lat, lng: route.startPoint.lng },
     { lat: route.endPoint.lat, lng: route.endPoint.lng },
   ];
@@ -155,26 +196,16 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
 
   const isFarFromStart = distanceToStartKm != null && distanceToStartKm > 0.5;
 
-  const routeModelForDownload: RouteModel = {
-    id: route.routeId,
-    title: route.routeTitle,
-    description: route.description ?? "",
-    region: "",
-    startPoint: route.startPoint,
-    endPoint: route.endPoint,
-    waypoints: route.waypoints,
-    checkpoints: route.checkpoints,
-    distanceKm: route.distanceKm,
-    durationMinutes: route.durationMinutes,
-    difficulty: route.difficulty,
-    modality: "solo",
-    status: "published",
-    isPrivate: false,
-    creatorId: "",
-    creatorName: "",
-    photos: route.photos ?? [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+  const handleOpenDownload = async () => {
+    const full = await routeService.getRouteById(route.routeId);
+    if (!full?.artifacts) {
+      setLocationError(
+        "Esta ruta aún no tiene paquete offline publicado (GPX + PMTiles).",
+      );
+      return;
+    }
+    setDownloadRoute(full);
+    setDownloadModalOpen(true);
   };
 
   const handleBeginClick = () => {
@@ -187,33 +218,57 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* 1. Mapa interactivo con ruta oficial, inicio, fin, checkpoints y ubicación actual con cono */}
-      <TrekMap
-        trail={route.waypoints}
-        pointsOfInterest={route.checkpoints}
-        start={toPlannedPoint(route.startPoint)}
-        end={toPlannedPoint(route.endPoint)}
-        currentLocation={
-          position
-            ? {
-                lat: position.latitude,
-                lng: position.longitude,
-                heading: compassHeading,
-              }
-            : undefined
-        }
-        fitTo={fitTo}
-        offlinePackPath={offlinePackPath}
-        height={240}
-      />
+      {/* 1. Mapa online (mismo estilo que detalle HU-03); offline solo al iniciar tracking */}
+      <View style={styles.mapBlock}>
+        <TrekMap
+          trail={trail}
+          pointsOfInterest={route.checkpoints}
+          start={toPlannedPoint(route.startPoint)}
+          end={toPlannedPoint(route.endPoint)}
+          currentLocation={
+            position
+              ? {
+                  lat: position.latitude,
+                  lng: position.longitude,
+                  heading: compassHeading,
+                }
+              : undefined
+          }
+          fitTo={fitTo}
+          followUser={false}
+          mapTheme={mapTheme}
+          height={260}
+          accessibilityLabel={`Mapa de ${route.routeTitle}`}
+        >
+          <MapThemeSelector
+            value={mapTheme}
+            onChange={setMapTheme}
+            offlinePackActive={false}
+          />
+        </TrekMap>
+      </View>
 
       {/* 2. Badge de estado offline o alerta de pre-flight */}
-      {isDownloaded ? (
+      {isDownloaded || bundledReady ? (
         <View style={styles.offlineReadyCard}>
           <CheckCircle2 size={16} color={AndeanTheme.colors.primaryDark} />
           <Text style={styles.offlineReadyText}>
-            Paquete offline listo · Mapa vectorial y GPX descargados
+            {bundledReady && !isDownloaded
+              ? "Mapa incluido en la app (ruta demo) · Toca DESCARGAR para guardar GPX"
+              : "Paquete offline listo · Mapa vectorial y GPX descargados"}
           </Text>
+        </View>
+      ) : hasBundledPmtilesModule(live.route.routeId) ? (
+        <View style={styles.offlineWarningCard}>
+          <WifiOff size={16} color={AndeanTheme.colors.amber} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.offlineWarningTitle}>
+              Mapa demo no generado aún
+            </Text>
+            <Text style={styles.offlineWarningText}>
+              En el PC del equipo ejecuta: pnpm pmtiles:extract:seed (requiere CLI pmtiles).
+            </Text>
+          </View>
         </View>
       ) : (
         <View style={styles.offlineWarningCard}>
@@ -227,7 +282,7 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
             </Text>
           </View>
           <Pressable
-            onPress={() => setDownloadModalOpen(true)}
+            onPress={() => void handleOpenDownload()}
             style={styles.downloadActionBtn}
             accessibilityRole="button"
             accessibilityLabel="Descargar mapa offline"
@@ -399,15 +454,18 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
       </Modal>
 
       {/* Modal de descarga offline HU-04 */}
-      {downloadModalOpen ? (
+      {downloadModalOpen && downloadRoute ? (
         <DownloadRouteModal
-          route={routeModelForDownload}
+          route={downloadRoute}
           visible={downloadModalOpen}
-          onClose={() => setDownloadModalOpen(false)}
-          onCompleted={(record) => {
-            setIsDownloaded(true);
-            setOfflinePackPath(record.pmtilesPath);
+          onClose={() => {
             setDownloadModalOpen(false);
+            setDownloadRoute(null);
+          }}
+          onCompleted={(record) => {
+            setIsDownloaded(isUsableOfflineBasemap(record));
+            setDownloadModalOpen(false);
+            setDownloadRoute(null);
           }}
         />
       ) : null}
@@ -418,6 +476,10 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 40, gap: 12 },
+  mapBlock: {
+    borderRadius: AndeanTheme.borderRadius.lg,
+    overflow: "hidden",
+  },
   offlineReadyCard: {
     flexDirection: "row",
     alignItems: "center",

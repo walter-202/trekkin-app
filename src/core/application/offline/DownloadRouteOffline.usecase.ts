@@ -36,6 +36,10 @@ function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata
     actualByteSize: actual.byteSize,
     headerPrefix: headerString(actual.headerBytes),
     isLocalFallback: actual.isLocalFallback,
+    allowApproximateSize:
+      kind === "pmtiles" &&
+      Boolean(expected.downloadUrl) &&
+      !expected.sha256,
     ...(expected.sha256 ? { expectedSha256: expected.sha256 } : {}),
     ...(actual.sha256 ? { actualSha256: actual.sha256 } : {}),
     ...(trackPointCount !== undefined ? { trackPointCount } : {}),
@@ -45,34 +49,10 @@ function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata
 
 export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: DownloadRouteOfflinePorts, options: DownloadRouteOfflineOptions = {}): Promise<OfflineRoute> {
   if (route.status !== "published") throw new Error("Solo se pueden descargar rutas publicadas.");
-  if (!route.artifacts && (!route.waypoints || route.waypoints.length < 2)) {
+  if (!route.artifacts) {
     throw new Error("La ruta publicada no tiene artefactos GPX y PMTiles.");
   }
-  const artifacts = route.artifacts
-    ? ValidateRoutePublicationUseCase(route.id, route.artifacts)
-    : {
-        version: 1,
-        gpx: {
-          kind: "gpx" as const,
-          version: 1,
-          storagePath: `routes/${route.id}/v1/route.gpx`,
-          fileName: "route.gpx" as const,
-          mimeType: "application/gpx+xml" as const,
-          byteSize: Math.max(1024, route.waypoints.length * 140),
-          status: "uploaded" as const,
-          updatedAt: route.updatedAt || Date.now(),
-        },
-        pmtiles: {
-          kind: "pmtiles" as const,
-          version: 1,
-          storagePath: `routes/${route.id}/v1/basemap.pmtiles`,
-          fileName: "basemap.pmtiles" as const,
-          mimeType: "application/vnd.pmtiles" as const,
-          byteSize: 127,
-          status: "uploaded" as const,
-          updatedAt: route.updatedAt || Date.now(),
-        },
-      };
+  const artifacts = ValidateRoutePublicationUseCase(route.id, route.artifacts);
   const onStage = options.onStage ?? (() => {});
   const downloadedAt = options.downloadedAt ?? Date.now();
   const generation = `${downloadedAt.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;

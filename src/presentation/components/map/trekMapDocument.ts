@@ -357,13 +357,14 @@ export function buildTrekMapHtml(mapTheme: OnlineMapTheme = "dark"): string {
           map.scrollZoom.disable();
           map.touchZoomRotate.disable();
         }
-        if (
-          scene.bounds &&
-          (scene.followUser !== false || !firstFitDone)
-        ) {
+        if (scene.bounds && (scene.followUser === true || !firstFitDone)) {
           try {
-            map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
-            if (scene.followUser === false) {
+            map.fitBounds(scene.bounds, {
+              padding: 40,
+              duration: scene.followUser === true ? 0 : 400,
+              maxZoom: 15,
+            });
+            if (scene.followUser !== true) {
               firstFitDone = true;
             }
           } catch (e) {}
@@ -387,6 +388,7 @@ export function buildTrekMapHtml(mapTheme: OnlineMapTheme = "dark"): string {
         map.once("style.load", function () {
           currentPackUrl = nextUrl;
           switchingStyle = false;
+          firstFitDone = false;
           paintScene(pending);
           post({ type: "mapReady", payload: { offlinePackReady: Boolean(nextUrl) } });
         });

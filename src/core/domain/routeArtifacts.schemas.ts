@@ -14,6 +14,15 @@ export const RouteArtifactMetadataSchema = z.object({
   fileName: z.enum(["route.gpx", "basemap.pmtiles"]),
   mimeType: z.enum(["application/gpx+xml", "application/vnd.pmtiles"]),
   byteSize: z.number().int().nonnegative(),
+  downloadUrl: z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .refine((url) => url.startsWith("https://"), {
+      message: "downloadUrl debe ser HTTPS",
+    })
+    .optional(),
   sha256: z
     .string()
     .trim()

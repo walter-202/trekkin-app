@@ -19,7 +19,7 @@ import {
   CheckCircle2,
 } from "lucide-react-native";
 import type { OfflineRoute } from "../../../core/domain/offline";
-import { formatBytes } from "../../../core/domain/offline";
+import { formatBytes, isUsableOfflineBasemap } from "../../../core/domain/offline";
 import { GetOfflineRouteUseCase } from "../../../core/application/offline/GetOfflineRoute.usecase";
 import { tileCacheDB } from "../../../infrastructure/persistence/tileCacheDB";
 import { AndeanTheme } from "../../theme";
@@ -106,8 +106,9 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
     "es-BO",
     { day: "2-digit", month: "short", year: "numeric" },
   );
+  const hasUsableBasemap = isUsableOfflineBasemap(record);
   const showTrailFallback = shouldUseOfflineTrailFallback({
-    hasLocalPack: Boolean(record.pmtilesPath),
+    hasLocalPack: hasUsableBasemap,
     mapReady: offlinePackReady,
     mapError: Boolean(mapError),
     timedOut: mapTimedOut,
@@ -162,7 +163,7 @@ export const OfflineRouteDetailView: React.FC<OfflineRouteDetailViewProps> = ({
             pointsOfInterest={record.checkpoints}
             start={record.startPoint}
             end={record.endPoint}
-            offlinePackPath={record.pmtilesPath}
+            offlinePackPath={hasUsableBasemap ? record.pmtilesPath : undefined}
             onMapReady={setOfflinePackReady}
             onMapError={(nextError) => {
               setOfflinePackReady(false);

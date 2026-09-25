@@ -15,6 +15,13 @@ import { parseGPX, buildGPX11 } from "../../core/domain/trackFormats";
 import { routeDetailCache } from "./routeDetailCache";
 import { routeService } from "../database/routeService";
 import { sha256File } from "./sha256File";
+import { ResolvePmtilesDownloadUrlUseCase } from "../../core/application/offline/ResolvePmtilesDownloadUrl.usecase";
+import { getBundledPmtilesCachedPath } from "../map/bundledPmtiles";
+
+function pmtilesCdnBase(): string | null {
+  const base = process.env.EXPO_PUBLIC_PMTILES_CDN_BASE?.trim();
+  return base || null;
+}
 
 const OFFLINE_ROUTE_PREFIX = "trekkin_offline_route";
 const INDEX_KEY = "trekkin_offline_routes_index";
@@ -108,6 +115,10 @@ async function peekVerifiedTemp(
       ...(staged.sha256 ? { actualSha256: staged.sha256 } : {}),
       headerPrefix: header,
       ...(trackPointCount !== undefined ? { trackPointCount } : {}),
+      allowApproximateSize:
+        kind === "pmtiles" &&
+        Boolean(metadata.downloadUrl) &&
+        !metadata.sha256,
     });
     return staged;
   } catch {
@@ -124,20 +135,61 @@ export const tileCacheDB = {
     if (resumed) return resumed;
     await removeFile(part);
     try {
-      let downloadedFromStorage = false;
-      try {
-        const url = await getDownloadURL(ref(storage, metadata.storagePath));
-        await LegacyFileSystem.downloadAsync(url, part, { md5: false });
-        const info = await LegacyFileSystem.getInfoAsync(part);
-        if (info.exists && (info.size ?? 0) > 0) {
-          downloadedFromStorage = true;
+      let downloadedFromRemote = false;
+      let isBundledCopy = false;
+
+      if (kind === "pmtiles") {
+        const bundled = await getBundledPmtilesCachedPath(routeId);
+        if (bundled) {
+          try {
+            await LegacyFileSystem.copyAsync({ from: bundled, to: part });
+            const info = await LegacyFileSystem.getInfoAsync(part);
+            if (info.exists && (info.size ?? 0) > 0) {
+              downloadedFromRemote = true;
+              isBundledCopy = true;
+            }
+          } catch {
+            downloadedFromRemote = false;
+          }
         }
-      } catch {
-        downloadedFromStorage = false;
+      }
+
+      const protomapsUrl =
+        !downloadedFromRemote && kind === "pmtiles"
+          ? ResolvePmtilesDownloadUrlUseCase(routeId, metadata, {
+              cdnBase: pmtilesCdnBase(),
+            })
+          : !downloadedFromRemote
+            ? metadata.downloadUrl?.trim() || null
+            : null;
+
+      if (!downloadedFromRemote && protomapsUrl?.startsWith("https://")) {
+        try {
+          await LegacyFileSystem.downloadAsync(protomapsUrl, part, { md5: false });
+          const info = await LegacyFileSystem.getInfoAsync(part);
+          if (info.exists && (info.size ?? 0) > 0) {
+            downloadedFromRemote = true;
+          }
+        } catch {
+          downloadedFromRemote = false;
+        }
+      }
+
+      if (!downloadedFromRemote) {
+        try {
+          const url = await getDownloadURL(ref(storage, metadata.storagePath));
+          await LegacyFileSystem.downloadAsync(url, part, { md5: false });
+          const info = await LegacyFileSystem.getInfoAsync(part);
+          if (info.exists && (info.size ?? 0) > 0) {
+            downloadedFromRemote = true;
+          }
+        } catch {
+          downloadedFromRemote = false;
+        }
       }
 
       let isLocalFallback = false;
-      if (!downloadedFromStorage) {
+      if (!downloadedFromRemote) {
         isLocalFallback = true;
         if (kind === "gpx") {
           const cached = await routeDetailCache.get(routeId);
@@ -155,20 +207,9 @@ export const tileCacheDB = {
             encoding: LegacyFileSystem.EncodingType.UTF8,
           });
         } else if (kind === "pmtiles") {
-          const header = new Uint8Array(127);
-          const magic = [0x50, 0x4D, 0x54, 0x69, 0x6C, 0x65, 0x73, 0x03]; // "PMTiles\x03"
-          header.set(magic, 0);
-          let binary = "";
-          for (let i = 0; i < header.length; i++) {
-            binary += String.fromCharCode(header[i]);
-          }
-          const base64 =
-            typeof Buffer !== "undefined"
-              ? Buffer.from(header).toString("base64")
-              : btoa(binary);
-          await LegacyFileSystem.writeAsStringAsync(part, base64, {
-            encoding: LegacyFileSystem.EncodingType.Base64,
-          });
+          throw new Error(
+            "No se pudo descargar el mapa offline desde el servidor. Verifica tu conexión o que la ruta tenga un paquete PMTiles publicado.",
+          );
         }
       }
 
@@ -179,7 +220,7 @@ export const tileCacheDB = {
         finalPath: finalPath(routeId, kind, generation),
         byteSize: info.size,
         headerBytes: headerBytes(part),
-        isLocalFallback,
+        isLocalFallback: isLocalFallback || isBundledCopy,
         ...(metadata.sha256 && !isLocalFallback ? { sha256: sha256File(part) } : {}),
         ...(kind === "gpx" ? {
           readTrackPoints: async () => parseGPX(await LegacyFileSystem.readAsStringAsync(part)).points,

@@ -81,7 +81,7 @@ const PUBLISHED_ROUTE: RouteModel = {
   artifacts: {
     version: 1,
     gpx: { kind: 'gpx', version: 1, storagePath: 'routes/ruta-huayna-potosi/v1/route.gpx', fileName: 'route.gpx', mimeType: 'application/gpx+xml', byteSize: 128, status: 'uploaded', updatedAt: 1717000000000 },
-    pmtiles: { kind: 'pmtiles', version: 1, storagePath: 'routes/ruta-huayna-potosi/v1/basemap.pmtiles', fileName: 'basemap.pmtiles', mimeType: 'application/vnd.pmtiles', byteSize: 64, status: 'uploaded', updatedAt: 1717000000000 },
+    pmtiles: { kind: 'pmtiles', version: 1, storagePath: 'routes/ruta-huayna-potosi/v1/basemap.pmtiles', fileName: 'basemap.pmtiles', mimeType: 'application/vnd.pmtiles', byteSize: 5 * 1024 * 1024, status: 'uploaded', updatedAt: 1717000000000 },
   },
 };
 
@@ -108,7 +108,7 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
 
   recordTest(
     'C4: formatBytes muestra KB/MB legible',
-    formatBytes(estimate.totalBytes).includes('KB') &&
+    formatBytes(estimate.totalBytes).includes('MB') &&
       formatBytes(5 * 1024 * 1024) === '5.0 MB',
     `total=${formatBytes(estimate.totalBytes)}, 5MB=${formatBytes(5 * 1024 * 1024)}`,
   );
@@ -125,7 +125,7 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
       downloadArtifact: async (id, kind) => {
         callLog.push(`${kind}:${id}`);
         return {
-          tempPath: `${id}-${kind}.part`, finalPath: `${id}-${kind}`, byteSize: kind === 'pmtiles' ? 64 : 128,
+          tempPath: `${id}-${kind}.part`, finalPath: `${id}-${kind}`, byteSize: kind === 'pmtiles' ? 5 * 1024 * 1024 : 128,
           headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx',
           ...(kind === 'gpx' ? { readTrackPoints: async () => PUBLISHED_ROUTE.waypoints } : {}),
         };
@@ -290,7 +290,7 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
   const okArtifact = (kind: 'pmtiles' | 'gpx') => ({
     tempPath: `${PUBLISHED_ROUTE.id}-${kind}.part`,
     finalPath: `${PUBLISHED_ROUTE.id}-${kind}`,
-    byteSize: kind === 'pmtiles' ? 64 : 128,
+    byteSize: kind === 'pmtiles' ? 5 * 1024 * 1024 : 128,
     headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx',
     ...(kind === 'gpx' ? { readTrackPoints: async () => PUBLISHED_ROUTE.waypoints } : {}),
   });

@@ -61,35 +61,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
   const [doneRecord, setDoneRecord] = useState<OfflineRoute | null>(null);
   const [space, setSpace] = useState<OfflineSpaceCheck | null>(null);
 
-  const effectiveRoute = useMemo((): RouteModel => {
-    if (route.artifacts) return route;
-    return {
-      ...route,
-      artifacts: {
-        version: 1,
-        gpx: {
-          kind: "gpx",
-          version: 1,
-          storagePath: `routes/${route.id}/v1/route.gpx`,
-          fileName: "route.gpx",
-          mimeType: "application/gpx+xml",
-          byteSize: Math.max(1024, (route.waypoints?.length ?? 2) * 140),
-          status: "uploaded",
-          updatedAt: route.updatedAt || Date.now(),
-        },
-        pmtiles: {
-          kind: "pmtiles",
-          version: 1,
-          storagePath: `routes/${route.id}/v1/basemap.pmtiles`,
-          fileName: "basemap.pmtiles",
-          mimeType: "application/vnd.pmtiles",
-          byteSize: 127,
-          status: "uploaded",
-          updatedAt: route.updatedAt || Date.now(),
-        },
-      },
-    };
-  }, [route]);
+  const effectiveRoute = route;
 
   const estimateResult = useMemo(() => {
     try {

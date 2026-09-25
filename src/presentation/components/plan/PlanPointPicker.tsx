@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { MapPin, Flag } from 'lucide-react-native';
 import { TrekMap } from '../map/TrekMap';
+import { MapThemeSelector } from '../map/MapThemeSelector';
+import type { OnlineMapTheme } from '../../../infrastructure/map/mapStyle';
 import type { PlannedPoint } from '../../../core/domain/plan';
 import { AndeanTheme } from '../../theme';
 
@@ -26,6 +28,12 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
   height = 320,
 }) => {
   const [activeTab, setActiveTab] = useState<'start' | 'end'>('start');
+  const [mapTheme, setMapTheme] = useState<OnlineMapTheme>('dark');
+
+  const fitTo = useMemo(
+    () => [start, end].filter((point): point is PlannedPoint => point != null),
+    [end, start],
+  );
 
   const handleCoordinate = (coord: { lat: number; lng: number }) => {
     if (activeTab === 'start') {
@@ -59,12 +67,24 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
         </Pressable>
       </View>
 
-      <TrekMap
-        start={start}
-        end={end}
-        onPressCoordinate={handleCoordinate}
-        height={height}
-      />
+      <View style={styles.mapBlock}>
+        <TrekMap
+          start={start}
+          end={end}
+          fitTo={fitTo}
+          followUser={false}
+          mapTheme={mapTheme}
+          onPressCoordinate={handleCoordinate}
+          height={height}
+          accessibilityLabel="Mapa para elegir inicio y destino"
+        >
+          <MapThemeSelector
+            value={mapTheme}
+            onChange={setMapTheme}
+            offlinePackActive={false}
+          />
+        </TrekMap>
+      </View>
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
@@ -87,6 +107,10 @@ export const PlanPointPicker: React.FC<PlanPointPickerProps> = ({
 };
 
 const styles = StyleSheet.create({
+  mapBlock: {
+    borderRadius: AndeanTheme.borderRadius.lg,
+    overflow: 'hidden',
+  },
   tabs: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   tab: {
     flex: 1,

@@ -23,6 +23,21 @@ export const DOWNLOAD_STAGES: readonly OfflineDownloadStage[] = [
   "info",
 ];
 
+/** Cabecera PMTiles v3 (127 B). Por debajo de esto solo hay stubs de desarrollo. */
+export const OFFLINE_PMTILES_HEADER_BYTES = 127;
+/** Tamaño mínimo razonable de un basemap vectorial de ruta (KB reales en producción). */
+export const MIN_OFFLINE_PMTILES_BYTES = 4096;
+
+/** True si el manifiesto apunta a un PMTiles real, no a un stub local. */
+export function isUsableOfflineBasemap(
+  record: Pick<OfflineRoute, "pmtilesBytes">,
+): boolean {
+  return (
+    Number.isInteger(record.pmtilesBytes) &&
+    record.pmtilesBytes >= MIN_OFFLINE_PMTILES_BYTES
+  );
+}
+
 /** Desglose del tamaño estimado (T3/T4) en bytes por componente. */
 export interface OfflineSizeEstimate {
   mapBytes: number;
@@ -128,6 +143,8 @@ export interface OfflineArtifactCheck {
   /** Puntos del trazado (solo GPX); el PMTiles se valida por cabecera. */
   trackPointCount?: number;
   isLocalFallback?: boolean;
+  /** PMTiles vía Protomaps/CDN sin SHA: validar mínimo, no tamaño exacto. */
+  allowApproximateSize?: boolean;
 }
 
 /**
@@ -140,9 +157,22 @@ export function verifyOfflineArtifactBytes(check: OfflineArtifactCheck): void {
   if (!Number.isInteger(actualByteSize) || actualByteSize <= 0) {
     throw new Error(`El archivo ${kind} está vacío o incompleto.`);
   }
-  if (!check.isLocalFallback && actualByteSize !== expectedByteSize) {
+  if (
+    !check.isLocalFallback &&
+    !check.allowApproximateSize &&
+    actualByteSize !== expectedByteSize
+  ) {
     throw new Error(
       `El tamaño de ${kind} no coincide (esperado ${expectedByteSize}, recibido ${actualByteSize}).`,
+    );
+  }
+  if (
+    check.allowApproximateSize &&
+    kind === "pmtiles" &&
+    actualByteSize < MIN_OFFLINE_PMTILES_BYTES
+  ) {
+    throw new Error(
+      `El archivo de mapa es demasiado pequeño (${actualByteSize} bytes). La descarga está incompleta.`,
     );
   }
   if (!check.isLocalFallback && check.expectedSha256) {
@@ -153,11 +183,20 @@ export function verifyOfflineArtifactBytes(check: OfflineArtifactCheck): void {
       throw new Error(`El SHA-256 de ${kind} no coincide con el publicado.`);
     }
   }
-  if (
-    kind === "pmtiles" &&
-    !check.headerPrefix.startsWith("PMTiles\u0003")
-  ) {
-    throw new Error("El artefacto de mapa no es un archivo PMTiles v3 válido.");
+  if (kind === "pmtiles") {
+    if (check.isLocalFallback) {
+      throw new Error(
+        "El mapa offline no está publicado en el servidor para esta ruta.",
+      );
+    }
+    if (actualByteSize < MIN_OFFLINE_PMTILES_BYTES) {
+      throw new Error(
+        `El archivo de mapa es demasiado pequeño (${actualByteSize} bytes). La descarga está incompleta.`,
+      );
+    }
+    if (!check.headerPrefix.startsWith("PMTiles\u0003")) {
+      throw new Error("El artefacto de mapa no es un archivo PMTiles v3 válido.");
+    }
   }
   if (kind === "gpx" && (check.trackPointCount ?? 0) < 2) {
     throw new Error("El GPX descargado no contiene una traza válida de al menos dos puntos.");
@@ -194,22 +233,19 @@ function basicInfoBytes(route: RouteModel): number {
 export function estimateRouteOfflineSize(route: RouteModel): OfflineSizeEstimate {
   const infoBytesValue = basicInfoBytes(route);
   if (!route.artifacts) {
-    if (!route.waypoints || route.waypoints.length < 2) {
-      throw new Error("La ruta publicada no tiene un paquete offline disponible.");
-    }
-    const trailBytesValue = Math.max(1024, route.waypoints.length * 140);
-    const mapBytesValue = 127;
-    return {
-      mapBytes: mapBytesValue,
-      trailBytes: trailBytesValue,
-      infoBytes: infoBytesValue,
-      totalBytes: mapBytesValue + trailBytesValue + infoBytesValue,
-    };
+    throw new Error(
+      "La ruta publicada no tiene un paquete offline (GPX + PMTiles) disponible.",
+    );
   }
   const { gpx, pmtiles } = route.artifacts;
   if (gpx.status !== "uploaded" || pmtiles.status !== "uploaded" ||
       gpx.byteSize <= 0 || pmtiles.byteSize <= 0) {
     throw new Error("El paquete offline publicado está incompleto.");
+  }
+  if (pmtiles.byteSize < MIN_OFFLINE_PMTILES_BYTES) {
+    throw new Error(
+      "El paquete de mapa publicado es inválido o incompleto en el servidor.",
+    );
   }
   const trailBytesValue = gpx.byteSize;
   const mapBytesValue = pmtiles.byteSize;
