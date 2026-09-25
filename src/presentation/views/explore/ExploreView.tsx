@@ -25,6 +25,13 @@ import { RouteDetailView } from "./RouteDetailView";
 interface ExploreViewProps {
   onBack?: () => void;
   onStartActivity?: (route: RouteModel) => void;
+  /**
+   * HU-05 — Gate de auth para compartir desde el detalle interno: lleva a
+   * Login conservando la ruta; al volver, el detalle reabre el ShareModal.
+   */
+  onRequireAuthForShare?: (routeId: string) => void;
+  autoOpenShareRouteId?: string | null;
+  onShareAutoOpened?: () => void;
 }
 
 const DIFFICULTY_FILTERS: Array<"todas" | RouteDifficulty> = [
@@ -46,6 +53,9 @@ const CATALOG_PAGE_SIZE = 20;
 export const ExploreView: React.FC<ExploreViewProps> = ({
   onBack,
   onStartActivity,
+  onRequireAuthForShare,
+  autoOpenShareRouteId,
+  onShareAutoOpened,
 }) => {
   const { currentUser, isAuthenticated, isGuest, exitGuest } = useAuth();
   const [catalogRoutes, setCatalogRoutes] = useState<RouteModel[]>([]);
@@ -159,6 +169,9 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         routeId={selectedId}
         onBack={() => setSelectedId(null)}
         onStartActivity={onStartActivity}
+        onShareRequireAuth={onRequireAuthForShare}
+        autoOpenShare={autoOpenShareRouteId === selectedId}
+        onShareAutoOpened={onShareAutoOpened}
       />
     );
   }

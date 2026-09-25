@@ -1,7 +1,8 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet, Image } from "react-native";
-import { Mountain, Clock, Ruler } from "lucide-react-native";
+import { Mountain, Clock, Ruler, User, Users } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
+import { formatModalityLabel } from "../../../core/domain/routeCatalog";
 import { AndeanTheme } from "../../theme";
 
 const difficultyLabel: Record<RouteModel["difficulty"], string> = {
@@ -19,14 +20,17 @@ const difficultyColor: Record<RouteModel["difficulty"], string> = {
 };
 
 /**
- * HU-03 C5 — Tarjeta resumen (nombre, distancia, dificultad, imagen si aplica).
- * Colocalizada en explore (un solo uso); sin lógica de negocio.
+ * HU-03 C5 + RF-07 — Tarjeta resumen (nombre, distancia, tiempo, dificultad,
+ * modalidad sugerida, imagen si aplica). Colocalizada en explore (un solo
+ * uso); sin lógica de negocio (la etiqueta sale del dominio).
  * Hoja clara: fondo sheet, bordes fieldBorder, acentos de dificultad.
  */
 export const RouteCard: React.FC<{
   route: RouteModel;
   onPress: () => void;
 }> = ({ route, onPress }) => {
+  const modalityLabel = formatModalityLabel(route.modality);
+  const ModalityIcon = route.modality === "solo" ? User : Users;
   return (
     <Pressable
       onPress={onPress}
@@ -75,6 +79,15 @@ export const RouteCard: React.FC<{
           <Clock size={12} color={AndeanTheme.colors.fieldIcon} />
           <Text style={styles.metaText}>
             {Math.round(route.durationMinutes / 60)} h
+          </Text>
+        </View>
+        <View style={styles.metaItem}>
+          <ModalityIcon size={12} color={AndeanTheme.colors.fieldIcon} />
+          <Text
+            style={styles.metaText}
+            accessibilityLabel={`Modalidad sugerida: ${modalityLabel}`}
+          >
+            {modalityLabel}
           </Text>
         </View>
         <Text style={styles.routeLine} numberOfLines={1}>

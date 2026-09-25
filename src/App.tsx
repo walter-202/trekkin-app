@@ -37,6 +37,11 @@ function Gate() {
   const { currentUser, loading, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>("explore");
   const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
+  // HU-05 — Compartir exige sesión: conserva la ruta Y la intención de
+  // compartir; al volver de Login el detalle reabre el ShareModal solo.
+  const [pendingShareRouteId, setPendingShareRouteId] = useState<string | null>(
+    null,
+  );
   const [authOpen, setAuthOpen] = useState(false);
   const [authRedirectScreen, setAuthRedirectScreen] =
     useState<Screen | null>(null);
@@ -60,6 +65,7 @@ function Gate() {
 
   const handleNavigate = (route: DrawerRoute) => {
     setPendingRouteId(null);
+    setPendingShareRouteId(null);
     if (route === "inicio") {
       setScreen("explore");
       setCatalogKey((k) => k + 1);
@@ -106,6 +112,8 @@ function Gate() {
   const cancelAuth = () => {
     setAuthOpen(false);
     setAuthRedirectScreen(null);
+    // Sin sesión no hay flujo que retomar: se descarta la intención.
+    setPendingShareRouteId(null);
   };
 
   const handleAuthSuccess = () => {
@@ -114,6 +122,16 @@ function Gate() {
       setScreen(authRedirectScreen);
       setAuthRedirectScreen(null);
     }
+    // pendingShareRouteId se conserva: el detalle lo consume vía
+    // autoOpenShare y lo limpia con onShareAutoOpened.
+  };
+
+  /** HU-05 — Invitado toca Compartir: a Login conservando ruta + intención. */
+  const handleShareRequireAuth = (routeId: string) => {
+    setPendingRouteId(routeId);
+    setPendingShareRouteId(routeId);
+    setAuthRedirectScreen(null);
+    setAuthOpen(true);
   };
 
   const handleStartActivity = async (route: RouteModel) => {
@@ -167,11 +185,17 @@ function Gate() {
     mainContent = (
       <RouteDetailView
         routeId={pendingRouteId}
-        onBack={() => setPendingRouteId(null)}
+        onBack={() => {
+          setPendingRouteId(null);
+          setPendingShareRouteId(null);
+        }}
         onRequireAuth={() => {
           setAuthRedirectScreen(null);
           setAuthOpen(true);
         }}
+        onShareRequireAuth={handleShareRequireAuth}
+        autoOpenShare={pendingShareRouteId === pendingRouteId}
+        onShareAutoOpened={() => setPendingShareRouteId(null)}
         onStartActivity={handleStartActivity}
       />
     );
@@ -203,7 +227,13 @@ function Gate() {
     );
   } else {
     mainContent = (
-      <ExploreView key={catalogKey} onStartActivity={handleStartActivity} />
+      <ExploreView
+        key={catalogKey}
+        onStartActivity={handleStartActivity}
+        onRequireAuthForShare={handleShareRequireAuth}
+        autoOpenShareRouteId={pendingShareRouteId}
+        onShareAutoOpened={() => setPendingShareRouteId(null)}
+      />
     );
   }
 

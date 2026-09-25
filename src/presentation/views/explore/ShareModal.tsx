@@ -44,6 +44,21 @@ interface ShareRoutes {
   openShareSheet: (payload: SharePayload) => Promise<ShareSheetResult>;
 }
 
+const difficultyLabel: Record<RouteModel["difficulty"], string> = {
+  facil: "Fácil",
+  moderado: "Moderado",
+  dificil: "Difícil",
+  experto: "Experto",
+};
+
+/** Resumen visible con los datos completos que viajan en el enlace (HU-05 C4). */
+function formatShareSummary(route: RouteModel): string {
+  const hours = Math.round(route.durationMinutes / 60);
+  const time =
+    hours > 0 ? `~${hours} h` : `${Math.round(route.durationMinutes)} min`;
+  return `${route.distanceKm.toFixed(1)} km · ${time} · ${difficultyLabel[route.difficulty]}`;
+}
+
 export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
   const [payload, setPayload] = useState<SharePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +143,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({ route, onClose }) => {
               {route.region ? (
                 <Text style={styles.routeRegion}>{route.region}</Text>
               ) : null}
+              <Text
+                style={styles.routeSummary}
+                accessibilityLabel="Resumen de la ruta a compartir"
+              >
+                {formatShareSummary(route)}
+              </Text>
 
               <View style={styles.linkBox}>
                 <Link2 size={14} color={AndeanTheme.colors.primaryDark} />
@@ -252,6 +273,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  routeSummary: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 12,
+    fontWeight: "700",
   },
   linkBox: {
     flexDirection: "row",

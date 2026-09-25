@@ -5,7 +5,10 @@ import {
   mergePublishedRoutePages,
 } from "../core/application/explore/ListPublishedRoutesPaginated.usecase";
 import { SearchRoutesUseCase } from "../core/application/explore/SearchRoutes.usecase";
-import { parseOptionalRoutePreview } from "../core/domain/routeCatalog";
+import {
+  formatModalityLabel,
+  parseOptionalRoutePreview,
+} from "../core/domain/routeCatalog";
 import { buildRoutePreview } from "../core/domain/routePreview";
 import type { RouteModel } from "../core/domain/types";
 
@@ -89,13 +92,18 @@ async function main(): Promise<void> {
     ["a-route", "b-route", "oldest"],
   );
 
-  assert.equal(parseOptionalRoutePreview(undefined), undefined);
-  const preview = buildRoutePreview([
+  assert.equal(parseOptionalRoutePreview(undefined), undefined);  const preview = buildRoutePreview([
     { lat: -16.5, lng: -68.15 },
     { lat: -16.51, lng: -68.14 },
   ]);
   assert.deepEqual(parseOptionalRoutePreview(preview), preview);
   assert.throws(() => parseOptionalRoutePreview({ ...preview, pointCount: 3 }));
+
+  // RF-07 — etiqueta de modalidad sugerida para la tarjeta resumen.
+  assert.equal(formatModalityLabel("solo"), "Solo");
+  assert.equal(formatModalityLabel("acompañado"), "Acompañado");
+  assert.equal(formatModalityLabel(undefined), "Modalidad no especificada");
+  assert.equal(formatModalityLabel("grupal"), "Modalidad no especificada");
 
   console.log("HU-03 catalog: stable ordering, loaded-set search, pagination ports and legacy previews passed");
 }

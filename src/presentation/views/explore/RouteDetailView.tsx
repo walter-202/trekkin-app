@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { ChevronLeft, Share2, Download, CheckCircle2, Activity } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
+import { formatModalityLabel } from "../../../core/domain/routeCatalog";
 import { GetRouteDetailWithCacheUseCase } from "../../../core/application/explore/GetRouteDetailWithCache.usecase";
 import {
   CheckRouteDownloadAvailabilityUseCase,
@@ -31,6 +32,15 @@ interface RouteDetailViewProps {
   onBack: () => void;
   onRequireAuth?: () => void;
   onStartActivity?: (route: RouteModel) => void;
+  /**
+   * HU-05 — Gate de auth para compartir: si el usuario es invitado, el padre
+   * lo lleva a Login conservando la ruta; al volver, `autoOpenShare` retoma
+   * el flujo reabriendo el ShareModal. Sin este callback se usa onRequireAuth
+   * + reapertura local mientras el componente siga montado.
+   */
+  onShareRequireAuth?: (routeId: string) => void;
+  autoOpenShare?: boolean;
+  onShareAutoOpened?: () => void;
 }
 
 const difficultyLabel: Record<RouteModel["difficulty"], string> = {
@@ -58,12 +68,16 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   onBack,
   onRequireAuth,
   onStartActivity,
+  onShareRequireAuth,
+  autoOpenShare,
+  onShareAutoOpened,
 }) => {
   const { isAuthenticated, exitGuest } = useAuth();
   const [route, setRoute] = useState<RouteModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const sharePendingRef = useRef(false);
   const [downloaded, setDownloaded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadMessage, setDownloadMessage] = useState<string | null>(null);
@@ -78,6 +92,42 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
       : { available: false as const, reason: "route_not_published" as const },
     [route, isAuthenticated],
   );
+
+  /**
+   * HU-05 — Compartir exige sesión. Invitado → Login; el flujo se retoma al
+   * volver (vía `autoOpenShare` del Gate o reapertura local si seguimos
+   * montados). El ShareModal/usecase conserva la validación `published` con
+   * error tipado para rutas no publicables.
+   */
+  const handleSharePress = () => {
+    if (isAuthenticated) {
+      setShareOpen(true);
+      return;
+    }
+    if (onShareRequireAuth) {
+      onShareRequireAuth(routeId);
+      return;
+    }
+    sharePendingRef.current = true;
+    (onRequireAuth ?? exitGuest)();
+  };
+
+  // Retoma el flujo tras Login cuando el Gate lo indica (reabrir ShareModal).
+  useEffect(() => {
+    if (autoOpenShare) {
+      setShareOpen(true);
+      onShareAutoOpened?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenShare]);
+
+  // Reapertura local: si la sesión llega con el detalle aún montado.
+  useEffect(() => {
+    if (isAuthenticated && sharePendingRef.current) {
+      sharePendingRef.current = false;
+      setShareOpen(true);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let alive = true;
@@ -243,7 +293,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
         {/* 2. Acciones: compartir (HU-05) y descarga del paquete offline (HU-04) */}
         <View style={styles.actionsRow}>
           <Pressable
-            onPress={() => setShareOpen(true)}
+            onPress={handleSharePress}
             style={styles.actionBtn}
             accessibilityRole="button"
             accessibilityLabel="Compartir ruta"
@@ -300,7 +350,7 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
           <View style={styles.metricCell}>
             <Text style={styles.metricLabel}>Modalidad</Text>
             <Text style={styles.metricValueAccent}>
-              {route.modality === "solo" ? "Solo" : "Acompañado"}
+              {formatModalityLabel(route.modality)}
             </Text>
           </View>
         </View>

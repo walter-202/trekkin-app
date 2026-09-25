@@ -110,7 +110,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Criterios de Aceptación (DoD):**
   1. ✅ Guest libre: `ExploreView` es la entrada; catálogo + detalle públicos.
   2. ✅ Búsqueda texto + chips dificultad (`Todas/Fácil/Moderado/Difícil/Experto`) con `RouteFiltersSchema`.
-  3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, foto de portada real del usuario (`coverImageUrl || photos[0]`) sin peticiones de mapas.
+  3. ✅ `RouteCard`: nombre, tramo inicio→fin, km, horas, badge dificultad, modalidad sugerida (`Solo`/`Acompañado`, fallback `Modalidad no especificada` en docs legacy sin el campo), foto de portada real del usuario (`coverImageUrl || photos[0]`) sin peticiones de mapas.
   4. ✅ `RouteDetailView`: header andino, badge desnivel, métricas (distancia/desnivel/tiempo/modalidad), itinerario, checkpoints con categoría/notas.
   5. ✅ Mapa online con `TrekMap` (MapLibre GL JS): OpenFreeMap, trazado desde el `RoutePreview` compacto y acotado de Firestore, marcadores inicio/fin/checkpoints. Rutas legacy sin preview pueden usar `waypoints` como fallback, acotados antes de pintar. El detalle no solicita GPX/PMTiles a Storage ni entrega `offlinePackPath` al mapa. 0 Google Maps SDK.
   6. ✅ Paginación y control de carga: `routeService.listPublishedRoutesPaginated` para consumo eficiente de Firestore.
@@ -119,7 +119,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   9. ✅ Cache local del detalle: AsyncStorage guarda metadata y preview compacto (nunca bytes de artefactos), con identidad por ruta + versión/hash del preview; capacidad máxima de 30 detalles y refresco desde Firestore tipo stale-while-revalidate.
 - **Estado real y brecha (90%):** contratos, catálogo, preview de publicación, detalle online, cache y gates tienen evidencia en suites automatizadas. Siguen pendientes Firebase Emulator, validación UI en Expo Go/dispositivo y web local, matriz de Android/iOS y revisión UI humana; no se declara 100% hasta reunir esa evidencia. Plan: `docs/plan/plan_mapas_on_offline.md`.
 - **Mapeo Técnico:**
-  - _Dominio:_ `src/core/domain/route.schemas.ts`, `routePreview.ts`, `routePreview.schemas.ts`, `routeCatalog.ts`.
+  - _Dominio:_ `src/core/domain/route.schemas.ts`, `routePreview.ts`, `routePreview.schemas.ts`, `routeCatalog.ts` (`formatModalityLabel` RF-07).
   - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` / `GetRouteDetailWithCache` / `RouteDetailSupport` / `PublishRoute` usecases.
   - _Infraestructura:_ `src/infrastructure/database/routeService.ts` (detalle, preview y publicación), `src/infrastructure/persistence/routeDetailCache.ts` + `RouteDetailCacheRepository` (AsyncStorage), `src/infrastructure/map/mapStyle.ts`.
   - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap` (`TrekMap.web.tsx` / `TrekMap.native.tsx`).
@@ -152,10 +152,10 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Rol:** Senderista / Usuario.
 - **Narrativa:** **Como** usuario **quiero** compartir una ruta pública por enlace y mensajería **para** difundirla con mi grupo.
 - **Criterios de Aceptación (DoD):**
-  1. ✅ Botón compartir en `RouteDetailView`.
+  1. ✅ Botón compartir en `RouteDetailView` con gate de sesión: invitado → `AuthView` conservando `pendingRouteId` + `pendingShareRouteId`; tras login se reabre el `ShareModal` solo (`autoOpenShare`).
   2. ✅ `ShareRouteUseCase` exige `status === 'published'`.
   3. ✅ URL canónica `trekkin-app://r/{routeId}` por `routeId` Firestore, sin duplicar colecciones.
-  4. ✅ `ShareModal`: resumen + caja enlace + "Copiar enlace" (`expo-clipboard` + feedback) + Share Sheet nativo.
+  4. ✅ `ShareModal`: resumen visible (nombre + distancia + tiempo + dificultad) + caja enlace + "Copiar enlace" (`expo-clipboard` + feedback) + Share Sheet nativo.
   5. ✅ Deep link en `App.tsx` (`Linking.addEventListener`) abre el detalle.
   6. ⚠️ Exportación de archivo: `ExportTrackFileUseCase` genera el `.gpx`; falta verificar el adjunto en el share sheet nativo.
 - **Estado real y brecha (20%):** contrato de enlace, permisos y serialización tienen evidencia en `share_hu5.test.ts`. Pendientes: Firebase Emulator, share sheet nativo en Android/iOS, adjunto GPX real, Expo Go UI y revisión UI completa.
@@ -163,7 +163,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   - _Dominio:_ `src/core/domain/share.schemas.ts`, `src/core/domain/trackFormats.ts`.
   - _Aplicación:_ `ShareRoute` / `CopyShareLink` / `PublishShareLink` / `ExportTrackFile` usecases.
   - _Infraestructura:_ `src/infrastructure/share/shareService.ts`.
-  - _Presentación:_ `ShareModal.tsx`, `RouteDetailView.tsx`.
+  - _Presentación:_ `ShareModal.tsx` (resumen + copiar + share sheet), `RouteDetailView.tsx` (gate `onShareRequireAuth`/`autoOpenShare`), `App.tsx` Gate (`pendingShareRouteId`), `ExploreView.tsx` (passthrough al detalle interno).
   - _Suite:_ `src/tests/share_hu5.test.ts`.
 
 ---
