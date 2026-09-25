@@ -83,12 +83,22 @@ export const activityService = {
     const docPath = `${ACTIVITIES_COLLECTION}/${id}`;
     try {
       const clean = Object.entries(updates).reduce<Record<string, unknown>>(
-        (acc, [key, value]) => {
-          if (key !== "recordedPoints" && value !== undefined) acc[key] = value;
-          return acc;
-        },
-        {},
-      );
+  (acc, [key, value]) => {
+    if (key !== "recordedPoints" && value !== undefined) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        // Limpia el interior de objetos anidados como 'gpx'
+        acc[key] = Object.entries(value).reduce((subAcc, [subKey, subValue]) => {
+          if (subValue !== undefined) subAcc[subKey] = subValue;
+          return subAcc;
+        }, {} as Record<string, unknown>);
+      } else {
+        acc[key] = value;
+      }
+    }
+    return acc;
+  },
+  {},
+);
       if (Object.keys(clean).length === 0) return;
       const docRef = doc(db, ACTIVITIES_COLLECTION, id);
       await setDoc(docRef, clean, { merge: true });

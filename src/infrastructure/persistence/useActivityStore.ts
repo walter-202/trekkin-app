@@ -66,6 +66,7 @@ import type {
   NewTrackPoint,
   TrackDbConnection,
 } from "../database/activityTrackDb";
+import { Alert } from "react-native";
 
 /**
  * HU-06 — Estado de la actividad (zustand) con autosave local.
@@ -327,6 +328,99 @@ async function syncFinishedActivity(activity: TrekkinActivity): Promise<TrekkinA
   }
 }
 
+type RouteStateUpdate = Partial<RouteModel> & Pick<RouteModel, "id">;
+
+function routeFromActivity(activity: TrekkinActivity): RouteModel | null {
+  if (activity.recordedPoints.length < 2) return null;
+  const start = activity.recordedPoints[0];
+  const end = activity.recordedPoints[activity.recordedPoints.length - 1];
+  return {
+    id: activity.routeId,
+    title: activity.routeTitle,
+    description: "",
+    region: "",
+    startPoint: { name: "Inicio", lat: start.lat, lng: start.lng },
+    endPoint: { name: "Fin", lat: end.lat, lng: end.lng },
+    distanceKm: activity.distanceCoveredKm,
+    durationMinutes: Math.max(1, Math.round(activity.durationSeconds / 60)),
+    difficulty: "facil",
+    modality: "solo",
+    status: "published",
+    isPrivate: false,
+    creatorId: activity.userId,
+    creatorName: activity.userName,
+    waypoints: [...activity.recordedPoints],
+    checkpoints: [],
+    photos: [],
+    createdAt: activity.createdAt,
+    updatedAt: activity.finishedAt ?? activity.createdAt,
+  };
+}
+
+function mergeRouteWithFallback(
+  updates: RouteStateUpdate,
+  current: RouteModel,
+): RouteModel {
+  const waypoints = Array.isArray(updates.waypoints) && updates.waypoints.length >= 2
+    ? updates.waypoints
+    : current.waypoints;
+  return {
+    ...current,
+    ...updates,
+    id: updates.id || current.id,
+    title: updates.title || current.title,
+    description: updates.description ?? current.description,
+    region: updates.region ?? current.region,
+    startPoint: updates.startPoint ?? current.startPoint,
+    endPoint: updates.endPoint ?? current.endPoint,
+    distanceKm: typeof updates.distanceKm === "number" ? updates.distanceKm : current.distanceKm,
+    durationMinutes: typeof updates.durationMinutes === "number"
+      ? updates.durationMinutes
+      : current.durationMinutes,
+    difficulty: updates.difficulty ?? current.difficulty,
+    modality: updates.modality ?? current.modality,
+    status: updates.status ?? current.status,
+    isPrivate: typeof updates.isPrivate === "boolean" ? updates.isPrivate : current.isPrivate,
+    creatorId: updates.creatorId || current.creatorId,
+    creatorName: updates.creatorName ?? current.creatorName,
+    waypoints,
+    checkpoints: Array.isArray(updates.checkpoints) ? updates.checkpoints : current.checkpoints,
+    photos: Array.isArray(updates.photos) ? updates.photos : current.photos,
+    createdAt: typeof updates.createdAt === "number" ? updates.createdAt : current.createdAt,
+    updatedAt: typeof updates.updatedAt === "number" ? updates.updatedAt : current.updatedAt,
+    preview: updates.preview ?? current.preview,
+    artifacts: updates.artifacts ?? current.artifacts,
+  };
+}
+
+function mergeLiveRouteWithUpdate(
+  live: LiveActivity,
+  updates: RouteStateUpdate,
+): LiveActivity {
+  const route = live.route;
+  const waypoints = Array.isArray(updates.waypoints) && updates.waypoints.length >= 2
+    ? updates.waypoints
+    : route.waypoints;
+  return {
+    ...live,
+    route: {
+      ...route,
+      routeTitle: updates.title ?? route.routeTitle,
+      description: updates.description ?? route.description,
+      photos: Array.isArray(updates.photos) ? updates.photos : route.photos,
+      startPoint: updates.startPoint ?? route.startPoint,
+      endPoint: updates.endPoint ?? route.endPoint,
+      waypoints,
+      checkpoints: Array.isArray(updates.checkpoints) ? updates.checkpoints : route.checkpoints,
+      distanceKm: typeof updates.distanceKm === "number" ? updates.distanceKm : route.distanceKm,
+      durationMinutes: typeof updates.durationMinutes === "number"
+        ? updates.durationMinutes
+        : route.durationMinutes,
+      difficulty: updates.difficulty ?? route.difficulty,
+    },
+  };
+}
+
 interface ActivityState {
   live: LiveActivity | null;
   activities: TrekkinActivity[];
@@ -339,6 +433,7 @@ interface ActivityState {
   watch: LocationWatch | null;
 
   loadCatalog: () => Promise<void>;
+  mergeCatalogRoute: (updates: RouteStateUpdate) => void;
   startRoute: (
     uid: string,
     userName: string,
@@ -402,7 +497,13 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       // o una actividad ya cerrada (finished) vuelve a mostrar el catálogo.
       await get().restoreLiveSession();
       const routes = await routeService.listPublishedRoutes();
-      set({ catalogRoutes: routes, isLoading: false });
+      set((state) => ({
+        catalogRoutes: routes.map((route) => {
+          const current = state.catalogRoutes.find((item) => item.id === route.id);
+          return current ? mergeRouteWithFallback(route, current) : route;
+        }),
+        isLoading: false,
+      }));
     } catch (err: unknown) {
       set({
         catalogRoutes: [],
@@ -418,17 +519,38 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   startRoute: (uid, userName, routeId) => enqueue(async () => {
     set({ isLoading: true, error: null });
     try {
+      const sourceActivity = [get().lastResult, ...get().activities].find(
+        (activity): activity is TrekkinActivity =>
+          activity?.routeId === routeId && activity.recordedPoints.length >= 2,
+      ) ?? null;
+      const sourceRoute = sourceActivity ? routeFromActivity(sourceActivity) : null;
+      const cachedRoute = get().catalogRoutes.find((route) => route.id === routeId) ?? null;
+      const remoteRoute = await routeService.getRoute(routeId);
+      let route = remoteRoute;
+      if (route && cachedRoute) route = mergeRouteWithFallback(route, cachedRoute);
+      if (route && sourceRoute) route = mergeRouteWithFallback(route, sourceRoute);
+      if (!route) route = sourceRoute ?? cachedRoute;
+
       const live = await StartActivityUseCase(
         { routeId, userId: uid, userName },
-        {
-          getRoute: (id) => routeService.getRoute(id),
-        },
+        { getRoute: async () => route },
       );
       if (initializeTrackPersistence(live)) await saveLiveHeader(live);
       else await saveLive(live);
-      set({ live, isLoading: false });
+      set((state) => ({
+        live,
+        catalogRoutes: route
+          ? state.catalogRoutes.map((current) =>
+              current.id === route.id
+                ? mergeRouteWithFallback(route, current)
+                : current,
+            )
+          : state.catalogRoutes,
+        isLoading: false,
+      }));
       return true;
-    } catch (err: unknown) {
+    } catch (err: any) {
+      Alert.alert("Error interno", err.message || String(err));
       set({
         error:
           err instanceof Error
@@ -809,6 +931,19 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }
     set({ live: null, lastResult: null, error: null });
   }),
+
+  mergeCatalogRoute: (updates) => {
+    set((state) => ({
+      live: state.live?.route.routeId === updates.id
+        ? mergeLiveRouteWithUpdate(state.live, updates)
+        : state.live,
+      catalogRoutes: state.catalogRoutes.map((current) =>
+        current.id === updates.id
+          ? mergeRouteWithFallback(updates, current)
+          : current,
+      ),
+    }));
+  },
 
   clearError: () => set({ error: null }),
 }));

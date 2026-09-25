@@ -1,12 +1,23 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import { isAcceptableGpsAccuracy, type GpsPosition } from "./locationService";
+import type { GpsPosition } from "./locationService";
 
 /** Stable name persisted by Expo across app process restarts. */
 export const BACKGROUND_LOCATION_TASK_NAME = "trekkin-background-location";
 
 export interface BackgroundLocationTaskData {
   locations?: Location.LocationObject[];
+}
+
+export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
+
+export function isAcceptableGpsAccuracy(
+  position: Pick<GpsPosition, "accuracy">,
+): boolean {
+  return typeof position.accuracy === "number"
+    && Number.isFinite(position.accuracy)
+    && position.accuracy >= 0
+    && position.accuracy < MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
 }
 
 export interface BackgroundActivityStore {
@@ -77,7 +88,7 @@ export function registerBackgroundLocationTask(): void {
     return;
   }
   TaskManager.defineTask<BackgroundLocationTaskData>(
-    BACKGROUND_LOCATION_TASK_NAME,
+    "trekkin-background-location",
     async ({ data, error }) => {
       if (error) return 0;
       const locations = Array.isArray(data?.locations) ? data.locations : [];

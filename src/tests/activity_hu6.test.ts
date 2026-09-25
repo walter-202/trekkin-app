@@ -31,6 +31,7 @@ import {
   RecordedPointSchema,
 } from "../core/domain/activity.schemas";
 import type { RouteModel, Coordinates } from "../core/domain/types";
+import { buildRoutePreview } from "../core/domain/routePreview";
 import { StartActivityUseCase } from "../core/application/activity/StartActivity.usecase";
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { RecordPointUseCase } from "../core/application/activity/RecordPoint.usecase";
@@ -267,6 +268,23 @@ async function runActivityAcceptanceTests(): Promise<TestResult[]> {
       readyActivity.route.routeId === "route-1" &&
       readyActivity.recordedPoints.length === 0,
     `ID: ${readyActivity.id}`,
+  );
+  const previewActivity = await StartActivityUseCase(
+    { routeId: "route-1", userId: "user-123", userName: "Mateo Condori" },
+    {
+      getRoute: async () => ({
+        ...routeFixture,
+        preview: buildRoutePreview(routeFixture.waypoints),
+        waypoints: [],
+      }),
+    },
+  );
+  recordTest(
+    "StartActivityUseCase restaura el trazado desde el preview publicado",
+    previewActivity.route.waypoints.length >= 2 &&
+      previewActivity.route.startPoint.lat === routeFixture.startPoint.lat &&
+      previewActivity.route.endPoint.lat === routeFixture.endPoint.lat,
+    `Puntos restaurados: ${previewActivity.route.waypoints.length}`,
   );
   recordTest(
     "StartActivityUseCase rechaza una ruta no publicada o inexistente",

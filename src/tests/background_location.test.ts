@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildTrekMapScene } from "../presentation/components/map/buildTrekMapScene";
-import { isAcceptableGpsAccuracy, type GpsPosition } from "../infrastructure/location/locationService";
+import type { GpsPosition } from "../infrastructure/location/locationService";
 
 type LocationObject = {
   coords: {
@@ -42,7 +42,7 @@ mock("expo-location", location);
 
 const { BACKGROUND_LOCATION_TASK_NAME, locationObjectToGpsPosition, processBackgroundLocations } =
   require("../infrastructure/location/backgroundLocationTask") as typeof import("../infrastructure/location/backgroundLocationTask");
-const { locationService } = require("../infrastructure/location/locationService") as typeof import("../infrastructure/location/locationService");
+const { isAcceptableGpsAccuracy, locationService } = require("../infrastructure/location/locationService") as typeof import("../infrastructure/location/locationService");
 
 function sample(index: number): LocationObject {
   return {

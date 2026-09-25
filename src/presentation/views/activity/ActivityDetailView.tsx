@@ -134,7 +134,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
 
     setPublishing(true);
     try {
-      await routeService.publishRouteById(displayActivity.routeId);
+      const publishedRoute = await routeService.publishRouteById(displayActivity.routeId);
+      useActivityStore.getState().mergeCatalogRoute(publishedRoute);
       if (onPublishAndOpenCatalog) {
         onPublishAndOpenCatalog();
         return;

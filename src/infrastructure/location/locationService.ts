@@ -1,9 +1,14 @@
 import * as Location from "expo-location";
 import {
-  BACKGROUND_LOCATION_TASK_NAME,
   registerBackgroundLocationTask,
 } from "./backgroundLocationTask";
 
+export {
+  isAcceptableGpsAccuracy,
+  MAX_ACCEPTABLE_GPS_ACCURACY_METERS,
+} from "./backgroundLocationTask";
+
+const BACKGROUND_LOCATION_TASK_NAME = "trekkin-background-location";
 registerBackgroundLocationTask();
 
 /**
@@ -51,12 +56,6 @@ export interface BackgroundLocationOptions extends LocationAccuracyOptions {
   deferredUpdatesInterval?: number;
   /** iOS deferred delivery threshold in meters. */
   deferredUpdatesDistance?: number;
-}
-
-export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
-
-export function isAcceptableGpsAccuracy(position: Pick<GpsPosition, "accuracy">): boolean {
-  return typeof position.accuracy === "number" && Number.isFinite(position.accuracy) && position.accuracy >= 0 && position.accuracy < MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
 }
 
 export const RECORDING_WATCH_OPTIONS: LocationAccuracyOptions = {

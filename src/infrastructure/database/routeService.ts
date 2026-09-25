@@ -241,13 +241,21 @@ export const routeService = {
       preview: parseOptionalRoutePreview(data.preview),
       waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
     };
+    const cleanObject = (obj: any): any => {
+    return Object.entries(obj).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = typeof value === 'object' && value !== null
+        ? cleanObject(value)
+        : value;
+      }
+    return acc;
+  }, {} as any);
+};
     await PublishRouteUseCase(route, validated, {
       publish: async (_routeId, updates) => {
         try {
-          await setDoc(routeRef, {
-  ...route,
-  ...updates
-}, { merge: true });
+          const cleanRouteData = cleanObject({ ...route, ...updates });
+          await setDoc(routeRef, cleanRouteData, { merge: true });
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, docPath);
         }
@@ -258,15 +266,37 @@ export const routeService = {
   /**
    * Publica una ruta para que aparezca en el catálogo público.
    */
-  async publishRouteById(id: string): Promise<void> {
+  async publishRouteById(id: string): Promise<RouteModel> {
     const docPath = `${ROUTES_COLLECTION}/${id}`;
     try {
       const docRef = doc(db, ROUTES_COLLECTION, id);
-      await setDoc(docRef, {
-      status: "published",
-      isPrivate: false,
-      updatedAt: Date.now(),
-      }, { merge: true });
+      const snapshot = await getDoc(docRef);
+      if (!snapshot.exists()) {
+        throw new Error("No existe una ruta completa para publicar.");
+      }
+      const data = snapshot.data();
+      const currentRoute: RouteModel = {
+        ...(data as RouteModel),
+        id: snapshot.id,
+        preview: parseOptionalRoutePreview(data.preview),
+        waypoints: Array.isArray(data.waypoints) ? data.waypoints : [],
+        checkpoints: Array.isArray(data.checkpoints) ? data.checkpoints : [],
+        photos: Array.isArray(data.photos) ? data.photos : [],
+      };
+      const hasTrace = currentRoute.startPoint != null
+        && currentRoute.endPoint != null
+        && (currentRoute.waypoints.length >= 2 || currentRoute.preview != null);
+      if (!hasTrace) {
+        throw new Error("No se puede publicar una ruta sin trazado válido.");
+      }
+      const publishedRoute: RouteModel = {
+        ...currentRoute,
+        status: "published",
+        isPrivate: false,
+        updatedAt: Date.now(),
+      };
+      await setDoc(docRef, publishedRoute, { merge: true });
+      return publishedRoute;
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, docPath);
     }

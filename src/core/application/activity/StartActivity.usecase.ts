@@ -1,6 +1,7 @@
 import type { RouteModel } from "../../domain/types";
 import type { LiveActivity } from "../../domain/activity";
 import { toLiveRouteInfo } from "../../domain/activity";
+import { GetRoutePreviewPointsUseCase } from "../explore/RouteDetailSupport.usecase";
 
 /**
  * HU-06 — Seleccionar y preparar una ruta publicada para realizar el recorrido.
@@ -31,12 +32,9 @@ export async function StartActivityUseCase(
     throw new Error("Esta ruta ya no está disponible.");
   }
 
-  const hasValidTrace =
-    route.startPoint &&
-    route.endPoint &&
-    Array.isArray(route.waypoints) &&
-    route.waypoints.length >= 2;
-  if (!hasValidTrace) {
+  const routeInfo = toLiveRouteInfo(route);
+  const waypoints = GetRoutePreviewPointsUseCase(route);
+  if (waypoints.length < 2) {
     throw new Error(
       "La ruta no tiene un trazado válido para realizar el recorrido.",
     );
@@ -48,7 +46,7 @@ export async function StartActivityUseCase(
     userId: args.userId,
     userName: args.userName,
     origin: "route",
-    route: toLiveRouteInfo(route),
+    route: { ...routeInfo, waypoints },
     phase: "ready",
     startedAt: null,
     lastResumedAt: null,
