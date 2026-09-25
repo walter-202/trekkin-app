@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 import { ArrowLeft, X } from 'lucide-react-native';
 import { useAuth } from '../../../infrastructure/auth/AuthContext';
 import { usePlanStore } from '../../../infrastructure/persistence/usePlanStore';
 import { useActivityStore } from '../../../infrastructure/persistence/useActivityStore';
 import { RECORDING_WATCH_OPTIONS } from '../../../infrastructure/location/locationService';
+import { ImportTrackFileUseCase } from '../../../core/application/plan/ImportTrackFile.usecase';
 import type { FinishActivityResult } from '../../../core/application/activity/FinishActivity.usecase';
 import { DraftsView } from './DraftsView';
 import { CreateRouteView } from './CreateRouteView';
@@ -34,6 +36,7 @@ type RecordStep =
 
 interface RecordViewProps {
   onClose?: () => void;
+  initialImportedGpxUrl?: string | null;
 }
 
 const STEP_TITLES: Record<RecordStep, string> = {
@@ -47,11 +50,54 @@ const STEP_TITLES: Record<RecordStep, string> = {
   detail: 'RECORRIDO',
 };
 
-export const RecordView: React.FC<RecordViewProps> = ({ onClose }) => {
+export const RecordView: React.FC<RecordViewProps> = ({ onClose, initialImportedGpxUrl }) => {
   const { currentUser } = useAuth();
-  const { plan, initializePlan, newDraftPlan } = usePlanStore();
+  const { plan, initializePlan, newDraftPlan, setPlanMeta, setPoints } = usePlanStore();
   const [step, setStep] = useState<RecordStep>('drafts');
   const [lastSaved, setLastSaved] = useState<TrekkinActivity | null>(null);
+
+  useEffect(() => {
+    if (!initialImportedGpxUrl || !currentUser) return;
+
+    let active = true;
+    (async () => {
+      try {
+        const content = await FileSystem.readAsStringAsync(initialImportedGpxUrl);
+        const imported = ImportTrackFileUseCase({
+          fileContent: content,
+          fileExtension: 'gpx',
+        });
+
+        await newDraftPlan(currentUser.uid, currentUser.displayName);
+        setPlanMeta({
+          title: imported.title,
+          notes: imported.description ?? '',
+        });
+
+        if (imported.waypoints.length >= 2) {
+          const start = imported.waypoints[0];
+          const end = imported.waypoints[imported.waypoints.length - 1];
+          await setPoints(
+            { lat: start.lat, lng: start.lng, name: 'Inicio GPX' },
+            { lat: end.lat, lng: end.lng, name: 'Fin GPX' },
+          );
+        }
+
+        if (active) setStep('editor');
+      } catch (error) {
+        if (active) {
+          Alert.alert(
+            'No se pudo abrir el archivo GPX',
+            'El archivo recibido no es válido o no se pudo leer. Intenta abrirlo otra vez.',
+          );
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, initialImportedGpxUrl, newDraftPlan, setPlanMeta, setPoints]);
 
   useEffect(() => {
     if (currentUser) {

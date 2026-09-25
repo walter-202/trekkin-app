@@ -103,6 +103,18 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
     // El cambio de estado `live` (ready) hace avanzar al paso prepare.
   };
 
+  const handleRepeatRoute = async (routeId: string) => {
+    const uid = currentUser?.uid;
+    if (!uid || isLoading) return;
+    const ok = await useActivityStore
+      .getState()
+      .startRoute(uid, currentUser?.displayName ?? "", routeId);
+    if (!ok) return;
+    setDetailId(null);
+    setLastSaved(null);
+    setStep("prepare");
+  };
+
   const handleFinished = (result: FinishActivityResult) => {
     setLastSaved(result.saved);
     setStep("result");
@@ -230,6 +242,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
           <ActivityDetailView
             id={detailId}
             onBack={() => handleBack()}
+            onRepeatRoute={handleRepeatRoute}
             onPublishAndOpenCatalog={() => {
               setDetailId(null);
               setLastSaved(null);
@@ -240,6 +253,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
           <ActivityDetailView
             activity={lastSaved}
             onBack={() => handleBack()}
+            onRepeatRoute={handleRepeatRoute}
             onPublishAndOpenCatalog={() => {
               setDetailId(null);
               setLastSaved(null);

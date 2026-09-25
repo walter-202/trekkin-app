@@ -37,6 +37,18 @@
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "file", "pathPattern": ".*\\.gpx" },
+            { "scheme": "content", "pathPattern": ".*\\.gpx" },
+            { "mimeType": "application/gpx+xml" },
+            { "mimeType": "application/octet-stream" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
       ]
     },
     "web": {

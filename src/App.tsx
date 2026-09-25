@@ -34,10 +34,16 @@ type Screen =
   | "downloads"
   | "activity";
 
+const looksLikeGpxUri = (url: string): boolean => {
+  const lower = url.toLowerCase();
+  return lower.endsWith(".gpx") || lower.includes(".gpx?") || lower.includes("application/gpx+xml");
+};
+
 function Gate() {
   const { currentUser, loading, isAdmin } = useAuth();
   const [screen, setScreen] = useState<Screen>("explore");
   const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
+  const [pendingGpxUrl, setPendingGpxUrl] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authRedirectScreen, setAuthRedirectScreen] =
     useState<Screen | null>(null);
@@ -49,19 +55,37 @@ function Gate() {
   useEffect(() => {
     const handleUrl = (url: string) => {
       const parsed = parseShareLink(url);
-      if (!parsed) return;
-      setPendingRouteId(parsed.routeId);
-      setScreen("explore");
+      if (parsed) {
+        setPendingGpxUrl(null);
+        setPendingRouteId(parsed.routeId);
+        setScreen("explore");
+        return;
+      }
+
+      if (looksLikeGpxUri(url)) {
+        setPendingRouteId(null);
+        setPendingGpxUrl(url);
+        if (currentUser) {
+          setScreen("record");
+        } else {
+          setAuthRedirectScreen("record");
+          setAuthOpen(true);
+        }
+        return;
+      }
     };
+
     Linking.getInitialURL().then((url) => {
       if (url) handleUrl(url);
     });
+
     const sub = Linking.addEventListener("url", (e) => handleUrl(e.url));
     return () => sub.remove();
-  }, []);
+  }, [currentUser]);
 
   const handleNavigate = (route: DrawerRoute) => {
     setPendingRouteId(null);
+    setPendingGpxUrl(null);
     if (route === "inicio") {
       setScreen("explore");
       setCatalogKey((k) => k + 1);
@@ -191,7 +215,15 @@ function Gate() {
       />
     );
   } else if (screen === "record") {
-    mainContent = <RecordView onClose={() => setScreen("explore")} />;
+    mainContent = (
+      <RecordView
+        initialImportedGpxUrl={pendingGpxUrl}
+        onClose={() => {
+          setPendingGpxUrl(null);
+          setScreen("explore");
+        }}
+      />
+    );
   } else if (screen === "free-record") {
     mainContent = <FreeRecordView onClose={() => setScreen("explore")} />;
   } else if (screen === "activity") {

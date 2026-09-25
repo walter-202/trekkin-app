@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { CloudOff, Share2, Globe, Trash } from "lucide-react-native";
+import { CloudOff, Share2, Globe, Trash, RotateCcw } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
@@ -30,6 +30,7 @@ interface ActivityDetailViewProps {
   activity?: TrekkinActivity;
   onBack: () => void;
   onPublishAndOpenCatalog?: () => void;
+  onRepeatRoute?: (routeId: string) => void;
 }
 
 export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
@@ -37,6 +38,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   activity: initialActivity,
   onBack,
   onPublishAndOpenCatalog,
+  onRepeatRoute,
 }) => {
   const { currentUser } = useAuth();
   const error = useActivityStore((s) => s.error);
@@ -95,8 +97,9 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   }
 
   const completed = displayActivity.status === "completed";
-  const first = displayActivity.recordedPoints[0];
-  const last = displayActivity.recordedPoints[displayActivity.recordedPoints.length - 1];
+  const routePoints = displayActivity.recordedPoints ?? [];
+  const first = routePoints[0];
+  const last = routePoints[routePoints.length - 1];
 
   const handleShareGpx = async () => {
     if (!displayActivity.recordedPoints.length) {
@@ -113,6 +116,14 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       const message = error instanceof Error ? error.message : "No se pudo compartir el GPX.";
       Alert.alert("No se pudo compartir", message);
     }
+  };
+
+  const handleRepeat = () => {
+    if (!displayActivity.routeId) {
+      Alert.alert("Ruta sin identificador", "No hay una ruta asociada para repetir.");
+      return;
+    }
+    onRepeatRoute?.(displayActivity.routeId);
   };
 
   const handlePublish = async () => {
@@ -203,7 +214,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       )}
 
       <TrekMap
-        track={activity.recordedPoints}
+        trail={routePoints}
+        track={routePoints}
         start={
           first
             ? { lat: first.lat, lng: first.lng, name: "Inicio del recorrido" }
@@ -214,7 +226,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
             ? { lat: last.lat, lng: last.lng, name: "Fin del recorrido" }
             : undefined
         }
-        fitTo={displayActivity.recordedPoints}
+        fitTo={routePoints.length >= 2 ? routePoints : []}
         height={260}
       />
 
@@ -253,6 +265,16 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
       </View>
 
       <View style={styles.actionBlock}>
+        <Pressable
+          onPress={handleRepeat}
+          style={[styles.actionBtn, styles.repeatBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="Repetir ruta"
+        >
+          <RotateCcw size={16} color={AndeanTheme.colors.white} />
+          <Text style={styles.actionText}>REPETIR RUTA</Text>
+        </Pressable>
+
         <Pressable
           onPress={handlePublish}
           style={[styles.actionBtn, styles.publishBtn]}
@@ -353,6 +375,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 12,
+  },
+  repeatBtn: {
+    backgroundColor: AndeanTheme.colors.primaryDark,
   },
   publishBtn: {
     backgroundColor: AndeanTheme.colors.primary,

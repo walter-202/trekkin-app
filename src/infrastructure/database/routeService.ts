@@ -210,7 +210,7 @@ export const routeService = {
       const clean = cleanUpdates(updates as Record<string, unknown>);
       if (Object.keys(clean).length === 0) return;
       const docRef = doc(db, ROUTES_COLLECTION, id);
-      await updateDoc(docRef, clean);
+      await setDoc(docRef, clean, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, docPath);
     }
