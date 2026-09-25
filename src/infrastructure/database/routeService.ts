@@ -244,10 +244,10 @@ export const routeService = {
     await PublishRouteUseCase(route, validated, {
       publish: async (_routeId, updates) => {
         try {
-          await updateDoc(routeRef, {
-            ...updates,
-            waypoints: deleteField(),
-          });
+          await setDoc(routeRef, {
+          ...updates,
+          waypoints: deleteField(),
+          }, { merge: true });
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, docPath);
         }
@@ -262,11 +262,11 @@ export const routeService = {
     const docPath = `${ROUTES_COLLECTION}/${id}`;
     try {
       const docRef = doc(db, ROUTES_COLLECTION, id);
-      await updateDoc(docRef, {
-        status: "published",
-        isPrivate: false,
-        updatedAt: Date.now(),
-      });
+      await setDoc(docRef, {
+      status: "published",
+      isPrivate: false,
+      updatedAt: Date.now(),
+      }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, docPath);
     }
