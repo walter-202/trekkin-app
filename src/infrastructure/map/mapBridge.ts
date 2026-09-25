@@ -38,6 +38,15 @@ export interface TrekMapScene {
   satelliteStyle: Record<string, unknown> | null;
   /** Pack de fondo HU-04. Null = estilo online OpenFreeMap. */
   offlinePack: TrekMapOfflinePack | null;
+  followUser?: boolean;
+}
+
+export function shouldFitBounds(
+  bounds: TrekMapScene["bounds"],
+  followUser: boolean | undefined,
+  firstFitDone: boolean,
+): boolean {
+  return bounds !== null && (followUser !== false || !firstFitDone);
 }
 
 export type MapToHostEvent =

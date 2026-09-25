@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { LiveActivity } from "../../core/domain/activity";
 import type {
   ActivityGpxMetadata,
+  Coordinates,
   TrekkinActivity,
   RouteModel,
 } from "../../core/domain/types";
@@ -65,9 +66,8 @@ import {
   insertTrackPoint,
   backfillTrackPoints,
   getMaxSeq,
-  countTrackPoints,
   getLastTrackPoints,
-  getTrackPointsPage,
+  loadTrackPoints,
   deleteActivity as deleteTrackDbActivity,
 } from "../database/activityTrackDb";
 import type {
@@ -198,44 +198,56 @@ function saveLiveForPersistence(live: LiveActivity): Promise<void> {
 function loadFullTrack(live: LiveActivity): LiveActivity {
   try {
     const db = getTrackDb();
-    const total = countTrackPoints(db, live.id);
-    if (total === 0) return live;
-    const all: LiveActivity["recordedPoints"] = [];
-    const pageSize = 2000;
-    for (let offset = 0; offset < total; offset += pageSize) {
-      all.push(
-        ...getTrackPointsPage(db, live.id, pageSize, offset).map((row) => ({
-          lat: row.lat,
-          lng: row.lng,
-          altitude: row.altitude ?? undefined,
-          accuracy: row.accuracy ?? undefined,
-          speed: row.speed ?? undefined,
-          timestamp: row.timestamp,
-        })),
-      );
-    }
-    return { ...live, recordedPoints: all };
+    const rows = loadTrackPoints(db, live.id);
+    if (rows.length === 0) return live;
+    return {
+      ...live,
+      recordedPoints: rows.map((row) => ({
+        lat: row.lat,
+        lng: row.lng,
+        altitude: row.altitude ?? undefined,
+        accuracy: row.accuracy ?? undefined,
+        speed: row.speed ?? undefined,
+        timestamp: row.timestamp,
+      })),
+    };
   } catch {
     return live;
   }
 }
 
-export async function restoreLiveSession(): Promise<LiveActivity | null> {
+function loadMapTrack(live: LiveActivity): Coordinates[] {
+  return loadFullTrack(live).recordedPoints;
+}
+
+interface RestoredLiveSession {
+  live: LiveActivity;
+  mapTrack: Coordinates[];
+}
+
+function copyMapTrack(points: Coordinates[]): Coordinates[] {
+  return points.map((point) => ({ ...point }));
+}
+
+export async function restoreLiveSession(): Promise<RestoredLiveSession | null> {
   const restored = await loadLive();
   if (!restored) return null;
+  const totalDistanceKm =
+    restored.totalDistanceKm ??
+    accumulatedDistanceKm(restored.recordedPoints, {
+      minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
+      maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
+    });
   if (restored.recordedPoints.length > 0) {
     try {
       ensureTrackReady(restored);
-      const totalDistanceKm =
-        restored.totalDistanceKm ??
-        accumulatedDistanceKm(restored.recordedPoints, {
-          minDeltaM: ACTIVITY_CONFIG.MIN_GPS_DELTA_M,
-          maxJumpM: ACTIVITY_CONFIG.MAX_GPS_JUMP_M,
-        });
       return {
-        ...restored,
-        recordedPoints: sliceWindow(restored.recordedPoints),
-        totalDistanceKm,
+        live: {
+          ...restored,
+          recordedPoints: sliceWindow(restored.recordedPoints),
+          totalDistanceKm,
+        },
+        mapTrack: copyMapTrack(loadMapTrack(restored)),
       };
     } catch {
       if (trackDb === null) {
@@ -246,12 +258,19 @@ export async function restoreLiveSession(): Promise<LiveActivity | null> {
         );
       }
     }
-    return restored;
+    return {
+      live: {
+        ...restored,
+        recordedPoints: sliceWindow(restored.recordedPoints),
+        totalDistanceKm,
+      },
+      mapTrack: copyMapTrack(restored.recordedPoints),
+    };
   }
   try {
     const db = getTrackDb();
     const rows = getLastTrackPoints(db, restored.id, TRACK_WINDOW_SIZE);
-    return restoreLiveFromHeader(restored, () =>
+    const live = restoreLiveFromHeader(restored, () =>
       rows.map((row) => ({
         lat: row.lat,
         lng: row.lng,
@@ -261,9 +280,16 @@ export async function restoreLiveSession(): Promise<LiveActivity | null> {
         timestamp: row.timestamp,
       })),
     );
+    return {
+      live,
+      mapTrack: copyMapTrack(loadMapTrack(restored)),
+    };
   } catch {
     trackPersistenceUnavailable = true;
-    return restored;
+    return {
+      live: restored,
+      mapTrack: copyMapTrack(restored.recordedPoints),
+    };
   }
 }
 
@@ -385,6 +411,7 @@ async function syncFinishedActivity(
 
 interface ActivityState {
   live: LiveActivity | null;
+  mapTrack: Coordinates[];
   activities: TrekkinActivity[];
   unsynced: TrekkinActivity[];
   lastResult: TrekkinActivity | null;
@@ -393,6 +420,8 @@ interface ActivityState {
   finishing: boolean;
   error: string | null;
   watch: LocationWatch | null;
+  backgroundWatchActive: boolean;
+  backgroundWatchError: string | null;
   gpsStats: GpsStats;
   gpsEvents: GpsEvent[];
 
@@ -429,6 +458,7 @@ interface ActivityState {
 
 export const useActivityStore = create<ActivityState>((set, get) => ({
   live: null,
+  mapTrack: [],
   activities: [],
   unsynced: [],
   lastResult: null,
@@ -437,6 +467,8 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   finishing: false,
   error: null,
   watch: null,
+  backgroundWatchActive: false,
+  backgroundWatchError: null,
   gpsStats: { ...EMPTY_GPS_STATS },
   gpsEvents: [],
 
@@ -449,10 +481,12 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       const restored = await restoreLiveSession();
       if (restored) {
         const resumable =
-          restored.phase === "in_progress" || restored.phase === "paused";
+          restored.live.phase === "in_progress" ||
+          restored.live.phase === "paused";
         if (resumable) {
           set({
-            live: restored,
+            live: restored.live,
+            mapTrack: restored.mapTrack,
             gpsStats: { ...EMPTY_GPS_STATS },
             gpsEvents: [],
           });
@@ -497,6 +531,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         else await saveLive(live);
         set({
           live,
+          mapTrack: loadMapTrack(live),
           isLoading: false,
           gpsStats: { ...EMPTY_GPS_STATS },
           gpsEvents: [],
@@ -528,6 +563,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         else await saveLive(live);
         set({
           live,
+          mapTrack: loadMapTrack(live),
           isLoading: false,
           gpsStats: { ...EMPTY_GPS_STATS },
           gpsEvents: [],
@@ -559,6 +595,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         else await saveLive(live);
         set({
           live,
+          mapTrack: loadMapTrack(live),
           isLoading: false,
           gpsStats: { ...EMPTY_GPS_STATS },
           gpsEvents: [],
@@ -585,7 +622,10 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         const updated = await BeginTrackingUseCase(live);
         if (initializeTrackPersistence(updated)) await saveLiveHeader(updated);
         else await saveLive(updated);
-        set({ live: updated });
+        set({
+          live: updated,
+          mapTrack: loadMapTrack(updated),
+        });
         return true;
       } catch (err: unknown) {
         set({
@@ -631,15 +671,13 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         const persistence = resolvePointPersistence(live, point);
         const updated = await RecordPointUseCase(live, point);
         if (persistence.action === "insert") {
-          if (trackPersistenceUnavailable) {
-            await saveLive(updated);
-            set({ live: updated });
-            return;
-          }
-          const db = getTrackDb();
-          const seq = ensureTrackReady(live);
-          insertTrackPoint(db, live.id, seq, toNewTrackPoint(point));
-          if (trackCursor) trackCursor.nextSeq = seq + 1;
+          const mapPoint: Coordinates = {
+            lat: point.lat,
+            lng: point.lng,
+            altitude: point.altitude ?? undefined,
+            accuracy: point.accuracy ?? undefined,
+            timestamp: point.timestamp,
+          };
           const previous = live.recordedPoints[live.recordedPoints.length - 1];
           const distance =
             live.totalDistanceKm ??
@@ -654,8 +692,29 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
               ? distance + haversineKm(previous, point)
               : distance,
           };
+          if (trackPersistenceUnavailable) {
+            await saveLive(updated);
+            set({
+              live: tracked,
+              mapTrack:
+                get().mapTrack.length > 0
+                  ? [...get().mapTrack, mapPoint]
+                  : updated.recordedPoints,
+            });
+            return;
+          }
+          const db = getTrackDb();
+          const seq = ensureTrackReady(live);
+          insertTrackPoint(db, live.id, seq, toNewTrackPoint(point));
+          if (trackCursor) trackCursor.nextSeq = seq + 1;
+          set({
+            live: tracked,
+            mapTrack:
+              get().mapTrack.length > 0
+                ? [...get().mapTrack, mapPoint]
+                : updated.recordedPoints,
+          });
           await saveLiveHeader(tracked);
-          set({ live: tracked });
         } else {
           // Rejected fixes can still update checkpoint/updatedAt state, but do not
           // create a SQLite row or inflate the in-memory window.
@@ -850,12 +909,22 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     }, options);
     if (generation !== watchGeneration || get().live?.phase !== "in_progress") {
       if (sub) locationService.stopWatching(sub);
+      set({
+        watch: null,
+        backgroundWatchActive: false,
+        backgroundWatchError: null,
+      });
       return false;
     }
     set({ watch: sub });
     if (typeof locationService.startBackgroundWatching === "function") {
-      const backgroundStarted =
-        await locationService.startBackgroundWatching(options);
+      let backgroundStarted = false;
+      try {
+        backgroundStarted =
+          await locationService.startBackgroundWatching(options);
+      } catch {
+        backgroundStarted = false;
+      }
       if (
         generation !== watchGeneration ||
         get().live?.phase !== "in_progress"
@@ -864,9 +933,25 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           void locationService.stopBackgroundWatching();
         }
         if (sub) locationService.stopWatching(sub);
-        set({ watch: null });
+        set({
+          watch: null,
+          backgroundWatchActive: false,
+          backgroundWatchError: null,
+        });
         return false;
       }
+      set({
+        backgroundWatchActive: backgroundStarted,
+        backgroundWatchError: backgroundStarted
+          ? null
+          : "GPS foreground activo; GPS background no se pudo iniciar.",
+      });
+    } else {
+      set({
+        backgroundWatchActive: false,
+        backgroundWatchError:
+          "GPS background no disponible en esta plataforma.",
+      });
     }
     return sub != null;
   },
@@ -878,7 +963,11 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
     if (typeof locationService.stopBackgroundWatching === "function") {
       void locationService.stopBackgroundWatching();
     }
-    set({ watch: null });
+    set({
+      watch: null,
+      backgroundWatchActive: false,
+      backgroundWatchError: null,
+    });
   },
 
   listActivities: async (uid) => {
@@ -972,6 +1061,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
       }
       set({
         live: null,
+        mapTrack: [],
         lastResult: null,
         error: null,
         gpsStats: { ...EMPTY_GPS_STATS },

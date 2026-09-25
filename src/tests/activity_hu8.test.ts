@@ -26,7 +26,12 @@ import {
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
-import { ACTIVITY_CONFIG, isFreeRecording, isResumableLive, toTrekkinActivity } from "../core/domain/activity";
+import {
+  ACTIVITY_CONFIG,
+  isFreeRecording,
+  isResumableLive,
+  toTrekkinActivity,
+} from "../core/domain/activity";
 import type { RoutePlan } from "../core/domain/plan";
 import {
   calculatePaceMinPerKm,
@@ -84,7 +89,9 @@ const baseLiveActivity: LiveActivity = {
 
 async function runTests() {
   console.log("============================================================");
-  console.log("       TREKKIN APP — SUITE DE ACEPTACIÓN HU-08 (GRABACIÓN GPS) ");
+  console.log(
+    "       TREKKIN APP — SUITE DE ACEPTACIÓN HU-08 (GRABACIÓN GPS) ",
+  );
   console.log("============================================================\n");
 
   // 1. Categorías de paradas válidas
@@ -98,15 +105,27 @@ async function runTests() {
       `Categorías aceptadas: ${CHECKPOINT_CATEGORY_VALUES.join(", ")}`,
     );
   } catch (e: any) {
-    recordTest("CheckpointCategorySchema acepta categorías válidas", false, e.message);
+    recordTest(
+      "CheckpointCategorySchema acepta categorías válidas",
+      false,
+      e.message,
+    );
   }
 
   // 2. Rechazo de categoría inválida
   try {
     CheckpointCategorySchema.parse("categoria_falsa");
-    recordTest("CheckpointCategorySchema rechaza categoría inválida", false, "Debería fallar");
+    recordTest(
+      "CheckpointCategorySchema rechaza categoría inválida",
+      false,
+      "Debería fallar",
+    );
   } catch (e: any) {
-    recordTest("CheckpointCategorySchema rechaza categoría inválida", true, "Rechazada correctamente");
+    recordTest(
+      "CheckpointCategorySchema rechaza categoría inválida",
+      true,
+      "Rechazada correctamente",
+    );
   }
 
   // 3. Validación de CreateCheckpointSchema con datos válidos
@@ -124,7 +143,11 @@ async function runTests() {
       `Nombre: ${validCp.name} · Categoría: ${validCp.category}`,
     );
   } catch (e: any) {
-    recordTest("CreateCheckpointSchema valida parada correcta", false, e.message);
+    recordTest(
+      "CreateCheckpointSchema valida parada correcta",
+      false,
+      e.message,
+    );
   }
 
   // 4. Rechazo de parada sin nombre
@@ -135,9 +158,17 @@ async function runTests() {
       lat: -16.5,
       lng: -68.1,
     });
-    recordTest("CreateCheckpointSchema rechaza parada con nombre vacío", false, "Debería fallar");
+    recordTest(
+      "CreateCheckpointSchema rechaza parada con nombre vacío",
+      false,
+      "Debería fallar",
+    );
   } catch (e: any) {
-    recordTest("CreateCheckpointSchema rechaza parada con nombre vacío", true, "Rechazada: nombre obligatorio");
+    recordTest(
+      "CreateCheckpointSchema rechaza parada con nombre vacío",
+      true,
+      "Rechazada: nombre obligatorio",
+    );
   }
 
   // 5. Rechazo de parada con coordenadas fuera de rango
@@ -148,9 +179,17 @@ async function runTests() {
       lat: 95.0,
       lng: -68.1,
     });
-    recordTest("CreateCheckpointSchema rechaza latitud > 90", false, "Debería fallar");
+    recordTest(
+      "CreateCheckpointSchema rechaza latitud > 90",
+      false,
+      "Debería fallar",
+    );
   } catch (e: any) {
-    recordTest("CreateCheckpointSchema rechaza latitud > 90", true, "Latitud 95 rechazada");
+    recordTest(
+      "CreateCheckpointSchema rechaza latitud > 90",
+      true,
+      "Latitud 95 rechazada",
+    );
   }
 
   // 6. AddCheckpointUseCase añade parada a newCheckpoints y su ID a completedCheckpoints
@@ -163,8 +202,12 @@ async function runTests() {
       notes: "Buen resguardo del viento",
     });
 
-    const hasNew = res.activity.newCheckpoints?.some((c) => c.name === "Cueva de descanso");
-    const hasCompletedId = res.activity.completedCheckpoints.includes(res.checkpoint.id);
+    const hasNew = res.activity.newCheckpoints?.some(
+      (c) => c.name === "Cueva de descanso",
+    );
+    const hasCompletedId = res.activity.completedCheckpoints.includes(
+      res.checkpoint.id,
+    );
 
     recordTest(
       "AddCheckpointUseCase registra el checkpoint en newCheckpoints y completedCheckpoints",
@@ -244,7 +287,11 @@ async function runTests() {
       `ID: ${activityDoc.id} · Distancia: ${activityDoc.distanceCoveredKm} km`,
     );
   } catch (e: any) {
-    recordTest("TrekkinActivitySchema valida documento completo", false, e.message);
+    recordTest(
+      "TrekkinActivitySchema valida documento completo",
+      false,
+      e.message,
+    );
   }
 
   // 12. Filtro de precisión GPS (rescate cruz HU-08 / BK-033)
@@ -311,17 +358,40 @@ async function runTests() {
     });
     const gpx = ExportTrackFileUseCase(finished.saved);
     recordTest(
-      "StartRecordingFromPlan + Finish + Export GPX cierran una ruta grabada",
+      "StartRecordingFromPlan + Finish + Export GPX queda incompleta lejos del final",
       prepared.phase === "ready" &&
         started.phase === "in_progress" &&
-        finished.saved.status === "completed" &&
+        finished.saved.status === "incomplete" &&
         gpx.fileName.endsWith(".gpx") &&
         gpx.content.includes("<trkpt"),
       `status=${finished.saved.status} file=${gpx.fileName}`,
     );
   } catch (e: any) {
     recordTest(
-      "StartRecordingFromPlan + Finish + Export GPX cierran una ruta grabada",
+      "StartRecordingFromPlan + Finish + Export GPX queda incompleta lejos del final",
+      false,
+      e.message,
+    );
+  }
+
+  try {
+    const nonFree = {
+      ...baseLiveActivity,
+      origin: "plan" as const,
+      route: { ...baseLiveActivity.route, distanceKm: 0 },
+    };
+    const finished = await FinishActivityUseCase(nonFree, {
+      saveActivity: async () => {},
+      saveLocalActivity: async () => {},
+    });
+    recordTest(
+      "La regla especial de distanceKm=0 solo completa origen free",
+      finished.saved.status === "incomplete",
+      `origin=${nonFree.origin} status=${finished.saved.status}`,
+    );
+  } catch (e: any) {
+    recordTest(
+      "La regla especial de distanceKm=0 solo completa origen free",
       false,
       e.message,
     );
@@ -373,8 +443,8 @@ async function runTests() {
       "StartFreeRecordingUseCase + Finish + GPX genera ruta libre multipunto",
       freeReady.origin === "free" &&
         freeFinished.saved.status === "completed" &&
-        freeFinished.saved.recordedPoints.length === 4 &&
-        trkpts === 4,
+        freeFinished.saved.recordedPoints.length === 3 &&
+        trkpts === 3,
       `status=${freeFinished.saved.status} pts=${freeFinished.saved.recordedPoints.length} trkpts=${trkpts}`,
     );
   } catch (e: any) {
@@ -471,28 +541,56 @@ async function runTests() {
   // 17. seedQualityCheck valida matriz de calidad: precisión y frescura
   try {
     const now = Date.now();
-    const freshGood = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now }, now);
-    const stale = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now - SEED_MAX_AGE_MS - 5000 }, now);
-    const lowAcc = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 40, fixTimestamp: now }, now);
-    const noTimestamp = seedQualityCheck({ lat: -16.5, lng: -68.1, accuracy: 10 }, now);
+    const freshGood = seedQualityCheck(
+      { lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now },
+      now,
+    );
+    const stale = seedQualityCheck(
+      {
+        lat: -16.5,
+        lng: -68.1,
+        accuracy: 10,
+        fixTimestamp: now - SEED_MAX_AGE_MS - 5000,
+      },
+      now,
+    );
+    const lowAcc = seedQualityCheck(
+      { lat: -16.5, lng: -68.1, accuracy: 40, fixTimestamp: now },
+      now,
+    );
+    const noTimestamp = seedQualityCheck(
+      { lat: -16.5, lng: -68.1, accuracy: 10 },
+      now,
+    );
 
     recordTest(
       "seedQualityCheck valida matriz de calidad (frescura y precisión)",
       freshGood.ok === true &&
-        stale.ok === false && stale.reason === "stale" &&
-        lowAcc.ok === false && lowAcc.reason === "low_accuracy" &&
+        stale.ok === false &&
+        stale.reason === "stale" &&
+        lowAcc.ok === false &&
+        lowAcc.reason === "low_accuracy" &&
         noTimestamp.ok === true,
       `fresh=${freshGood.ok} stale=${!stale.ok} lowAcc=${!lowAcc.ok}`,
     );
   } catch (e: any) {
-    recordTest("seedQualityCheck valida matriz de calidad (frescura y precisión)", false, e.message);
+    recordTest(
+      "seedQualityCheck valida matriz de calidad (frescura y precisión)",
+      false,
+      e.message,
+    );
   }
 
   // 18. StartFreeRecording descarta semilla vieja o imprecisa evitando saltos iniciales
   try {
     const now = Date.now();
     const staleStart = StartFreeRecordingUseCase({
-      position: { lat: -16.5, lng: -68.1, accuracy: 10, fixTimestamp: now - 60_000 },
+      position: {
+        lat: -16.5,
+        lng: -68.1,
+        accuracy: 10,
+        fixTimestamp: now - 60_000,
+      },
       userId: "user-free-stale",
       userName: "Caminante",
     });
@@ -508,14 +606,18 @@ async function runTests() {
     });
 
     recordTest(
-      "StartFreeRecording descarta semilla vieja o imprecisa (recordedPoints vacío)",
+      "StartFreeRecording inicia sin guardar la posición inicial como punto",
       staleStart.recordedPoints.length === 0 &&
         lowAccStart.recordedPoints.length === 0 &&
-        freshStart.recordedPoints.length === 1,
+        freshStart.recordedPoints.length === 0,
       `stale=${staleStart.recordedPoints.length} lowAcc=${lowAccStart.recordedPoints.length} fresh=${freshStart.recordedPoints.length}`,
     );
   } catch (e: any) {
-    recordTest("StartFreeRecording descarta semilla vieja o imprecisa (recordedPoints vacío)", false, e.message);
+    recordTest(
+      "StartFreeRecording inicia sin guardar la posición inicial como punto",
+      false,
+      e.message,
+    );
   }
 
   // 19. HU-12: AddCheckpoint conserva la foto local del punto
@@ -629,7 +731,9 @@ async function runTests() {
   }
 
   console.log("------------------------------------------------------------");
-  console.log(`Total Pruebas: ${results.length} | Aprobadas: ${passedCount} | Fallidas: ${results.length - passedCount}`);
+  console.log(
+    `Total Pruebas: ${results.length} | Aprobadas: ${passedCount} | Fallidas: ${results.length - passedCount}`,
+  );
   console.log("------------------------------------------------------------\n");
 
   if (passedCount !== results.length) {

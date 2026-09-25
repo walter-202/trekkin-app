@@ -77,7 +77,7 @@ const t1Passed =
 recordTest(
   "T1: parseGPX extrae puntos, elevación, tiempos y waypoints de GPX 1.1",
   t1Passed,
-  `Puntos: ${parsedGpx.points.length}, Waypoints: ${parsedGpx.waypoints.length}, Desnivel+: +${parsedGpx.elevationGainM}m, Distancia: ${parsedGpx.totalDistanceKm}km`
+  `Puntos: ${parsedGpx.points.length}, Waypoints: ${parsedGpx.waypoints.length}, Desnivel+: +${parsedGpx.elevationGainM}m, Distancia: ${parsedGpx.totalDistanceKm}km`,
 );
 
 // 2. Test buildGPX y Round-Trip
@@ -97,7 +97,7 @@ const t2Passed =
 recordTest(
   "T2: buildGPX genera XML válido y parseGPX realiza round-trip sin pérdida",
   t2Passed,
-  `Round-trip points: ${roundTripParsed.points.length}, name: ${roundTripParsed.name}`
+  `Round-trip points: ${roundTripParsed.points.length}, name: ${roundTripParsed.name}`,
 );
 
 // 3. Test KML Parsing
@@ -121,14 +121,14 @@ const sampleKML = `<?xml version="1.0" encoding="UTF-8"?>
 const parsedKml = parseKML(sampleKML);
 const t3Passed =
   parsedKml.points.length === 3 &&
-  parsedKml.points[0].lat === -16.520 &&
-  parsedKml.points[0].lng === -68.050 &&
+  parsedKml.points[0].lat === -16.52 &&
+  parsedKml.points[0].lng === -68.05 &&
   parsedKml.totalDistanceKm > 0;
 
 recordTest(
   "T3: parseKML extrae coordenadas y altitud desde etiquetas LineString",
   t3Passed,
-  `Puntos extraídos: ${parsedKml.points.length}, Distancia: ${parsedKml.totalDistanceKm}km`
+  `Puntos extraídos: ${parsedKml.points.length}, Distancia: ${parsedKml.totalDistanceKm}km`,
 );
 
 // 4. Test CSV Parsing
@@ -140,37 +140,38 @@ const sampleCSV = `lat,lng,ele,time
 const parsedCsv = parseCSV(sampleCSV);
 const t4Passed =
   parsedCsv.points.length === 3 &&
-  parsedCsv.points[1].lat === -16.490 &&
+  parsedCsv.points[1].lat === -16.49 &&
   parsedCsv.points[1].altitude === 3650;
 
 recordTest(
   "T4: parseCSV procesa archivos tabulares delimitados con lat/lng/ele",
   t4Passed,
-  `Puntos extraídos de CSV: ${parsedCsv.points.length}`
+  `Puntos extraídos de CSV: ${parsedCsv.points.length}`,
 );
 
 // 5. Test Ramer-Douglas-Peucker Simplification
 // Línea recta con 10 puntos intermedios con micro-jitter (< 2 metros)
 const straightLineWithJitter: Coordinates[] = [
-  { lat: -16.5000, lng: -68.1500 },
+  { lat: -16.5, lng: -68.15 },
   { lat: -16.5001, lng: -68.1499 },
-  { lat: -16.5002, lng: -68.1500 },
+  { lat: -16.5002, lng: -68.15 },
   { lat: -16.5003, lng: -68.1501 },
-  { lat: -16.5004, lng: -68.1500 },
+  { lat: -16.5004, lng: -68.15 },
   { lat: -16.5005, lng: -68.1499 },
-  { lat: -16.5006, lng: -68.1500 },
+  { lat: -16.5006, lng: -68.15 },
   { lat: -16.5007, lng: -68.1501 },
-  { lat: -16.5008, lng: -68.1500 },
-  { lat: -16.5010, lng: -68.1500 },
+  { lat: -16.5008, lng: -68.15 },
+  { lat: -16.501, lng: -68.15 },
 ];
 
 const simplified = simplifyTrack(straightLineWithJitter, 15);
-const t5Passed = simplified.length < straightLineWithJitter.length && simplified.length >= 2;
+const t5Passed =
+  simplified.length < straightLineWithJitter.length && simplified.length >= 2;
 
 recordTest(
   "T5: simplifyTrack reduce puntos redundantes en rectas preservando extremos",
   t5Passed,
-  `Reducción de ${straightLineWithJitter.length} a ${simplified.length} puntos`
+  `Reducción de ${straightLineWithJitter.length} a ${simplified.length} puntos`,
 );
 
 // 6. Test Error Handling
@@ -184,7 +185,7 @@ try {
 recordTest(
   "T6: parseGPX lanza excepción clara ante XML inválido o sin puntos",
   t6Passed,
-  "Capturó excepción ante archivo sin puntos legibles"
+  "Capturó excepción ante archivo sin puntos legibles",
 );
 
 const geo = toGeoJSON(parsedGpx);
@@ -209,7 +210,13 @@ const aliased = buildGPX11({
   name: "Alias GPX 1.1",
   points: parsedGpx.points,
 });
-const t8Passed = aliased === buildGPX({ name: "Alias GPX 1.1", points: parsedGpx.points }) &&
+const canonical = buildGPX({
+  name: "Alias GPX 1.1",
+  points: parsedGpx.points,
+});
+const normalizeGpxTime = (xml: string) => xml.replace(/<time>.*?<\/time>/g, "");
+const t8Passed =
+  normalizeGpxTime(aliased) === normalizeGpxTime(canonical) &&
   aliased.includes('version="1.1"');
 
 recordTest(
@@ -232,7 +239,9 @@ for (const r of results) {
 }
 
 console.log("------------------------------------------------------------");
-console.log(`Total Pruebas: ${results.length} | Aprobadas: ${results.filter(r => r.passed).length} | Fallidas: ${results.filter(r => !r.passed).length}`);
+console.log(
+  `Total Pruebas: ${results.length} | Aprobadas: ${results.filter((r) => r.passed).length} | Fallidas: ${results.filter((r) => !r.passed).length}`,
+);
 console.log("------------------------------------------------------------\n");
 
 if (!allPassed) {

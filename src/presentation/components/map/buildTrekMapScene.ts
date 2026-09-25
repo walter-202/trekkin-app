@@ -60,7 +60,14 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
       id: m.id,
       lat: m.lat,
       lng: m.lng,
-      kind: m.type === "user" ? "user" : m.type === "start" ? "start" : m.type === "end" ? "end" : "checkpoint",
+      kind:
+        m.type === "user"
+          ? "user"
+          : m.type === "start"
+            ? "start"
+            : m.type === "end"
+              ? "end"
+              : "checkpoint",
       label: m.name,
       notes: m.notes || m.category,
     });
@@ -88,16 +95,14 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
   const fitPoints: Array<{ lat: number; lng: number }> =
     props.fitTo && props.fitTo.length > 0
       ? props.fitTo
-      : [
-          ...(props.trail ?? []),
-          ...(props.track ?? []),
-          ...markers,
-        ];
+      : [...(props.trail ?? []), ...(props.track ?? []), ...markers];
 
   let offlinePack: TrekMapScene["offlinePack"] = null;
   if (props.offlinePackPath) {
     try {
-      const resolved = ResolveOfflinePackUseCase({ path: props.offlinePackPath });
+      const resolved = ResolveOfflinePackUseCase({
+        path: props.offlinePackPath,
+      });
       offlinePack = {
         kind: resolved.kind,
         protocolUrl: resolved.protocolUrl,
@@ -122,14 +127,13 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     mapTheme,
     satelliteStyle: onlineStyle.kind === "inline" ? onlineStyle.style : null,
     offlinePack,
+    followUser: props.followUser,
   };
 }
 
 export function sceneHasGeometry(scene: TrekMapScene): boolean {
   return (
-    scene.trail.length > 0 ||
-    scene.track.length > 0 ||
-    scene.markers.length > 0
+    scene.trail.length > 0 || scene.track.length > 0 || scene.markers.length > 0
   );
 }
 

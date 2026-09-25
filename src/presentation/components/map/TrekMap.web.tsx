@@ -11,7 +11,10 @@ import {
   PMTILES_JS_URL,
   buildOfflineVectorStyle,
 } from "../../../infrastructure/map/mapStyle";
-import type { TrekMapScene } from "../../../infrastructure/map/mapBridge";
+import {
+  shouldFitBounds,
+  type TrekMapScene,
+} from "../../../infrastructure/map/mapBridge";
 import { buildCalloutHtml, CALLOUT_CSS } from "./markerCallout";
 
 const PUCK_CSS = `
@@ -143,7 +146,10 @@ function onlineStyleOf(scene: TrekMapScene): string | Record<string, unknown> {
 const emptyLine = {
   type: "Feature" as const,
   properties: {},
-  geometry: { type: "LineString" as const, coordinates: [] as [number, number][] },
+  geometry: {
+    type: "LineString" as const,
+    coordinates: [] as [number, number][],
+  },
 };
 
 function lineData(coords: [number, number][]) {
@@ -180,7 +186,11 @@ function updateUserPuck(
 ): void {
   const userLoc =
     scene.userLocation ?? scene.markers.find((m) => m.kind === "user") ?? null;
-  if (!userLoc || typeof userLoc.lat !== "number" || typeof userLoc.lng !== "number") {
+  if (
+    !userLoc ||
+    typeof userLoc.lat !== "number" ||
+    typeof userLoc.lng !== "number"
+  ) {
     if (puckRef.current?.marker) {
       puckRef.current.marker.remove();
       puckRef.current = null;
@@ -214,7 +224,10 @@ function updateUserPuck(
     dot.className = "user-dot";
     container.appendChild(dot);
 
-    const marker = new maplibregl.Marker({ element: container, anchor: "center" });
+    const marker = new maplibregl.Marker({
+      element: container,
+      anchor: "center",
+    });
     puckRef.current = { marker, coneWrap };
   }
 
@@ -255,7 +268,10 @@ function ensureLayers(map: any): void {
     });
   }
   if (!map.getSource("trekkin-markers")) {
-    map.addSource("trekkin-markers", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addSource("trekkin-markers", {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+    });
     map.addLayer({
       id: "trekkin-markers-circle",
       type: "circle",
@@ -302,8 +318,13 @@ function paintScene(
     map.scrollZoom.enable();
     map.touchZoomRotate.enable();
   }
-  if (scene.bounds) {
-    map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+  if (
+    shouldFitBounds(scene.bounds, scene.followUser, map.__trekkinFirstFitDone)
+  ) {
+    map.fitBounds(scene.bounds!, { padding: 40, duration: 400, maxZoom: 15 });
+    if (scene.followUser === false) {
+      map.__trekkinFirstFitDone = true;
+    }
   }
 }
 
@@ -392,57 +413,66 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
         });
         map.on("error", (event: { error?: unknown }) => {
           const cause = event?.error;
-          onMapError?.(cause instanceof Error ? cause : new Error("No se pudo cargar el mapa offline."));
+          onMapError?.(
+            cause instanceof Error
+              ? cause
+              : new Error("No se pudo cargar el mapa offline."),
+          );
         });
         let popup: any = null;
-        map.on("click", (e: {
-          lngLat: { lat: number; lng: number };
-          point: { x: number; y: number };
-        }) => {
-          const pad = 18;
-          let hits: any[] = [];
-          try {
-            hits = map.queryRenderedFeatures(
-              [
-                [e.point.x - pad, e.point.y - pad],
-                [e.point.x + pad, e.point.y + pad],
-              ],
-              { layers: ["trekkin-markers-circle"] },
-            );
-          } catch {
-            hits = [];
-          }
-          if (hits.length) {
-            const feature = hits[0];
-            const geom = feature.geometry as {
-              type?: string;
-              coordinates?: [number, number];
-            };
-            if (geom.type !== "Point" || !geom.coordinates) return;
-            const props = feature.properties ?? {};
-            popup?.remove?.();
-            popup = new maplibregl.Popup({
-              closeButton: true,
-              closeOnClick: true,
-              offset: 14,
-              className: "trekkin-popup",
-              maxWidth: "240px",
-            })
-              .setLngLat(geom.coordinates)
-              .setHTML(
-                buildCalloutHtml(props.kind, props.label, props.notes),
-              )
-              .addTo(map);
-            return;
-          }
-          const current = pressRef.current;
-          if (!current.interactive) return;
-          const point = { lat: e.lngLat.lat, lng: e.lngLat.lng };
-          current.onPress?.(point);
-          current.onPressCoordinate?.(point);
-        });
+        map.on(
+          "click",
+          (e: {
+            lngLat: { lat: number; lng: number };
+            point: { x: number; y: number };
+          }) => {
+            const pad = 18;
+            let hits: any[] = [];
+            try {
+              hits = map.queryRenderedFeatures(
+                [
+                  [e.point.x - pad, e.point.y - pad],
+                  [e.point.x + pad, e.point.y + pad],
+                ],
+                { layers: ["trekkin-markers-circle"] },
+              );
+            } catch {
+              hits = [];
+            }
+            if (hits.length) {
+              const feature = hits[0];
+              const geom = feature.geometry as {
+                type?: string;
+                coordinates?: [number, number];
+              };
+              if (geom.type !== "Point" || !geom.coordinates) return;
+              const props = feature.properties ?? {};
+              popup?.remove?.();
+              popup = new maplibregl.Popup({
+                closeButton: true,
+                closeOnClick: true,
+                offset: 14,
+                className: "trekkin-popup",
+                maxWidth: "240px",
+              })
+                .setLngLat(geom.coordinates)
+                .setHTML(buildCalloutHtml(props.kind, props.label, props.notes))
+                .addTo(map);
+              return;
+            }
+            const current = pressRef.current;
+            if (!current.interactive) return;
+            const point = { lat: e.lngLat.lat, lng: e.lngLat.lng };
+            current.onPress?.(point);
+            current.onPressCoordinate?.(point);
+          },
+        );
       } catch (error) {
-        onMapError?.(error instanceof Error ? error : new Error("No se pudo inicializar el mapa offline."));
+        onMapError?.(
+          error instanceof Error
+            ? error
+            : new Error("No se pudo inicializar el mapa offline."),
+        );
       }
     })();
 

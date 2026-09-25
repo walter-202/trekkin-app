@@ -12,3 +12,6 @@ coverage/
 .atl/
 .gentle-ai*
 
+
+# OpenCode local state
+.opencode/

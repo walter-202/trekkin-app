@@ -35,6 +35,7 @@ export interface TrekMapProps {
   pointsOfInterest?: MapMarker[];
   markers?: MapMarker[];
   initialRegion?: MapRegion;
+  followUser?: boolean;
   height?: number;
   style?: StyleProp<ViewStyle>;
   /**
