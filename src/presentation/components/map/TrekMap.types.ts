@@ -43,6 +43,7 @@ export interface TrekMapProps {
   onMapReady?: (offlinePackReady: boolean) => void;
   onMapError?: (error: Error) => void;
   interactive?: boolean;
+  followCurrentLocation?: boolean;
   accessibilityLabel?: string;
   showUserLocation?: boolean;
   /**

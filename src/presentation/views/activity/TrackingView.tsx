@@ -230,6 +230,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
         trail={live.route.waypoints}
         track={live.recordedPoints}
         pointsOfInterest={listedCheckpoints}
+        followCurrentLocation={true}
         start={
           live.route
             ? {

@@ -29,6 +29,7 @@ export interface TrekMapScene {
   markers: SceneMarker[];
   userLocation?: { lat: number; lng: number; heading?: number } | null;
   bounds: [LngLat, LngLat] | null;
+  followCurrentLocation?: boolean;
   interactive: boolean;
   styleUrl: string;
   /** Pack de fondo HU-04. Null = estilo online OpenFreeMap. */

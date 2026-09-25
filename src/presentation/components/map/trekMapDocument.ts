@@ -350,6 +350,12 @@ export function buildTrekMapHtml(): string {
           map.scrollZoom.disable();
           map.touchZoomRotate.disable();
         }
+        if (scene.followCurrentLocation && userLoc) {
+          try {
+            map.flyTo({ center: [userLoc.lng, userLoc.lat], zoom: 15.2, speed: 1.4, curve: 1.6, essential: true });
+          } catch (e) {}
+          return;
+        }
         if (scene.bounds) {
           try {
             map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });

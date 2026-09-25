@@ -295,6 +295,16 @@ function paintScene(
     map.scrollZoom.enable();
     map.touchZoomRotate.enable();
   }
+  if (scene.followCurrentLocation && scene.userLocation) {
+    map.flyTo({
+      center: [scene.userLocation.lng, scene.userLocation.lat],
+      zoom: 15.2,
+      speed: 1.4,
+      curve: 1.6,
+      essential: true,
+    });
+    return;
+  }
   if (scene.bounds) {
     map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
   }

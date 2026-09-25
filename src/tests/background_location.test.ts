@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { buildTrekMapScene } from "../presentation/components/map/buildTrekMapScene";
 import type { GpsPosition } from "../infrastructure/location/locationService";
 
 type LocationObject = {
@@ -106,6 +107,15 @@ async function main() {
   assert.equal(typeof locationObjectToGpsPosition(sample(0)).timestamp, "number");
   restored = true;
   assert.equal(restored, true);
+
+  const followScene = buildTrekMapScene({
+    track: [{ lat: -16.5, lng: -68.1 }, { lat: -16.499, lng: -68.099 }],
+    currentLocation: { lat: -16.5002, lng: -68.1012, heading: 90 },
+    followCurrentLocation: true,
+  });
+  assert.equal(followScene.followCurrentLocation, true);
+  assert.equal(followScene.bounds, null);
+
   console.log("Background GPS: registration, ordered batches, restart recovery, permission denial, and idempotent lifecycle passed");
 }
 

@@ -70,11 +70,21 @@ let backgroundTaskRegistered = false;
 export function registerBackgroundLocationTask(): void {
   if (backgroundTaskRegistered) return;
   backgroundTaskRegistered = true;
+  if (typeof (TaskManager as { isTaskDefined?: (name: string) => boolean }).isTaskDefined === "function" &&
+    (TaskManager as { isTaskDefined: (name: string) => boolean }).isTaskDefined(BACKGROUND_LOCATION_TASK_NAME)) {
+    return;
+  }
   TaskManager.defineTask<BackgroundLocationTaskData>(
     BACKGROUND_LOCATION_TASK_NAME,
     async ({ data, error }) => {
-      if (error || !data?.locations?.length) return 0;
-      return processNativeBatch(data.locations);
+      if (error) return 0;
+      const locations = Array.isArray(data?.locations) ? data.locations : [];
+      if (locations.length === 0) return 0;
+      try {
+        return await processNativeBatch(locations);
+      } catch {
+        return 0;
+      }
     },
   );
 }

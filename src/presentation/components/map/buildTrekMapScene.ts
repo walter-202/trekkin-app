@@ -27,6 +27,7 @@ function boundsFromPoints(
 export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
   const trail = (props.trail ?? []).map(toLngLat);
   const track = (props.track ?? []).map(toLngLat);
+  const followCurrentLocation = Boolean(props.followCurrentLocation && props.currentLocation);
 
   const markers: SceneMarker[] = [];
   if (props.start) {
@@ -113,7 +114,8 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     track,
     markers,
     userLocation,
-    bounds: boundsFromPoints(fitPoints),
+    bounds: followCurrentLocation ? null : boundsFromPoints(fitPoints),
+    followCurrentLocation,
     interactive: props.interactive !== false,
     styleUrl: ONLINE_STYLE_URL,
     offlinePack,
