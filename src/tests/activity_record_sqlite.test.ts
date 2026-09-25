@@ -12,6 +12,7 @@ import {
   countTrackPoints,
   getMaxSeq,
   getTrackPointsPage,
+  loadTrackPoints,
   insertTrackPoint,
   saveActivityHeader,
 } from "../infrastructure/database/activityTrackDb";
@@ -132,6 +133,8 @@ async function freeLive(): Promise<LiveActivity> {
       lat: -16.5,
       lng: -68.1,
       altitude: 3640,
+      accuracy: 8,
+      fixTimestamp: Date.now(),
     },
     userId: "user-123",
     userName: "Tester",
@@ -170,6 +173,12 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     `action=${okPlan.action}`,
   );
 
+  const liveWithPoint: LiveActivity = {
+    ...live,
+    recordedPoints: [
+      { lat: -16.5, lng: -68.1, timestamp: 1720000000000, accuracy: 8 },
+    ],
+  };
   const reasons = [
     [{ lat: -16.5001, lng: -68.1, timestamp: 1, accuracy: 40 }, "low_accuracy"],
     [{ lat: -16.5, lng: -68.1, timestamp: 1, accuracy: 8 }, "jitter"],
@@ -177,7 +186,7 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     [{ lat: 95, lng: -68.1, timestamp: 1 }, "invalid_schema"],
   ] as const;
   const skips = reasons.map(([pt, expected]) => {
-    const plan = resolvePointPersistence(live, { ...pt });
+    const plan = resolvePointPersistence(liveWithPoint, { ...pt });
     return plan.action === "skip" && plan.reason === expected;
   });
   recordTest(
@@ -202,15 +211,20 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     createdAt: live.createdAt,
     updatedAt: live.createdAt,
   });
-  const seed = live.recordedPoints[0];
-  insertTrackPoint(
-    db,
-    live.id,
-    1,
-    toNew({ ...seed, timestamp: seed.timestamp ?? 1, accuracy: 8 }),
-  );
+  const firstPoint = {
+    lat: -16.5,
+    lng: -68.1,
+    timestamp: 1720000000000,
+    accuracy: 8,
+  };
+  const firstPlan = resolvePointPersistence(live, firstPoint);
+  if (firstPlan.action !== "insert") {
+    throw new Error("se esperaba insert para el primer fix");
+  }
+  const firstRecorded = await RecordPointUseCase(live, firstPoint);
+  insertTrackPoint(db, live.id, 1, toNew(firstPoint));
   let seq = nextSeqAfterMax(getMaxSeq(db, live.id));
-  let mem: LiveActivity = { ...live, totalDistanceKm: 0 };
+  let mem: LiveActivity = { ...firstRecorded, totalDistanceKm: 0 };
   let total = 0;
   for (let i = 1; i <= 3; i++) {
     const pt = {
@@ -312,33 +326,45 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     `seqs=${pages.join(",")}`,
   );
 
+  const restoredRows = loadTrackPoints(db, live.id);
+  recordTest(
+    "SQLite restaura el track paginado completo desde el repositorio",
+    restoredRows.length === 4 &&
+      restoredRows.every((row, index) => row.seq === index + 1),
+    `rows=${restoredRows.length} seqs=${restoredRows.map((row) => row.seq).join(",")}`,
+  );
+
   const seededDb = createMemoryDb();
-  const seededLive = StartFreeRecordingUseCase({
-    position: { lat: -16.5, lng: -68.1 },
-    userId: "user-123",
-    userName: "Tester",
-  });
-  seededLive.recordedPoints.forEach((pt, i) => {
-    insertTrackPoint(
-      seededDb,
-      seededLive.id,
-      i + 1,
-      toNew({
-        ...pt,
-        timestamp: pt.timestamp ?? 1,
+  const seededLive = await BeginTrackingUseCase(
+    StartFreeRecordingUseCase({
+      position: {
+        lat: -16.5,
+        lng: -68.1,
         accuracy: 8,
-      }),
-    );
-  });
-  const seedlessDb = createMemoryDb();
-  const seedlessLive = {
-    ...StartFreeRecordingUseCase({
-      position: { lat: -16.5, lng: -68.1 },
+        fixTimestamp: Date.now(),
+      },
       userId: "user-123",
       userName: "Tester",
     }),
-    recordedPoints: [],
+  );
+  const seededFirstFix = {
+    lat: -16.5,
+    lng: -68.1,
+    timestamp: Date.now(),
+    accuracy: 8,
   };
+  const seededPlan = resolvePointPersistence(seededLive, seededFirstFix);
+  if (seededPlan.action === "insert") {
+    insertTrackPoint(seededDb, seededLive.id, 1, toNew(seededFirstFix));
+  }
+  const seedlessDb = createMemoryDb();
+  const seedlessLive = await BeginTrackingUseCase(
+    StartFreeRecordingUseCase({
+      position: { lat: -16.5, lng: -68.1, accuracy: 60 },
+      userId: "user-123",
+      userName: "Tester",
+    }),
+  );
   const firstSeq = nextSeqAfterMax(getMaxSeq(seedlessDb, seedlessLive.id));
   insertTrackPoint(
     seedlessDb,
@@ -352,12 +378,34 @@ async function runRecordSqliteTests(): Promise<TestResult[]> {
     }),
   );
   recordTest(
-    "SQLite consistente: con semilla arranca en seq 1; sin semilla el primer fix es seq 1",
-    getMaxSeq(seededDb, seededLive.id) === seededLive.recordedPoints.length &&
-      seededLive.recordedPoints.length === 1 &&
+    "Opción A: free inicia sin semilla y el primer fix aceptado es seq 1",
+    getMaxSeq(seededDb, seededLive.id) === 1 &&
+      seededLive.recordedPoints.length === 0 &&
       getMaxSeq(seedlessDb, seedlessLive.id) === 1 &&
       seedlessLive.recordedPoints.length === 0,
     `seedMax=${getMaxSeq(seededDb, seededLive.id)} seedlessMax=${getMaxSeq(seedlessDb, seedlessLive.id)}`,
+  );
+
+  const mapDb = createMemoryDb();
+  for (let i = 1; i <= 420; i += 1) {
+    insertTrackPoint(
+      mapDb,
+      "map-track-1",
+      i,
+      toNew({
+        lat: -16.5 + i * 0.0001,
+        lng: -68.1,
+        timestamp: 2000 + i,
+      }),
+    );
+  }
+  const mapRows = loadTrackPoints(mapDb, "map-track-1");
+  recordTest(
+    "mapTrack puede hidratar más de 300 puntos sin perder el histórico",
+    mapRows.length === 420 &&
+      mapRows[0]?.seq === 1 &&
+      mapRows[419]?.seq === 420,
+    `mapRows=${mapRows.length} first=${mapRows[0]?.seq} last=${mapRows[419]?.seq}`,
   );
 
   return results;

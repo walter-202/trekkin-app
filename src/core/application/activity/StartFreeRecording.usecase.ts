@@ -19,12 +19,11 @@ export interface FreeRecordingPosition {
 export const SEED_MAX_AGE_MS = 30_000;
 
 export type SeedQuality =
-  | { ok: true }
-  | { ok: false; reason: "stale" | "low_accuracy" };
+  { ok: true } | { ok: false; reason: "stale" | "low_accuracy" };
 
 /**
- * Juzga si una posición sirve como semilla inicial con criterio de precisión
- * (MAX_ACCURACY_M) y frescura temporal (SEED_MAX_AGE_MS).
+ * Juzga si una posición inicial cumple criterio de precisión (MAX_ACCURACY_M)
+ * y frescura temporal (SEED_MAX_AGE_MS) para intentar iniciar el flujo.
  */
 export function seedQualityCheck(
   position: FreeRecordingPosition,
@@ -53,9 +52,8 @@ export interface StartFreeRecordingArgs {
 /**
  * HU-08 — Inicia una grabación libre desde la ubicación GPS actual.
  * NO exige ruta publicada (HU-06), plan, borrador ni destino: el punto
- * inicial proviene del GPS del teléfono, no del mapa.
- * `distanceKm: 0` marca grabación libre para que al finalizar cuente como
- * ruta auténtica (regla `freeRecordingComplete` de FinishActivity).
+ * inicial se usa solo para arrancar el flujo y no se persiste como punto grabado.
+ * `origin: "free"` identifica el flujo para la regla de finalización.
  */
 export function StartFreeRecordingUseCase(
   args: StartFreeRecordingArgs,
@@ -96,17 +94,7 @@ export function StartFreeRecordingUseCase(
     difficulty: "facil",
   };
 
-  const quality = seedQualityCheck(position, now);
-  const recordedPoints: LiveActivity["recordedPoints"] = quality.ok
-    ? [
-        {
-          lat: position.lat,
-          lng: position.lng,
-          altitude: position.altitude,
-          timestamp: position.fixTimestamp ?? now,
-        },
-      ]
-    : [];
+  const recordedPoints: LiveActivity["recordedPoints"] = [];
 
   return {
     id: makeActivityId(),

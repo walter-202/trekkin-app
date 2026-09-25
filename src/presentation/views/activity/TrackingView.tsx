@@ -69,8 +69,13 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   mode = "guide",
 }) => {
   const live = useActivityStore((s) => s.live);
+  const mapTrack = useActivityStore((s) => s.mapTrack);
   const error = useActivityStore((s) => s.error);
   const finishing = useActivityStore((s) => s.finishing);
+  const backgroundWatchActive = useActivityStore(
+    (s) => s.backgroundWatchActive,
+  );
+  const backgroundWatchError = useActivityStore((s) => s.backgroundWatchError);
   const gpsStats = useActivityStore((s) => s.gpsStats);
   const gpsEvents = useActivityStore((s) => s.gpsEvents);
 
@@ -253,7 +258,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
 
       <TrekMap
         trail={live.route.waypoints}
-        track={live.recordedPoints}
+        track={mapTrack}
         pointsOfInterest={listedCheckpoints}
         start={
           live.route
@@ -265,16 +270,19 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             : undefined
         }
         end={
-          live.route
-            ? {
-                lat: live.route.endPoint.lat,
-                lng: live.route.endPoint.lng,
-                name: "Final",
-              }
-            : undefined
+          mode === "free"
+            ? undefined
+            : live.route
+              ? {
+                  lat: live.route.endPoint.lat,
+                  lng: live.route.endPoint.lng,
+                  name: "Final",
+                }
+              : undefined
         }
         currentLocation={currentLocation}
         fitTo={routePolyline}
+        followUser={mode === "free" ? false : undefined}
         offlinePackPath={offlinePackPath}
         height={300}
       />
@@ -335,6 +343,12 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
             ? ` · ${gpsEvents[gpsEvents.length - 1].t} ${gpsEvents[gpsEvents.length - 1].type}`
             : ""}
         </Text>
+        <Text style={styles.diagText}>
+          GPS background: {backgroundWatchActive ? "activo" : "inactivo"}
+        </Text>
+        {backgroundWatchError ? (
+          <Text style={styles.diagText}>{backgroundWatchError}</Text>
+        ) : null}
       </View>
 
       {mode === "guide" && deviation.isOffRoute && (

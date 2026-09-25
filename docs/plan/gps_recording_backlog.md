@@ -2,7 +2,7 @@
 
 > Documento canónico del plan de corrección/reescritura de la grabación GPS.
 > Fecha: 2026-09-24 · Alcance: HU-08 (grabar ruta con GPS) + sync de Firestore + plataforma.
-> Estado: **plan aprobado, pendiente de ejecución.**
+> Estado: **P1-1 y P1-3 implementados en `ccpj`; pendiente validación en Expo Go/dispositivo.**
 
 ## 1. Diagnóstico actual
 
@@ -19,14 +19,15 @@
 
 `origin/cruz@33e5f92` incluye mejoras que main no tiene:
 
-| Elemento de cruz                  | Descripción                                                                                                         | Beneficio                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `gpsStats` / `gpsEvents` en store | Contadores: recibidos, aceptados, descartados por `accuracy` / `tooClose` / `tooFar` / `invalid`, con último motivo | Diagnóstico visible en dispositivo                                              |
-| `diagBox` en `TrackingView`       | Panel que imprime esos contadores en pantalla                                                                       | Ver _por qué_ no se registran puntos                                            |
-| `mapTrack`                        | Trazado completo en memoria (fuera de la ventana de 300 puntos), fix `a98b0f2`                                      | El mapa no "olvida" el track                                                    |
-| Semilla sin punto fijo            | `recordedPoints: []` al iniciar (no siembra 1 punto)                                                                | Evita que el 1er fix real se descarte por "demasiado cerca" de una semilla mala |
-| 3 intentos de fix                 | `FreeRecordView` reintenta `getCurrentPosition` hasta que `seedQualityCheck` pase                                   | Mayor probabilidad de semilla válida                                            |
-| `seedQualityCheck` estricto       | `accuracy == null` cuenta como `low_accuracy`; `fixTimestamp == null` → `stale`                                     | Fix sin calidad no arranca la sesión                                            |
+| Elemento de cruz                  | Descripción                                                                                                                 | Beneficio                                                                       |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `gpsStats` / `gpsEvents` en store | Contadores: recibidos, aceptados, descartados por `accuracy` / `tooClose` / `tooFar` / `invalid`, con último motivo         | Diagnóstico visible en dispositivo                                              |
+| `diagBox` en `TrackingView`       | Panel que imprime esos contadores en pantalla                                                                               | Ver _por qué_ no se registran puntos                                            |
+| `mapTrack`                        | Trazado completo en memoria (fuera de la ventana de 300 puntos), hidratado desde SQLite y append tras insert, fix `a98b0f2` | El mapa no "olvida" el track                                                    |
+| `followUser` free                 | Fit inicial único en map web/WebView; las actualizaciones GPS no repiten `fitBounds` en free                                | El usuario conserva pan/zoom sin recentrado continuo                            |
+| Semilla sin punto fijo            | `recordedPoints: []` al iniciar (no siembra 1 punto)                                                                        | Evita que el 1er fix real se descarte por "demasiado cerca" de una semilla mala |
+| 3 intentos de fix                 | `FreeRecordView` reintenta `getCurrentPosition` hasta que `seedQualityCheck` pase                                           | Mayor probabilidad de semilla válida                                            |
+| `seedQualityCheck` estricto       | `accuracy == null` cuenta como `low_accuracy`; `fixTimestamp == null` → `stale`                                             | Fix sin calidad no arranca la sesión                                            |
 
 ### Causas probables en `main` (por archivo)
 
@@ -51,13 +52,13 @@
 
 ### P1 — Robustez de grabación
 
-| ID       | Tarea                                                                                | Archivos                                              | Aceptación                                            |
-| -------- | ------------------------------------------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------- |
-| **P1-1** | Portar `mapTrack` de cruz (trazado completo visible en el mapa)                      | `useActivityStore.ts`, `TrackingView.tsx`             | El trazo no se recorta al superar 300 puntos          |
-| **P1-2** | Arranque sin bloqueo pesado: el watch no debe esperar a SQLite/Firestore de arranque | `useActivityStore.startFreeRecording`, `TrackingView` | Primer fix < 3 s tras conceder permiso                |
-| **P1-3** | Semilla robusta: 3 intentos de fix + `recordedPoints: []` al iniciar (como cruz)     | `StartFreeRecording.usecase.ts`, `FreeRecordView.tsx` | Inicio nunca bloqueado por un único fix malo          |
-| **P1-4** | `endPoint` = último punto aceptado al finalizar (hoy queda el de inicio)             | `FinishActivity.usecase.ts`, store                    | ResultView muestra el fin real                        |
-| **P1-5** | Fin con confirmación + resumen (punto que confirma el usuario)                       | `TrackingView.handleFinish`, `ResultView`             | Modal "¿Finalizar aquí?" + resumen con distancia real |
+| ID       | Tarea                                                                                                                   | Archivos                                                              | Aceptación                                                                  |
+| -------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **P1-1** | ✅ **Hecho (2026-09-25):** `mapTrack` completo + cámara free con fit inicial único; el trail guiado conserva su ajuste  | `useActivityStore.ts`, `TrackingView.tsx`, `TrekMap*`, `mapBridge.ts` | El trazo no se recorta al superar 300 puntos y free no recentra en cada fix |
+| **P1-2** | Arranque sin bloqueo pesado: el watch no debe esperar a SQLite/Firestore de arranque                                    | `useActivityStore.startFreeRecording`, `TrackingView`                 | Primer fix < 3 s tras conceder permiso                                      |
+| **P1-3** | ✅ **Hecho (2026-09-25):** Opción A, `recordedPoints: []` al iniciar; la ubicación inicial no se convierte en punto GPS | `StartFreeRecording.usecase.ts`, `FreeRecordView.tsx`                 | El primer fix aceptado es el primer punto persistido                        |
+| **P1-4** | `endPoint` = último punto aceptado al finalizar (hoy queda el de inicio)                                                | `FinishActivity.usecase.ts`, store                                    | ResultView muestra el fin real                                              |
+| **P1-5** | Fin con confirmación + resumen (punto que confirma el usuario)                                                          | `TrackingView.handleFinish`, `ResultView`                             | Modal "¿Finalizar aquí?" + resumen con distancia real                       |
 
 ### P2 — Calidad de track (plan acordado con el equipo)
 

@@ -11,10 +11,6 @@ import * as Location from "expo-location";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import {
-  isFreeRecording,
-  isResumableLive,
-} from "../../../core/domain/activity";
-import {
   locationService,
   RECORDING_WATCH_OPTIONS,
 } from "../../../infrastructure/location/locationService";
@@ -27,6 +23,7 @@ import type { TrekkinActivity } from "../../../core/domain/types";
 import { TrackingView } from "../activity/TrackingView";
 import { ResultView } from "../activity/ResultView";
 import { ActivityDetailView } from "../activity/ActivityDetailView";
+import { freeRecordingBootAction } from "./freeRecordingBoot";
 import { AndeanTheme } from "../../theme";
 
 /**
@@ -108,14 +105,53 @@ export const FreeRecordView: React.FC<FreeRecordViewProps> = ({ onClose }) => {
   };
 
   useEffect(() => {
-    // Recupera solo grabaciones libres en curso (p. ej. tras salir y volver).
-    const live = useActivityStore.getState().live;
-    if (isResumableLive(live) && isFreeRecording(live)) {
-      setStep("tracking");
-      return;
-    }
-    void requestFixAndStart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    const boot = async () => {
+      const current = useActivityStore.getState().live;
+      const currentAction = freeRecordingBootAction(current);
+      if (currentAction === "resume") {
+        if (active) setStep("tracking");
+        return;
+      }
+      if (currentAction === "blocked") {
+        if (active) {
+          setLocError(
+            "Ya existe una grabación en curso. Reanúdala antes de iniciar otra.",
+          );
+        }
+        return;
+      }
+      try {
+        await useActivityStore.getState().restoreLiveSession();
+      } catch (error: unknown) {
+        if (active) {
+          setLocError(
+            error instanceof Error
+              ? error.message
+              : "No se pudo recuperar la grabación local.",
+          );
+        }
+        return;
+      }
+      if (!active) return;
+      const restored = useActivityStore.getState().live;
+      const restoredAction = freeRecordingBootAction(restored);
+      if (restoredAction === "resume") {
+        setStep("tracking");
+        return;
+      }
+      if (restoredAction === "blocked") {
+        setLocError(
+          "Ya existe una grabación en curso. Reanúdala antes de iniciar otra.",
+        );
+        return;
+      }
+      void requestFixAndStart();
+    };
+    void boot();
+    return () => {
+      active = false;
+    };
   }, [currentUser?.uid]);
 
   if (!currentUser) return null;

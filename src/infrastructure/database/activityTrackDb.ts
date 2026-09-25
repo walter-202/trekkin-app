@@ -315,6 +315,19 @@ export function getTrackPointsPage(
   return rows.map(toPoint);
 }
 
+export function loadTrackPoints(
+  db: TrackDbConnection,
+  activityId: string,
+  pageSize: number = 2000,
+): TrackPointRow[] {
+  const total = countTrackPoints(db, activityId);
+  const rows: TrackPointRow[] = [];
+  for (let offset = 0; offset < total; offset += pageSize) {
+    rows.push(...getTrackPointsPage(db, activityId, pageSize, offset));
+  }
+  return rows;
+}
+
 export function deleteActivity(db: TrackDbConnection, id: string): void {
   db.runSync("DELETE FROM track_points WHERE activityId = ?", [id]);
   db.runSync("DELETE FROM activities WHERE id = ?", [id]);
