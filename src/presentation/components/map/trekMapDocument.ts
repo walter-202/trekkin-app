@@ -2,10 +2,11 @@ import {
   MAPLIBRE_GL_CSS_URL,
   MAPLIBRE_GL_JS_URL,
   PMTILES_JS_URL,
-  ONLINE_STYLE_URL,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   buildOfflineVectorStyle,
+  resolveOnlineMapStyle,
+  type OnlineMapTheme,
 } from "../../../infrastructure/map/mapStyle";
 import { AndeanTheme } from "../../theme";
 import { CALLOUT_CSS, MARKER_ROLE_LABEL } from "./markerCallout";
@@ -13,8 +14,13 @@ import { CALLOUT_CSS, MARKER_ROLE_LABEL } from "./markerCallout";
 /**
  * HTML autocontenido para MapLibre GL JS dentro de react-native-webview (Expo Go).
  * El pack HU-04 (PMTiles) se enchufa al mismo documento vía scene.offlinePack.
+ * `mapTheme` fija la variante online (dark/light/satellite); default dark.
  */
-export function buildTrekMapHtml(): string {
+export function buildTrekMapHtml(mapTheme: OnlineMapTheme = "dark"): string {
+  const online = resolveOnlineMapStyle(mapTheme);
+  const onlineStyleJson = JSON.stringify(
+    online.kind === "url" ? online.url : online.style,
+  );
   const bg = AndeanTheme.colors.backgroundSecondary;
   const trail = AndeanTheme.colors.primaryLight;
   const track = AndeanTheme.colors.trackOrange;
@@ -92,7 +98,7 @@ export function buildTrekMapHtml(): string {
   <script src="${PMTILES_JS_URL}"></script>
   <script>
     (function () {
-      var STYLE = ${JSON.stringify(ONLINE_STYLE_URL)};
+      var STYLE = ${onlineStyleJson};
       var OFFLINE_STYLE_TEMPLATE = ${JSON.stringify(buildOfflineVectorStyle("pmtiles://__PACK__"))};
       var COLORS = {
         trail: ${JSON.stringify(trail)},

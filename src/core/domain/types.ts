@@ -170,6 +170,11 @@ export interface TrekkinActivity {
   /** Optional Storage/Firestore metadata. Never contains GPS point arrays. */
   gpx?: ActivityGpxMetadata;
   completedCheckpoints: string[];
+  /**
+   * HU-12 — Paradas con foto/georreferenciación que sobreviven al finish.
+   * Solo metadatos + URIs locales; los bytes de foto nunca suben a Firestore.
+   */
+  checkpoints: Checkpoint[];
   isSynced: boolean;
   createdAt: number;
   /** Flujo que originó la actividad (oculta RESTANTE en UI si es `free`). */

@@ -9,6 +9,13 @@ import {
   estimateTileCount,
   estimateDownloadSizeMB,
 } from "../core/domain/geoBounds";
+import {
+  ONLINE_STYLE_DARK_URL,
+  ONLINE_STYLE_LIGHT_URL,
+  SATELLITE_TILE_URL,
+  buildSatelliteStyle,
+  resolveOnlineMapStyle,
+} from "../infrastructure/map/mapStyle";
 import type { Coordinates } from "../core/domain/types";
 
 interface TestResult {
@@ -91,6 +98,44 @@ recordTest(
   "T5: computeBoundingBox con array vacío entrega región por defecto de Bolivia",
   t5Passed,
   `Default Bolivia bounds: [${emptyBbox.minLng}, ${emptyBbox.minLat}, ${emptyBbox.maxLng}, ${emptyBbox.maxLat}]`
+);
+
+// T6: variantes online — dark/light por URL del mismo proveedor, satélite inline
+const darkStyle = resolveOnlineMapStyle("dark");
+const lightStyle = resolveOnlineMapStyle("light");
+const satStyle = resolveOnlineMapStyle("satellite");
+const t6Passed =
+  darkStyle.kind === "url" && darkStyle.url === ONLINE_STYLE_DARK_URL &&
+  lightStyle.kind === "url" && lightStyle.url === ONLINE_STYLE_LIGHT_URL &&
+  lightStyle.url.includes("bright") &&
+  satStyle.kind === "inline";
+recordTest(
+  "T6: resolveOnlineMapStyle entrega dark/light por URL y satélite inline",
+  t6Passed,
+  `dark=${ONLINE_STYLE_DARK_URL} light=${ONLINE_STYLE_LIGHT_URL} sat=inline`
+);
+
+// T7: estilo satelital v8 con raster Esri y atribución
+const satJson = buildSatelliteStyle();
+const satSource = (satJson.sources as Record<string, any>)["esri-imagery"];
+const t7Passed =
+  satJson.version === 8 &&
+  satSource?.type === "raster" &&
+  Array.isArray(satSource?.tiles) &&
+  String(satSource.tiles[0]).includes("arcgisonline.com") &&
+  String(satSource.tiles[0]).includes("{z}/{y}/{x}") &&
+  typeof satSource?.attribution === "string";
+recordTest(
+  "T7: buildSatelliteStyle es v8 con raster Esri XYZ y atribución",
+  t7Passed,
+  `tiles=${satSource?.tiles?.[0]}`
+);
+
+// T8: URL de teselas satelitales con formato XYZ
+recordTest(
+  "T8: SATELLITE_TILE_URL usa plantilla XYZ de Esri World Imagery",
+  SATELLITE_TILE_URL.includes("{z}") && SATELLITE_TILE_URL.includes("{y}") && SATELLITE_TILE_URL.includes("{x}"),
+  SATELLITE_TILE_URL
 );
 
 // Imprimir reporte

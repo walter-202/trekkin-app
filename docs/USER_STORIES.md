@@ -122,7 +122,7 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
   - _Dominio:_ `src/core/domain/route.schemas.ts`, `routePreview.ts`, `routePreview.schemas.ts`, `routeCatalog.ts` (`formatModalityLabel` RF-07).
   - _Aplicación:_ `ListPublishedRoutes` / `SearchRoutes` / `GetRouteDetail` / `GetRouteDetailWithCache` / `RouteDetailSupport` / `PublishRoute` usecases.
   - _Infraestructura:_ `src/infrastructure/database/routeService.ts` (detalle, preview y publicación), `src/infrastructure/persistence/routeDetailCache.ts` + `RouteDetailCacheRepository` (AsyncStorage), `src/infrastructure/map/mapStyle.ts`.
-  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap` (`TrekMap.web.tsx` / `TrekMap.native.tsx`).
+  - _Presentación:_ `ExploreView.tsx`, `RouteCard.tsx`, `RouteDetailView.tsx`, `TrekMap` (`TrekMap.web.tsx` / `TrekMap.native.tsx`, prop `mapTheme`: `dark`/`light`/`satellite`, default `dark`).
   - _Suite:_ `src/tests/catalog_hu3.test.ts`, `route_preview_hu3.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts`, `route_detail_cache_hu3.test.ts`, `firestore_rules_published_preview.test.ts`, `map_service_hu3.test.ts`.
 
 ---
@@ -133,14 +133,15 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 - **Narrativa:** **Como** senderista sin cobertura **quiero** descargar ruta + mapa base **para** consultarla en campo sin internet.
 - **Criterios de Aceptación (DoD):**
   1. ✅ `RouteDetailView` ofrece descarga solo a usuarios autenticados y cuando el par GPX + PMTiles está completo, `uploaded`, versionado en conjunto y cumple los metadatos/rutas canónicas publicados.
-  2. ✅ Estimación previa basada en los tamaños publicados de GPX y PMTiles más la metadata básica de ruta.
+  2. ✅ Estimación previa basada en los tamaños publicados de GPX y PMTiles más la metadata básica de ruta, con gate de espacio en disco (`CheckOfflineSpace`: bloquea Confirmar si no alcanza, advierte si el dispositivo no informa).
   3. ✅ `tileCacheDB` descarga los artefactos binarios separados desde Firebase Storage, verifica tamaño/hash y cabecera PMTiles, los promueve atómicamente y persiste un manifiesto v2; Firestore conserva solo metadatos.
   4. ✅ Tras validar la integridad del GPX descargado, la traza local del manifiesto se obtiene parseando ese GPX (geometría exacta); no se deriva del preview ni de los waypoints públicos. PMTiles sigue siendo un artefacto Storage separado para el mapa base.
-  5. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve el PMTiles local a `pmtiles://` y cambia el estilo; si el renderer no está disponible, el GPX/trail se muestra con fallback neutral. Falta evidencia del renderer PMTiles en frío en dispositivos físicos.
+  5. ✅ Corte de red → auto-pausa con avance conservado: el usecase no limpia temporales ante errores reanudables (`isResumableDownloadError`) y `tileCacheDB` reutiliza artefactos verificados (tamaño/SHA/cabecera/traza) al Reanudar; ante corrupción se limpia y se reintenta desde cero.
+  6. ⚠️ Modo avión: `TrekMap.offlinePackPath` resuelve el PMTiles local a `pmtiles://` y cambia el estilo; si el renderer no está disponible, el GPX/trail se muestra con fallback neutral. Falta evidencia del renderer PMTiles en frío en dispositivos físicos.
 - **Estado real y brecha (80%):** contratos, autenticación/validación del par, descarga binaria, integridad GPX/PMTiles, traza GPX, manifiesto atómico y fallback tienen evidencia en suites automatizadas. Pendientes Firebase Emulator, Expo Go/dispositivo, Storage real y prueba Android/iOS con almacenamiento local en frío y modo avión.
 - **Mapeo Técnico:**
   - _Dominio:_ `src/core/domain/offline.ts`, `src/core/domain/offline.schemas.ts`, `src/core/domain/routeArtifacts.schemas.ts`, `src/core/domain/mapPackFormats.ts`.
-  - _Aplicación:_ `CheckRouteDownloadAvailability` / `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `ResolveOfflinePack` usecases; `ValidateRoutePublicationUseCase` valida el par publicado.
+  - _Aplicación:_ `CheckRouteDownloadAvailability` / `DownloadRouteOffline` / `EstimateRouteDownloadSize` / `CheckOfflineSpace` / `ResolveOfflinePack` usecases; `ValidateRoutePublicationUseCase` valida el par publicado.
   - _Infraestructura:_ `src/infrastructure/persistence/tileCacheDB.ts`, `src/infrastructure/map/mapStyle.ts` (`buildOfflineVectorStyle`). Destino: `expo-file-system`.
   - _Presentación:_ `DownloadRouteModal.tsx`, `DownloadsView.tsx`, `TrekMap` (`offlinePackPath`).
   - _Suite:_ `src/tests/offline_bundle.test.ts`, `offline_hu4.test.ts`, `storage_rules_route_bundle.test.ts`, `offline_map_fallback.test.ts`, `map_pack_formats.test.ts`, `route_publication_artifacts.test.ts`, `route_detail_online_hu3.test.ts`.
@@ -292,18 +293,18 @@ Para evitar duplicaciones, componentes obsoletos o reescrituras innecesarias, to
 
 ---
 
-## HU-12: Fotos georreferenciadas en grabación — 🟡 Roadmap (RF-29)
+## HU-12: Fotos georreferenciadas en grabación — 🟢 85% funcional (RF-29)
 
 - **Rol:** Senderista autenticado.
 - **Narrativa:** **Como** explorador en levantamiento **quiero** adjuntar fotos a la ruta o a un punto **para** enriquecer el registro de campo.
 - **Criterios de Aceptación (DoD):**
-  1. Captura desde cámara o galería durante grabación (`TrackingView` / checkpoint).
-  2. Foto ligada a coordenada y persistida localmente (y metadatos en ruta si aplica).
-  3. Recuperación tras interrupción (RNF-02).
+  1. ✅ Captura desde cámara o galería durante grabación (`AddCheckpointModal` + `photoService` con `expo-image-picker`; permisos en `app.json`).
+  2. ✅ Foto ligada a coordenada y persistida localmente: `photoUrl` (URI `file://`, bytes solo en dispositivo) en el checkpoint → `newCheckpoints` → `TrekkinActivity.checkpoints` tras finish; sync a Firestore solo metadatos (Regla Triple: `types.ts`, `firestore.rules`, `DATABASE.md`).
+  3. ✅ Recuperación tras interrupción (RNF-02): paradas con foto viajan en el autosave existente (`saveLiveForPersistence`); sin subida a Storage.
 - **RF asociados:** RF-29.
 - **Sprint:** S2.
 - **Extiende:** HU-08.
-- **Estado:** 🟡 Sprint 2 — sin flujo UI de captura hoy.
+- **Estado:** 🟢 85% — captura, persistencia local, finish y suites (`activity_hu8` 19–21) con evidencia. Pendientes: Expo Go en dispositivo (permisos cámara/galería reales), revisión UI y UAT de campo.
 
 ---
 

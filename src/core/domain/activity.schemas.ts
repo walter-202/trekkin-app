@@ -39,6 +39,22 @@ export const CoordinatesSchema = z.object({
 });
 
 /**
+ * HU-12 — Parada persistida en la actividad (ruta + manuales con foto local).
+ * Límites alineados con el checkpoint de `route.schemas.ts` (nombre ≤200,
+ * notas ≤2000) para no rechazar paradas oficiales al revalidar el historial.
+ */
+export const ActivityCheckpointSchema = z.object({
+  id: z.string().trim().min(1).max(128),
+  name: z.string().trim().min(1).max(200),
+  category: CheckpointCategorySchema,
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  notes: z.string().max(2000).optional(),
+  photoUrl: z.string().max(500).optional(),
+  createdAt: z.number(),
+});
+
+/**
  * Validación para registrar una nueva parada (checkpoint) durante la actividad.
  * Cumple con: sin fotos obligatorias, solo categoría, nombre y notas opcionales.
  */
@@ -146,6 +162,7 @@ export const TrekkinActivitySchema = z.object({
   recordedPoints: z.array(RecordedPointSchema.or(CoordinatesSchema)).default([]),
   gpx: ActivityGpxMetadataSchema.optional(),
   completedCheckpoints: z.array(z.string().trim().max(128)).default([]),
+  checkpoints: z.array(ActivityCheckpointSchema).max(100).default([]),
   isSynced: z.boolean().default(false),
   createdAt: z.number().min(0),
 });

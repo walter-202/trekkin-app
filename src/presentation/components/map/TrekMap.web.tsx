@@ -8,7 +8,6 @@ import {
   DEFAULT_ZOOM,
   MAPLIBRE_GL_CSS_URL,
   MAPLIBRE_GL_JS_URL,
-  ONLINE_STYLE_URL,
   PMTILES_JS_URL,
   buildOfflineVectorStyle,
 } from "../../../infrastructure/map/mapStyle";
@@ -131,6 +130,14 @@ function loadPmtiles(): Promise<any> {
 function packUrlOf(scene: TrekMapScene): string | null {
   if (scene.offlinePack?.kind !== "pmtiles") return null;
   return scene.offlinePack.protocolUrl;
+}
+
+/** Estilo online de la escena: URL vectorial o inline satelital. */
+function onlineStyleOf(scene: TrekMapScene): string | Record<string, unknown> {
+  if (scene.mapTheme === "satellite" && scene.satelliteStyle) {
+    return scene.satelliteStyle;
+  }
+  return scene.styleUrl;
 }
 
 const emptyLine = {
@@ -342,7 +349,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
       paintScene(map, sceneRef.current, maplibreRef.current, puckRef);
       onMapReady?.(Boolean(nextUrl));
     });
-    map.setStyle(nextUrl ? buildOfflineVectorStyle(nextUrl) : ONLINE_STYLE_URL);
+    map.setStyle(nextUrl ? buildOfflineVectorStyle(nextUrl) : onlineStyleOf(sceneRef.current));
   };
 
   useEffect(() => {
@@ -372,7 +379,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
           container: hostRef.current,
           style: initialPack
             ? buildOfflineVectorStyle(initialPack)
-            : ONLINE_STYLE_URL,
+            : onlineStyleOf(sceneRef.current),
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           attributionControl: true,

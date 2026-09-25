@@ -208,6 +208,12 @@ export function toTrekkinActivity(
     durationSeconds: Math.round(activity.accumulatedActiveMs / 1000),
     recordedPoints: activity.recordedPoints,
     completedCheckpoints: activity.completedCheckpoints,
+    // HU-12 — las paradas manuales (con foto local) sobreviven al finish
+    // junto a las oficiales; los bytes de foto nunca viajan a Firestore.
+    checkpoints: [
+      ...(activity.route.checkpoints ?? []),
+      ...(activity.newCheckpoints ?? []),
+    ],
     isSynced: options.isSynced ?? true,
     createdAt: activity.startedAt ?? activity.createdAt,
     origin: activity.origin,

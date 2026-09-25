@@ -2,6 +2,7 @@
  * Protocolo RN ↔ MapLibre (WebView nativo o GL JS en web).
  * Las vistas no hablan con el motor: mandan TrekMapScene.
  */
+import type { OnlineMapTheme } from "./mapStyle";
 
 export type LngLat = [number, number];
 
@@ -31,6 +32,10 @@ export interface TrekMapScene {
   bounds: [LngLat, LngLat] | null;
   interactive: boolean;
   styleUrl: string;
+  /** Variante online (dark/light/satellite). Default dark. */
+  mapTheme: OnlineMapTheme;
+  /** Estilo inline solo cuando mapTheme es satellite; null en vectorial. */
+  satelliteStyle: Record<string, unknown> | null;
   /** Pack de fondo HU-04. Null = estilo online OpenFreeMap. */
   offlinePack: TrekMapOfflinePack | null;
 }

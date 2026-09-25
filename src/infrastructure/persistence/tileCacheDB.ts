@@ -9,6 +9,7 @@ import { storage } from "../firebase/config";
 import { appStorage } from "./storage";
 import type { RouteArtifactKind, RouteArtifactMetadata } from "../../core/domain/types";
 import type { OfflineRoute } from "../../core/domain/offline";
+import { isResumableDownloadError, verifyOfflineArtifactBytes } from "../../core/domain/offline";
 import type { DownloadedOfflineArtifact } from "../../core/application/offline/DownloadRouteOffline.usecase";
 import { parseGPX, buildGPX11 } from "../../core/domain/trackFormats";
 import { routeDetailCache } from "./routeDetailCache";
@@ -61,10 +62,66 @@ function headerBytes(path: string): Uint8Array {
   try { return handle.readBytes(8); } finally { handle.close(); }
 }
 
+function headerPrefixOf(bytes: Uint8Array): string {
+  return String.fromCharCode(...bytes.slice(0, 8));
+}
+
+/**
+ * HU-04 — Reutiliza un temporal verificado de un intento previo (reanudación
+ * por artefacto). Solo se acepta si tamaño, SHA-256, cabecera y (GPX) traza
+ * coinciden con lo publicado; cualquier duda → null y descarga fresca.
+ */
+async function peekVerifiedTemp(
+  routeId: string,
+  kind: RouteArtifactKind,
+  metadata: RouteArtifactMetadata,
+  generation: string,
+): Promise<DownloadedOfflineArtifact | null> {
+  try {
+    const part = tempPath(routeId, kind);
+    const info = await LegacyFileSystem.getInfoAsync(part);
+    if (!info.exists || (info.size ?? 0) <= 0) return null;
+    const header = headerPrefixOf(headerBytes(part));
+    let trackPointCount: number | undefined;
+    if (kind === "gpx") {
+      const points = parseGPX(await LegacyFileSystem.readAsStringAsync(part)).points;
+      trackPointCount = points.length;
+    }
+    const staged: DownloadedOfflineArtifact = {
+      tempPath: part,
+      finalPath: finalPath(routeId, kind, generation),
+      byteSize: info.size ?? 0,
+      headerBytes: header,
+      ...(metadata.sha256 ? { sha256: sha256File(part) } : {}),
+      ...(kind === "gpx"
+        ? {
+            readTrackPoints: async () =>
+              parseGPX(await LegacyFileSystem.readAsStringAsync(part)).points,
+          }
+        : {}),
+    };
+    verifyOfflineArtifactBytes({
+      kind,
+      expectedByteSize: metadata.byteSize,
+      ...(metadata.sha256 ? { expectedSha256: metadata.sha256 } : {}),
+      actualByteSize: staged.byteSize,
+      ...(staged.sha256 ? { actualSha256: staged.sha256 } : {}),
+      headerPrefix: header,
+      ...(trackPointCount !== undefined ? { trackPointCount } : {}),
+    });
+    return staged;
+  } catch {
+    return null;
+  }
+}
+
 export const tileCacheDB = {
   async downloadArtifact(routeId: string, kind: RouteArtifactKind, metadata: RouteArtifactMetadata, generation = "current"): Promise<DownloadedOfflineArtifact> {
     await ensureDirectory(routeId);
     const part = tempPath(routeId, kind);
+    // Reanudar: un temporal verificado de un intento previo evita re-descargar.
+    const resumed = await peekVerifiedTemp(routeId, kind, metadata, generation);
+    if (resumed) return resumed;
     await removeFile(part);
     try {
       let downloadedFromStorage = false;
@@ -129,12 +186,25 @@ export const tileCacheDB = {
         } : {}),
       };
     } catch (error) {
-      await removeFile(part);
+      // Ante un corte de red el parcial se conserva (el próximo intento lo
+      // valida por tamaño/SHA y lo reutiliza o lo descarta); ante corrupción
+      // se elimina para reintentar limpio.
+      if (!isResumableDownloadError(error)) await removeFile(part);
       throw error;
     }
   },
 
   async cleanupArtifact(path: string): Promise<void> { await removeFile(path); },
+
+  /** HU-04 — Espacio libre del dispositivo para el gate previo a descargar. */
+  async getFreeDiskBytes(): Promise<number | null> {
+    try {
+      const free = await LegacyFileSystem.getFreeDiskStorageAsync();
+      return Number.isFinite(free) && free >= 0 ? free : null;
+    } catch {
+      return null;
+    }
+  },
 
   /**
    * Finalizes both files first; the manifest/index are committed only after

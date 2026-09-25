@@ -2,7 +2,7 @@ import type { Coordinates } from "../../../core/domain/types";
 import { computeBoundingBox } from "../../../core/domain/geoBounds";
 import { ResolveOfflinePackUseCase } from "../../../core/application/offline/ResolveOfflinePack.usecase";
 import type { TrekMapScene, SceneMarker } from "../../../infrastructure/map/mapBridge";
-import { ONLINE_STYLE_URL } from "../../../infrastructure/map/mapStyle";
+import { resolveOnlineMapStyle } from "../../../infrastructure/map/mapStyle";
 import type { TrekMapProps, MapMarker } from "./TrekMap.types";
 
 const toLngLat = (p: { lat: number; lng: number }): [number, number] => [
@@ -108,6 +108,9 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     }
   }
 
+  const mapTheme = props.mapTheme ?? "dark";
+  const onlineStyle = resolveOnlineMapStyle(mapTheme);
+
   return {
     trail,
     track,
@@ -115,7 +118,9 @@ export function buildTrekMapScene(props: TrekMapProps): TrekMapScene {
     userLocation,
     bounds: boundsFromPoints(fitPoints),
     interactive: props.interactive !== false,
-    styleUrl: ONLINE_STYLE_URL,
+    styleUrl: onlineStyle.kind === "url" ? onlineStyle.url : "",
+    mapTheme,
+    satelliteStyle: onlineStyle.kind === "inline" ? onlineStyle.style : null,
     offlinePack,
   };
 }

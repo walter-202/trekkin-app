@@ -7,9 +7,12 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
+  Image,
 } from "react-native";
+import { Camera, ImagePlus, X } from "lucide-react-native";
 import { CHECKPOINT_CATEGORY_VALUES } from "../../../core/domain/activity.schemas";
 import type { CheckpointCategory } from "../../../core/domain/types";
+import { photoService } from "../../../infrastructure/media/photoService";
 import { AndeanTheme } from "../../theme";
 
 const CATEGORY_LABEL: Record<CheckpointCategory, string> = {
@@ -29,11 +32,14 @@ interface AddCheckpointModalProps {
     name: string;
     category: CheckpointCategory;
     notes?: string;
+    /** URI local de la foto adjunta (HU-12, solo dispositivo). */
+    photoUrl?: string;
   }) => Promise<boolean>;
 }
 
 /**
- * HU-08 C2 / HU-06 C3 — Alta manual de parada (categoría Zod, nota opcional).
+ * HU-08 C2 / HU-06 C3 / HU-12 — Alta manual de parada (categoría Zod, nota
+ * opcional, foto local opcional desde cámara o galería).
  */
 export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
   visible,
@@ -43,6 +49,8 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
   const [name, setName] = useState("");
   const [category, setCategory] = useState<CheckpointCategory>("vista");
   const [notes, setNotes] = useState("");
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +58,8 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
     setName("");
     setCategory("vista");
     setNotes("");
+    setPhotoUri(null);
+    setPicking(false);
     setError(null);
     setSaving(false);
   };
@@ -57,6 +67,24 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  const handlePickPhoto = async (source: "camera" | "library") => {
+    setPicking(true);
+    setError(null);
+    try {
+      const photo =
+        source === "camera"
+          ? await photoService.takePhoto()
+          : await photoService.pickFromLibrary();
+      if (photo) setPhotoUri(photo.uri);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "No se pudo adjuntar la foto.",
+      );
+    } finally {
+      setPicking(false);
+    }
   };
 
   const handleSave = async () => {
@@ -67,6 +95,7 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
         name: name.trim(),
         category,
         notes: notes.trim() || undefined,
+        photoUrl: photoUri ?? undefined,
       });
       if (ok) {
         reset();
@@ -145,6 +174,52 @@ export const AddCheckpointModal: React.FC<AddCheckpointModalProps> = ({
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
+          <Text style={styles.label}>FOTO (OPCIONAL)</Text>
+          {photoUri ? (
+            <View style={styles.photoPreview}>
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.photoImage}
+                accessibilityLabel="Foto adjunta a la parada"
+              />
+              <Pressable
+                onPress={() => setPhotoUri(null)}
+                style={styles.photoRemove}
+                accessibilityRole="button"
+                accessibilityLabel="Quitar foto adjunta"
+                hitSlop={8}
+              >
+                <X size={14} color={AndeanTheme.colors.white} />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.photoActions}>
+              <Pressable
+                onPress={() => handlePickPhoto("camera")}
+                disabled={picking}
+                style={[styles.photoBtn, picking && styles.saveDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Tomar foto con la cámara"
+              >
+                <Camera size={14} color={AndeanTheme.colors.inkSecondary} />
+                <Text style={styles.photoBtnText}>
+                  {picking ? "ABRIENDO…" : "CÁMARA"}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handlePickPhoto("library")}
+                disabled={picking}
+                style={[styles.photoBtn, picking && styles.saveDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Elegir foto de la galería"
+              >
+                <ImagePlus size={14} color={AndeanTheme.colors.inkSecondary} />
+                <Text style={styles.photoBtnText}>GALERÍA</Text>
+              </Pressable>
+            </View>
+          )}
+          <Text style={styles.hint}>La foto queda guardada en el dispositivo junto a la parada.</Text>
+
           <View style={styles.actions}>
             <Pressable
               onPress={handleClose}
@@ -220,7 +295,43 @@ const styles = StyleSheet.create({
   chipText: { color: AndeanTheme.colors.inkSecondary, fontSize: 11, fontWeight: "700" },
   chipTextActive: { color: AndeanTheme.colors.primaryDark },
   error: { color: AndeanTheme.colors.errorText, fontSize: 11 },
-  actions: { flexDirection: "row", gap: 10, marginTop: 10 },
+  photoActions: { flexDirection: "row", gap: 10 },
+  photoBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: AndeanTheme.colors.field,
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.fieldBorder,
+    borderRadius: 12,
+    paddingVertical: 10,
+  },
+  photoBtnText: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  photoPreview: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: AndeanTheme.colors.fieldBorder,
+  },
+  photoImage: { width: "100%", height: 140 },
+  photoRemove: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },  actions: { flexDirection: "row", gap: 10, marginTop: 10 },
   cancelBtn: {
     flex: 1,
     alignItems: "center",

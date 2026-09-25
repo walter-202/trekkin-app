@@ -98,6 +98,7 @@ lo usa `DraftsView`).
 | `remainingDistanceKm` / `durationSeconds` | number | — | |
 | `recordedPoints` | — | — | **Local-only** (SQLite/AsyncStorage); never written to Firestore. |
 | `completedCheckpoints` | list | — | Ids de checkpoints. |
+| `checkpoints` | list | — | Paradas oficiales + manuales (HU-12, ≤ 100, ver subtabla Checkpoint); `photoUrl` solo URI local del dispositivo. |
 | `isSynced` | boolean | — | |
 | `createdAt` | number | — | |
 | `gpx` | map | — | `{storagePath, fileName, mimeType, byteSize?, sha256?, status, updatedAt, error?}`; metadata only. |

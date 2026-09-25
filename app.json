@@ -46,6 +46,13 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Trekking Bolivia necesita acceso a tus fotos para adjuntarlas a las paradas de tus rutas.",
+          "cameraPermission": "Trekking Bolivia necesita acceso a tu cámara para fotografiar paradas durante la grabación de rutas."
+        }
+      ],
       "expo-asset"
     ],
     "extra": {

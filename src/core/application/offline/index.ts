@@ -1,4 +1,10 @@
 export { EstimateRouteDownloadSizeUseCase } from "./EstimateRouteDownloadSize.usecase";
+export { CheckOfflineSpaceUseCase } from "./CheckOfflineSpace.usecase";
+export type {
+  CheckOfflineSpacePorts,
+  OfflineSpaceCheck,
+  OfflineSpaceVerdict,
+} from "./CheckOfflineSpace.usecase";
 export {
   DownloadRouteOfflineUseCase,
   DOWNLOAD_STAGES,

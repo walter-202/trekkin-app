@@ -11,6 +11,7 @@ import { ChevronLeft, Share2, Download, CheckCircle2, Activity } from "lucide-re
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
 import { formatModalityLabel } from "../../../core/domain/routeCatalog";
+import type { OnlineMapTheme } from "../../../infrastructure/map/mapStyle";
 import { GetRouteDetailWithCacheUseCase } from "../../../core/application/explore/GetRouteDetailWithCache.usecase";
 import {
   CheckRouteDownloadAvailabilityUseCase,
@@ -24,6 +25,7 @@ import { AndeanTheme } from "../../theme";
 import { Banner, Button } from "../../components/ui";
 import { ScreenShell, sheetStyles } from "../../components/layout";
 import { TrekMap } from "../../components/map/TrekMap";
+import { MapThemeSelector } from "../../components/map/MapThemeSelector";
 import { ShareModal } from "./ShareModal";
 import { DownloadRouteModal } from "./DownloadRouteModal";
 
@@ -77,6 +79,10 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  // Selector de estilo de mapa: estado local, default dark (no global).
+  const [mapTheme, setMapTheme] = useState<OnlineMapTheme>("dark");
+  // Pack offline activo (lo reporta el mapa): sin badge wifi en ese caso.
+  const [packReady, setPackReady] = useState(false);
   const sharePendingRef = useRef(false);
   const [downloaded, setDownloaded] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
@@ -267,8 +273,16 @@ export const RouteDetailView: React.FC<RouteDetailViewProps> = ({
             trail={routeTrail}
             pointsOfInterest={route.checkpoints}
             height={260}
+            mapTheme={mapTheme}
+            onMapReady={setPackReady}
             accessibilityLabel={`Mapa de ${route.title}`}
-          />
+          >
+            <MapThemeSelector
+              value={mapTheme}
+              onChange={setMapTheme}
+              offlinePackActive={packReady}
+            />
+          </TrekMap>
           {route.elevationGainM ? (
             <View style={styles.maxPoint} pointerEvents="none">
               <Text style={styles.maxPointLabel}>DESNIVEL</Text>

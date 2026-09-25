@@ -1,6 +1,6 @@
 /** Downloads a published route's binary bundle using framework-free ports. */
 import type { Coordinates, RouteArtifactKind, RouteArtifactMetadata, RouteModel } from "../../domain/types";
-import { buildBasicOfflineInfo, buildMapSnapshot, DOWNLOAD_STAGES, estimateRouteOfflineSize, type OfflineRoute, type OfflineDownloadStage } from "../../domain/offline";
+import { buildBasicOfflineInfo, buildMapSnapshot, DOWNLOAD_STAGES, estimateRouteOfflineSize, isResumableDownloadError, verifyOfflineArtifactBytes, type OfflineArtifactCheck, type OfflineRoute, type OfflineDownloadStage } from "../../domain/offline";
 import { OfflineRouteSchema } from "../../domain/offline.schemas";
 import { ValidateRoutePublicationUseCase } from "../route/PublishRoute.usecase";
 
@@ -28,15 +28,19 @@ function headerString(header?: Uint8Array | number[] | string): string {
   const bytes = header instanceof Uint8Array ? header : Uint8Array.from(header);
   return String.fromCharCode(...bytes.slice(0, 8));
 }
-function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata, actual: DownloadedOfflineArtifact): void {
+function verifyArtifact(kind: RouteArtifactKind, expected: RouteArtifactMetadata, actual: DownloadedOfflineArtifact, trackPointCount?: number): void {
   if (!actual.tempPath || !actual.finalPath) throw new Error(`La descarga de ${kind} no produjo un archivo temporal válido.`);
-  if (!Number.isInteger(actual.byteSize) || actual.byteSize <= 0) throw new Error(`El archivo ${kind} está vacío o incompleto.`);
-  if (!actual.isLocalFallback && actual.byteSize !== expected.byteSize) throw new Error(`El tamaño de ${kind} no coincide (esperado ${expected.byteSize}, recibido ${actual.byteSize}).`);
-  if (!actual.isLocalFallback && expected.sha256) {
-    if (!actual.sha256) throw new Error(`No se pudo verificar el SHA-256 del artefacto ${kind}.`);
-    if (actual.sha256.toLowerCase() !== expected.sha256.toLowerCase()) throw new Error(`El SHA-256 de ${kind} no coincide con el publicado.`);
-  }
-  if (kind === "pmtiles" && !headerString(actual.headerBytes).startsWith("PMTiles\u0003")) throw new Error("El artefacto de mapa no es un archivo PMTiles v3 válido.");
+  const check: OfflineArtifactCheck = {
+    kind,
+    expectedByteSize: expected.byteSize,
+    actualByteSize: actual.byteSize,
+    headerPrefix: headerString(actual.headerBytes),
+    isLocalFallback: actual.isLocalFallback,
+    ...(expected.sha256 ? { expectedSha256: expected.sha256 } : {}),
+    ...(actual.sha256 ? { actualSha256: actual.sha256 } : {}),
+    ...(trackPointCount !== undefined ? { trackPointCount } : {}),
+  };
+  verifyOfflineArtifactBytes(check);
 }
 
 export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: DownloadRouteOfflinePorts, options: DownloadRouteOfflineOptions = {}): Promise<OfflineRoute> {
@@ -83,9 +87,9 @@ export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: Down
     onStage("trail");
     gpx = await ports.downloadArtifact(route.id, "gpx", artifacts.gpx, generation);
     temporary.push(gpx.tempPath);
-    verifyArtifact("gpx", artifacts.gpx, gpx);
     const trackPoints = await gpx.readTrackPoints?.();
-    if (!trackPoints || trackPoints.length < 2) {
+    verifyArtifact("gpx", artifacts.gpx, gpx, trackPoints?.length);
+    if (!trackPoints) {
       throw new Error("El GPX descargado no contiene una traza válida de al menos dos puntos.");
     }
     onStage("info");
@@ -101,7 +105,11 @@ export async function DownloadRouteOfflineUseCase(route: RouteModel, ports: Down
     await ports.finalize(route.id, record, { gpx, pmtiles });
     return record;
   } catch (cause: unknown) {
-    await Promise.allSettled(temporary.map((path) => ports.cleanupArtifact(path)));
+    // Ante un corte de red los temporales verificados se conservan para
+    // reanudar por artefacto; ante corrupción se limpian para reintentar limpio.
+    if (!isResumableDownloadError(cause)) {
+      await Promise.allSettled(temporary.map((path) => ports.cleanupArtifact(path)));
+    }
     throw cause;
   }
 }

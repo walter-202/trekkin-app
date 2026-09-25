@@ -16,11 +16,16 @@ import {
   Route,
   Info,
   HardDrive,
+  WifiOff,
 } from "lucide-react-native";
 import type { RouteModel } from "../../../core/domain/types";
 import type { OfflineRoute } from "../../../core/domain/offline";
-import { formatBytes } from "../../../core/domain/offline";
+import { formatBytes, isResumableDownloadError } from "../../../core/domain/offline";
 import { EstimateRouteDownloadSizeUseCase } from "../../../core/application/offline/EstimateRouteDownloadSize.usecase";
+import {
+  CheckOfflineSpaceUseCase,
+  type OfflineSpaceCheck,
+} from "../../../core/application/offline/CheckOfflineSpace.usecase";
 import {
   DownloadRouteOfflineUseCase,
   DOWNLOAD_STAGE_LABELS,
@@ -36,7 +41,7 @@ interface DownloadRouteModalProps {
   onCompleted: (record: OfflineRoute) => void;
 }
 
-type FlowState = "estimate" | "downloading" | "done" | "error";
+type FlowState = "estimate" | "downloading" | "paused" | "done" | "error";
 
 /**
  * HU-04 T2–T5 + T10–T11 — Flujo "Descargar ruta":
@@ -54,6 +59,7 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
   const [stage, setStage] = useState<OfflineDownloadStage | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [doneRecord, setDoneRecord] = useState<OfflineRoute | null>(null);
+  const [space, setSpace] = useState<OfflineSpaceCheck | null>(null);
 
   const effectiveRoute = useMemo((): RouteModel => {
     if (route.artifacts) return route;
@@ -103,8 +109,29 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
       setStage(null);
       setErrorMsg(null);
       setDoneRecord(null);
+      setSpace(null);
     }
   }, [visible]);
+
+  // HU-04 — Gate de espacio: compara el estimado con el disco libre y
+  // bloquea Confirmar si no alcanza. `unknown` advierte sin bloquear.
+  useEffect(() => {
+    if (!visible || !estimate) return;
+    let alive = true;
+    (async () => {
+      try {
+        const check = await CheckOfflineSpaceUseCase(estimate.totalBytes, {
+          getFreeDiskBytes: () => tileCacheDB.getFreeDiskBytes(),
+        });
+        if (alive) setSpace(check);
+      } catch {
+        if (alive) setSpace(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [visible, estimate]);
 
   const startDownload = async () => {
     setFlow("downloading");
@@ -124,10 +151,21 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
       setFlow("done");
       onCompleted(record);
     } catch (err: any) {
-      setErrorMsg(err?.message ?? "No se pudo descargar la ruta.");
-      setFlow("error");
+      // Corte de red → auto-pausa con avance conservado (reanuda por
+      // artefacto); corrupción → error con reintento limpio.
+      if (isResumableDownloadError(err)) {
+        setErrorMsg(
+          "Se perdió la conexión. Tu avance se conservó: reanuda cuando tengas red.",
+        );
+        setFlow("paused");
+      } else {
+        setErrorMsg(err?.message ?? "No se pudo descargar la ruta.");
+        setFlow("error");
+      }
     }
   };
+
+  const spaceBlocked = space?.verdict === "insufficient";
 
   const stageLabel = stage ? DOWNLOAD_STAGE_LABELS[stage] : "Preparando descarga…";
 
@@ -171,6 +209,13 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
               </View>
               {estimate ? <View style={styles.breakdown}>
                 <View style={styles.breakRow}>
+                  <HardDrive size={13} color={AndeanTheme.colors.primaryDark} />
+                  <Text style={styles.breakLabel}>Espacio libre en el dispositivo</Text>
+                  <Text style={styles.breakValue}>
+                    {space ? (space.freeBytes == null ? "No verificado" : formatBytes(space.freeBytes)) : "Verificando…"}
+                  </Text>
+                </View>
+                <View style={styles.breakRow}>
                   <MapPinned size={13} color={AndeanTheme.colors.primaryDark} />
                   <Text style={styles.breakLabel}>Paquete de mapa (PMTiles)</Text>
                   <Text style={styles.breakValue}>
@@ -192,10 +237,20 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
                   </Text>
                 </View>
               </View> : null}
+              {spaceBlocked && estimate ? (
+                <View style={styles.errorBox}>
+                  <HardDrive size={16} color={AndeanTheme.colors.danger} />
+                  <Text style={styles.errorText}>
+                    Espacio insuficiente: necesitas {formatBytes(estimate.totalBytes)} y
+                    tienes {formatBytes(space?.freeBytes ?? 0)} libres. Libera espacio
+                    e intenta de nuevo.
+                  </Text>
+                </View>
+              ) : null}
               <Pressable
                 onPress={startDownload}
-                disabled={!estimate}
-                style={styles.confirmBtn}
+                disabled={!estimate || spaceBlocked}
+                style={[styles.confirmBtn, (!estimate || spaceBlocked) && styles.confirmDisabled]}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar descarga de la ruta"
               >
@@ -220,6 +275,39 @@ export const DownloadRouteModal: React.FC<DownloadRouteModalProps> = ({
                 Descargando mapa, GPX y manifiesto…
               </Text>
             </View>
+          ) : null}
+
+          {flow === "paused" ? (
+            <>
+              <View style={styles.pausedBox}>
+                <WifiOff size={20} color={AndeanTheme.colors.amber} />
+                <View style={styles.pausedTextWrap}>
+                  <Text style={styles.pausedTitle}>Descarga en pausa</Text>
+                  <Text style={styles.pausedText}>{errorMsg}</Text>
+                  {stage ? (
+                    <Text style={styles.pausedStage}>
+                      Avance conservado hasta: {DOWNLOAD_STAGE_LABELS[stage]}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+              <Pressable
+                onPress={startDownload}
+                style={styles.confirmBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Reanudar descarga de la ruta"
+              >
+                <Download size={15} color={AndeanTheme.colors.white} />
+                <Text style={styles.confirmText}>Reanudar</Text>
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                style={styles.cancelBtn}
+                accessibilityRole="button"
+              >
+                <Text style={styles.cancelText}>Cerrar</Text>
+              </Pressable>
+            </>
           ) : null}
 
           {flow === "done" && doneRecord ? (
@@ -341,6 +429,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   confirmText: { color: AndeanTheme.colors.white, fontSize: 13, fontWeight: "800" },
+  confirmDisabled: { opacity: 0.45 },
   cancelBtn: {
     backgroundColor: AndeanTheme.colors.field,
     borderRadius: 12,
@@ -376,4 +465,18 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   errorText: { flex: 1, color: AndeanTheme.colors.errorText, fontSize: 12 },
+  pausedBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(250,204,21,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(217, 119, 6, 0.35)",
+    borderRadius: 10,
+    padding: 12,
+  },
+  pausedTextWrap: { flex: 1, gap: 4 },
+  pausedTitle: { color: AndeanTheme.colors.amber, fontSize: 13, fontWeight: "800" },
+  pausedText: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, lineHeight: 17 },
+  pausedStage: { color: AndeanTheme.colors.fieldHint, fontSize: 11 },
 });

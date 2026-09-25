@@ -86,6 +86,84 @@ export function formatBytes(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
+/**
+ * HU-04 — Clasifica un fallo de descarga como reanudable (corte de red) o no
+ * (integridad/validación). Puro y sin dependencias: el usecase conserva los
+ * temporales verificados ante cortes para reanudar por artefacto, y limpia
+ * ante corrupción. Nunca clasifica como red un error de tamaño/SHA/formato.
+ */
+export function isResumableDownloadError(cause: unknown): boolean {
+  const code = String(
+    (cause as { code?: unknown } | null | undefined)?.code ?? "",
+  ).toLowerCase();
+  const message = String(
+    cause instanceof Error ? cause.message : (cause ?? ""),
+  ).toLowerCase();
+  const text = `${code} ${message}`;
+  return (
+    text.includes("network") ||
+    text.includes("timeout") ||
+    text.includes("timed out") ||
+    text.includes("unavailable") ||
+    text.includes("offline") ||
+    text.includes("failed to fetch") ||
+    text.includes("load failed") ||
+    text.includes("network request failed") ||
+    text.includes("econn") ||
+    text.includes("socket") ||
+    text.includes("retry-limit") ||
+    text.includes("sin conexi")
+  );
+}
+
+/** Entrada plana para verificar un artefacto descargado (dominio puro). */
+export interface OfflineArtifactCheck {
+  kind: "gpx" | "pmtiles";
+  expectedByteSize: number;
+  expectedSha256?: string;
+  actualByteSize: number;
+  actualSha256?: string;
+  /** Primeros bytes como texto (p.ej. "PMTiles\u0003" o "<gpx"). */
+  headerPrefix: string;
+  /** Puntos del trazado (solo GPX); el PMTiles se valida por cabecera. */
+  trackPointCount?: number;
+  isLocalFallback?: boolean;
+}
+
+/**
+ * HU-04 — Verifica tamaño/SHA-256/cabecera/traza de un artefacto.
+ * Lanza errores tipados en español. La comparten el usecase (puertos) y el
+ * repositorio (reutilización de temporales verificados al reanudar).
+ */
+export function verifyOfflineArtifactBytes(check: OfflineArtifactCheck): void {
+  const { kind, expectedByteSize, actualByteSize } = check;
+  if (!Number.isInteger(actualByteSize) || actualByteSize <= 0) {
+    throw new Error(`El archivo ${kind} está vacío o incompleto.`);
+  }
+  if (!check.isLocalFallback && actualByteSize !== expectedByteSize) {
+    throw new Error(
+      `El tamaño de ${kind} no coincide (esperado ${expectedByteSize}, recibido ${actualByteSize}).`,
+    );
+  }
+  if (!check.isLocalFallback && check.expectedSha256) {
+    if (!check.actualSha256) {
+      throw new Error(`No se pudo verificar el SHA-256 del artefacto ${kind}.`);
+    }
+    if (check.actualSha256.toLowerCase() !== check.expectedSha256.toLowerCase()) {
+      throw new Error(`El SHA-256 de ${kind} no coincide con el publicado.`);
+    }
+  }
+  if (
+    kind === "pmtiles" &&
+    !check.headerPrefix.startsWith("PMTiles\u0003")
+  ) {
+    throw new Error("El artefacto de mapa no es un archivo PMTiles v3 válido.");
+  }
+  if (kind === "gpx" && (check.trackPointCount ?? 0) < 2) {
+    throw new Error("El GPX descargado no contiene una traza válida de al menos dos puntos.");
+  }
+}
+
 /** Aproximación en bytes del JSON serializado de una pieza (ASCII→1 byte/car). */
 function jsonBytes(value: unknown): number {
   try {

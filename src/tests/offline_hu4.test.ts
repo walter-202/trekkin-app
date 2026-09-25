@@ -14,10 +14,12 @@ import { OfflineRouteSchema } from '../core/domain/offline.schemas';
 import {
   DOWNLOAD_STAGES,
   formatBytes,
+  isResumableDownloadError,
   type OfflineDownloadStage,
   type OfflineRoute,
 } from '../core/domain/offline';
 import { EstimateRouteDownloadSizeUseCase } from '../core/application/offline/EstimateRouteDownloadSize.usecase';
+import { CheckOfflineSpaceUseCase } from '../core/application/offline/CheckOfflineSpace.usecase';
 import { DownloadRouteOfflineUseCase } from '../core/application/offline/DownloadRouteOffline.usecase';
 import { ListOfflineRoutesUseCase } from '../core/application/offline/ListOfflineRoutes.usecase';
 import { GetOfflineRouteUseCase } from '../core/application/offline/GetOfflineRoute.usecase';
@@ -236,6 +238,159 @@ export async function runOfflineAcceptanceTests(): Promise<TestResult[]> {
     'T12: Ruta no descargada informa error claro',
     missingThrows,
     'lanzó "aún no está descargada"',
+  );
+
+  // =========================================================================
+  // ESPACIO EN DISCO (gate previo a descargar)
+  // =========================================================================
+  const requiredBytes = estimate.totalBytes;
+  const enough = await CheckOfflineSpaceUseCase(requiredBytes, {
+    getFreeDiskBytes: async () => requiredBytes + 1024,
+  });
+  recordTest(
+    'Espacio: con disco suficiente el veredicto es "enough"',
+    enough.verdict === 'enough' && enough.freeBytes === requiredBytes + 1024,
+    `libres=${enough.freeBytes}B requeridos=${enough.requiredBytes}B`,
+  );
+
+  const short = await CheckOfflineSpaceUseCase(requiredBytes, {
+    getFreeDiskBytes: async () => 1,
+  });
+  recordTest(
+    'Espacio: sin disco suficiente el veredicto es "insufficient"',
+    short.verdict === 'insufficient' && short.freeBytes === 1,
+    `libres=1B requeridos=${short.requiredBytes}B`,
+  );
+
+  const unknownThrow = await CheckOfflineSpaceUseCase(requiredBytes, {
+    getFreeDiskBytes: async () => { throw new Error('no disponible'); },
+  });
+  const unknownNull = await CheckOfflineSpaceUseCase(requiredBytes, {
+    getFreeDiskBytes: async () => null,
+  });
+  recordTest(
+    'Espacio: si el dispositivo no informa, el veredicto es "unknown" (no bloquea)',
+    unknownThrow.verdict === 'unknown' && unknownNull.verdict === 'unknown',
+    'puerto que falla o null → unknown',
+  );
+
+  // =========================================================================
+  // CORTE DE RED: auto-pausa conserva avance, corrupción limpia
+  // =========================================================================
+  recordTest(
+    'Red: el clasificador distingue corte de red de error de integridad',
+    isResumableDownloadError(new Error('Network request failed')) &&
+      isResumableDownloadError({ code: 'storage/retry-limit-exceeded' }) &&
+      isResumableDownloadError(new Error('Sin conexión a internet')) &&
+      !isResumableDownloadError(new Error('El SHA-256 de gpx no coincide con el publicado.')) &&
+      !isResumableDownloadError(new Error('El archivo gpx está vacío o incompleto.')),
+    'red=true ×3, integridad=false ×2',
+  );
+
+  const okArtifact = (kind: 'pmtiles' | 'gpx') => ({
+    tempPath: `${PUBLISHED_ROUTE.id}-${kind}.part`,
+    finalPath: `${PUBLISHED_ROUTE.id}-${kind}`,
+    byteSize: kind === 'pmtiles' ? 64 : 128,
+    headerBytes: kind === 'pmtiles' ? 'PMTiles\u0003' : '<gpx',
+    ...(kind === 'gpx' ? { readTrackPoints: async () => PUBLISHED_ROUTE.waypoints } : {}),
+  });
+
+  // Corte durante el GPX: no se limpia (se conserva lo verificado para reanudar).
+  const keptLog: string[] = [];
+  let networkError: unknown = null;
+  try {
+    await DownloadRouteOfflineUseCase(
+      PUBLISHED_ROUTE,
+      {
+        downloadArtifact: async (id, kind) => {
+          if (kind === 'gpx') throw new Error('Network request failed');
+          return okArtifact(kind);
+        },
+        cleanupArtifact: async (path) => { keptLog.push(`cleanup:${path}`); },
+        finalize: async () => {},
+      },
+      { downloadedAt: 1720000000000 },
+    );
+  } catch (err) {
+    networkError = err;
+  }
+  recordTest(
+    'Red: ante corte de red se conserva el avance (sin cleanup) y se propaga el error',
+    networkError instanceof Error &&
+      networkError.message === 'Network request failed' &&
+      keptLog.length === 0,
+    `error propagado, cleanups=${keptLog.length}`,
+  );
+
+  // Corrupción (tamaño distinto): se limpia para reintentar desde cero.
+  const cleanedLog: string[] = [];
+  let integrityError: unknown = null;
+  try {
+    await DownloadRouteOfflineUseCase(
+      PUBLISHED_ROUTE,
+      {
+        downloadArtifact: async (id, kind) => {
+          if (kind === 'gpx') return { ...okArtifact(kind), byteSize: 999 };
+          return okArtifact(kind);
+        },
+        cleanupArtifact: async (path) => { cleanedLog.push(`cleanup:${path}`); },
+        finalize: async () => {},
+      },
+      { downloadedAt: 1720000000000 },
+    );
+  } catch (err) {
+    integrityError = err;
+  }
+  recordTest(
+    'Integridad: ante tamaño corrupto se limpia todo y se informa el desajuste',
+    integrityError instanceof Error &&
+      String(integrityError.message).includes('no coincide') &&
+      cleanedLog.length === 2,
+    `cleanups=${cleanedLog.length}`,
+  );
+
+  // Reintento tras corte: re-solicita ambos artefactos (infra reutiliza el
+  // verificado) y finaliza con manifiesto válido.
+  const retryLog: string[] = [];
+  let attempts = 0;
+  const retried = await DownloadRouteOfflineUseCase(
+    PUBLISHED_ROUTE,
+    {
+      downloadArtifact: async (id, kind) => {
+        attempts += 1;
+        retryLog.push(`${kind}:${id}`);
+        if (attempts === 2) throw new Error('Network request failed');
+        return okArtifact(kind);
+      },
+      cleanupArtifact: async () => {},
+      finalize: async (id) => { retryLog.push(`finalize:${id}`); },
+    },
+    { downloadedAt: 1720000000000 },
+  ).catch(() => null);
+  recordTest(
+    'Red: el primer intento cae en el GPX pero conserva el mapa verificado',
+    retried === null && retryLog.join(',') === `pmtiles:${PUBLISHED_ROUTE.id},gpx:${PUBLISHED_ROUTE.id}`,
+    retryLog.join(' → '),
+  );
+
+  const resumedLog: string[] = [];
+  const resumed = await DownloadRouteOfflineUseCase(
+    PUBLISHED_ROUTE,
+    {
+      downloadArtifact: async (id, kind) => {
+        resumedLog.push(`${kind}:${id}`);
+        return okArtifact(kind);
+      },
+      cleanupArtifact: async () => {},
+      finalize: async (id) => { resumedLog.push(`finalize:${id}`); },
+    },
+    { downloadedAt: 1720000000000 },
+  );
+  recordTest(
+    'Red: Reanudar completa la descarga y genera manifiesto válido',
+    resumedLog.join(',') === `pmtiles:${PUBLISHED_ROUTE.id},gpx:${PUBLISHED_ROUTE.id},finalize:${PUBLISHED_ROUTE.id}` &&
+      OfflineRouteSchema.safeParse(resumed).success,
+    resumedLog.join(' → '),
   );
 
   return results;

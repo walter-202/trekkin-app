@@ -7,8 +7,6 @@ import { buildTrekMapScene } from "./buildTrekMapScene";
 import { buildTrekMapHtml } from "./trekMapDocument";
 import type { MapToHostEvent } from "../../../infrastructure/map/mapBridge";
 
-const HTML = buildTrekMapHtml();
-
 /**
  * MapLibre GL JS en WebView — Android + iOS (Expo Go, sin Google Maps SDK).
  */
@@ -23,7 +21,11 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     onPressCoordinate,
     onMapReady,
     onMapError,
+    mapTheme = "dark",
   } = props;
+
+  // El documento (con su estilo online) se reconstruye si cambia el tema.
+  const html = useMemo(() => buildTrekMapHtml(mapTheme), [mapTheme]);
 
   const webRef = useRef<WebView>(null);
   const readyRef = useRef(false);
@@ -74,7 +76,7 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
     >
       <WebView
         ref={webRef}
-        source={{ html: HTML, baseUrl: "https://tiles.openfreemap.org" }}
+        source={{ html, baseUrl: "https://tiles.openfreemap.org" }}
         style={styles.webview}
         originWhitelist={["*"]}
         javaScriptEnabled

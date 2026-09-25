@@ -87,6 +87,67 @@ export function buildOfflineVectorStyle(pmtilesProtocolUrl: string): {
 /** Estilo oscuro andino, sin token. HU-03 detalle: solo esta URL, sin descargar pack. */
 export const ONLINE_STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 
+/**
+ * Variantes online de previsualización (sin descarga, sin keys).
+ * - dark: OpenFreeMap oscuro (default, sin cambios de comportamiento).
+ * - light: OpenFreeMap Bright, mismo proveedor y fuente vectorial.
+ * - satellite: Esri World Imagery (raster, requiere atribución Esri).
+ */
+export type OnlineMapTheme = "dark" | "light" | "satellite";
+
+export const ONLINE_STYLE_DARK_URL = ONLINE_STYLE_URL;
+export const ONLINE_STYLE_LIGHT_URL = "https://tiles.openfreemap.org/styles/bright";
+
+export const ONLINE_STYLE_URLS: Record<"dark" | "light", string> = {
+  dark: ONLINE_STYLE_DARK_URL,
+  light: ONLINE_STYLE_LIGHT_URL,
+};
+
+/** Teselas satelitales Esri (XYZ, JPEG 256, uso gratuito con atribución). */
+export const SATELLITE_TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
+export const SATELLITE_ATTRIBUTION =
+  "Imágenes © Esri, Vantor, Earthstar Geographics";
+
+/**
+ * Estilo MapLibre v8 inline para la vista satelital: fondo + raster Esri.
+ * El trail/marcadores de Trekkin se pintan encima igual que en vectorial.
+ */
+export function buildSatelliteStyle(): Record<string, unknown> {
+  return {
+    version: 8,
+    name: "Trekkin Satellite",
+    sources: {
+      "esri-imagery": {
+        type: "raster",
+        tiles: [SATELLITE_TILE_URL],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: SATELLITE_ATTRIBUTION,
+      },
+    },
+    layers: [
+      {
+        id: "satellite",
+        type: "raster",
+        source: "esri-imagery",
+        paint: { "raster-opacity": 1 },
+      },
+    ],
+  };
+}
+
+export type OnlineMapStyle =
+  | { kind: "url"; url: string }
+  | { kind: "inline"; style: Record<string, unknown> };
+
+/** Resuelve el estilo online de un tema (puro y testeable). */
+export function resolveOnlineMapStyle(theme: OnlineMapTheme): OnlineMapStyle {
+  if (theme === "satellite") return { kind: "inline", style: buildSatelliteStyle() };
+  return { kind: "url", url: ONLINE_STYLE_URLS[theme] ?? ONLINE_STYLE_DARK_URL };
+}
+
 export const MAP_ATTRIBUTION = "© OpenStreetMap · © OpenFreeMap";
 
 export const DEFAULT_CENTER: [number, number] = [-68.146, -16.499];

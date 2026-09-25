@@ -26,7 +26,7 @@ import {
 import { BeginTrackingUseCase } from "../core/application/activity/BeginTracking.usecase";
 import { FinishActivityUseCase } from "../core/application/activity/FinishActivity.usecase";
 import { ExportTrackFileUseCase } from "../core/application/activity/ExportTrackFile.usecase";
-import { ACTIVITY_CONFIG, isFreeRecording, isResumableLive } from "../core/domain/activity";
+import { ACTIVITY_CONFIG, isFreeRecording, isResumableLive, toTrekkinActivity } from "../core/domain/activity";
 import type { RoutePlan } from "../core/domain/plan";
 import {
   calculatePaceMinPerKm,
@@ -516,6 +516,103 @@ async function runTests() {
     );
   } catch (e: any) {
     recordTest("StartFreeRecording descarta semilla vieja o imprecisa (recordedPoints vacío)", false, e.message);
+  }
+
+  // 19. HU-12: AddCheckpoint conserva la foto local del punto
+  try {
+    const { checkpoint } = AddCheckpointUseCase(baseLiveActivity, {
+      name: "Mirador del valle",
+      category: "vista",
+      lat: -16.505,
+      lng: -68.105,
+      notes: "Atardecer despejado",
+      photoUrl: "file:///data/checkpoints/cp-foto.jpg",
+    });
+    recordTest(
+      "AddCheckpoint conserva photoUrl local en el checkpoint creado",
+      checkpoint.photoUrl === "file:///data/checkpoints/cp-foto.jpg" &&
+        checkpoint.lat === -16.505 &&
+        checkpoint.lng === -68.105,
+      `photoUrl=${checkpoint.photoUrl}`,
+    );
+  } catch (e: any) {
+    recordTest("AddCheckpoint conserva photoUrl local en el checkpoint creado", false, e.message);
+  }
+
+  // 20. HU-12: el finish conserva paradas (oficiales + manuales con foto)
+  try {
+    const withManual: LiveActivity = {
+      ...baseLiveActivity,
+      newCheckpoints: [
+        {
+          id: "cp-foto-1",
+          name: "Mirador del valle",
+          category: "vista",
+          lat: -16.505,
+          lng: -68.105,
+          photoUrl: "file:///data/checkpoints/cp-foto.jpg",
+          createdAt: 1720000020000,
+        },
+      ],
+    };
+    const saved = toTrekkinActivity(withManual, { isSynced: false });
+    const withPhoto = saved.checkpoints.find((c) => c.id === "cp-foto-1");
+    recordTest(
+      "toTrekkinActivity conserva checkpoints manuales con foto tras finalizar",
+      saved.checkpoints.length === 1 &&
+        withPhoto?.photoUrl === "file:///data/checkpoints/cp-foto.jpg" &&
+        saved.isSynced === false,
+      `checkpoints=${saved.checkpoints.length} photoUrl=${withPhoto?.photoUrl}`,
+    );
+  } catch (e: any) {
+    recordTest("toTrekkinActivity conserva checkpoints manuales con foto tras finalizar", false, e.message);
+  }
+
+  // 21. HU-12: el esquema acepta checkpoints y da default [] a docs legacy
+  try {
+    const parsed = TrekkinActivitySchema.parse({
+      id: "activity-foto-1",
+      userId: "user-cruz-123",
+      userName: "Ramos Cruz",
+      routeId: "route-test",
+      routeTitle: "Ruta de prueba",
+      status: "completed",
+      startedAt: 1720000000000,
+      distanceCoveredKm: 2.5,
+      durationSeconds: 3600,
+      recordedPoints: [],
+      completedCheckpoints: ["cp-foto-1"],
+      checkpoints: [
+        {
+          id: "cp-foto-1",
+          name: "Mirador del valle",
+          category: "vista",
+          lat: -16.505,
+          lng: -68.105,
+          photoUrl: "file:///data/checkpoints/cp-foto.jpg",
+          createdAt: 1720000020000,
+        },
+      ],
+      createdAt: 1720000000000,
+    });
+    const legacy = TrekkinActivitySchema.parse({
+      id: "activity-legacy-1",
+      userId: "user-cruz-123",
+      status: "completed",
+      startedAt: 1720000000000,
+      distanceCoveredKm: 1,
+      durationSeconds: 600,
+      createdAt: 1720000000000,
+    });
+    recordTest(
+      "TrekkinActivitySchema acepta checkpoints con foto y legacy sin el campo",
+      parsed.checkpoints.length === 1 &&
+        parsed.checkpoints[0].photoUrl === "file:///data/checkpoints/cp-foto.jpg" &&
+        legacy.checkpoints.length === 0,
+      `nuevo=${parsed.checkpoints.length} legacy=${legacy.checkpoints.length}`,
+    );
+  } catch (e: any) {
+    recordTest("TrekkinActivitySchema acepta checkpoints con foto y legacy sin el campo", false, e.message);
   }
 
   // Imprimir reporte

@@ -5,8 +5,9 @@ import type { LiveActivity } from "../../domain/activity";
 /**
  * HU-08 — Añadir una parada o checkpoint durante la actividad.
  * Caso de uso puro.
- * Valida la parada con CreateCheckpointSchema (nombre, categoría, nota opcional, sin fotos obligatorias).
- * Agrega el checkpoint a liveActivity.newCheckpoints y su id a completedCheckpoints.
+ * Valida la parada con CreateCheckpointSchema (nombre, categoría, nota opcional,
+ * foto local opcional HU-12). Agrega el checkpoint a liveActivity.newCheckpoints
+ * y su id a completedCheckpoints.
  */
 
 export interface AddCheckpointInput {
@@ -15,6 +16,8 @@ export interface AddCheckpointInput {
   lat: number;
   lng: number;
   notes?: string;
+  /** URI local de la foto adjunta al punto (solo dispositivo, sin subir). */
+  photoUrl?: string;
   id?: string;
 }
 
@@ -37,6 +40,7 @@ export function AddCheckpointUseCase(
     lat: parsed.lat,
     lng: parsed.lng,
     notes: parsed.notes,
+    photoUrl: parsed.photoUrl,
     createdAt: now,
   };
 

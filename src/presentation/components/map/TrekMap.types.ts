@@ -1,5 +1,6 @@
 import type { StyleProp, ViewStyle } from "react-native";
 import type { Coordinates } from "../../../core/domain/types";
+import type { OnlineMapTheme } from "../../../infrastructure/map/mapStyle";
 
 export interface MapMarker {
   id: string;
@@ -36,6 +37,11 @@ export interface TrekMapProps {
   initialRegion?: MapRegion;
   height?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Variante online de previsualización (dark/light/satellite).
+   * Default "dark" (sin cambios). El pack offline HU-04 no se toca.
+   */
+  mapTheme?: OnlineMapTheme;
   onPressCoordinate?: (coords: { lat: number; lng: number }) => void;
   onPress?: (coords: { lat: number; lng: number }) => void;
   /** Lifecycle hooks for views that need a truthful renderer fallback. */

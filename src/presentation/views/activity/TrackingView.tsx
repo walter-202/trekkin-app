@@ -206,6 +206,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     name: string;
     category: CheckpointCategory;
     notes?: string;
+    photoUrl?: string;
   }) => {
     const point =
       live.recordedPoints[live.recordedPoints.length - 1] ??
@@ -217,6 +218,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
       lat: point.lat,
       lng: point.lng,
       notes: input.notes,
+      photoUrl: input.photoUrl,
     });
   };
 
