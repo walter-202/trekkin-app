@@ -1,5 +1,10 @@
 import * as Location from "expo-location";
-import { BACKGROUND_LOCATION_TASK_NAME } from "./backgroundLocationTask";
+import {
+  BACKGROUND_LOCATION_TASK_NAME,
+  registerBackgroundLocationTask,
+} from "./backgroundLocationTask";
+
+registerBackgroundLocationTask();
 
 /**
  * The background task is defined at module scope (required by Expo TaskManager).

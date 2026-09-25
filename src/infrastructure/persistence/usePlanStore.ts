@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { PlannedPoint, RoutePlan } from '../../core/domain/plan';
-import type { RouteDifficulty, RouteModel } from '../../core/domain/types';
+import type {
+  RouteDifficulty,
+  RouteModel,
+  RouteWeather,
+  TerrainType,
+} from '../../core/domain/types';
 import { appStorage } from './storage';
 import { routeService } from '../database/routeService';
 import { InitializePlanUseCase } from '../../core/application/plan/InitializePlan.usecase';
@@ -45,7 +50,14 @@ interface PlanState {
   initializePlan: (uid: string, creatorName: string, forceNew?: boolean) => Promise<void>;
   newDraftPlan: (uid: string, creatorName: string) => Promise<void>;
   setPoints: (start: PlannedPoint, end: PlannedPoint) => Promise<boolean>;
-  setPlanMeta: (updates: { title?: string; difficulty?: RouteDifficulty; waypoints?: RoutePlan['waypoints'] }) => void;
+  setPlanMeta: (updates: {
+    title?: string;
+    difficulty?: RouteDifficulty;
+    terrainType?: TerrainType;
+    notes?: string;
+    weather?: RouteWeather;
+    waypoints?: RoutePlan['waypoints'];
+  }) => void;
   saveDraft: () => Promise<boolean>;
   listDrafts: (uid: string) => Promise<void>;
   loadDraft: (id: string, uid: string) => Promise<boolean>;

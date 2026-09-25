@@ -7,8 +7,12 @@ import { z } from 'zod';
  */
 
 export const ROUTE_DIFFICULTY_VALUES = ['facil', 'moderado', 'dificil', 'experto'] as const;
+export const TERRAIN_TYPES = ['asfalto', 'sendero', 'piedra', 'arena', 'roca', 'mixto'] as const;
+export const WEATHER_TYPES = ['soleado', 'nublado', 'lluvia', 'viento', 'nevado', 'caliente'] as const;
 
 export const DifficultySchema = z.enum(ROUTE_DIFFICULTY_VALUES);
+export const TerrainTypeSchema = z.enum(TERRAIN_TYPES);
+export const WeatherSchema = z.enum(WEATHER_TYPES);
 
 export const CoordsSchema = z.object({
   lat: z.number().min(-90, 'Latitud fuera de rango'),
@@ -29,11 +33,15 @@ export const SetPlanPointsSchema = z.object({
 });
 
 /**
- * T4 — Guardar borrador. Ambos puntos y título/dificultad son requeridos.
+ * T4 — Guardar borrador. Ambos puntos y título/dificultad son requeridos,
+ * y ahora también se guarda terreno, clima y notas descriptivas.
  */
 export const SaveDraftSchema = z.object({
   title: z.string().trim().min(1, 'Escribe un nombre para el borrador').max(200, 'El nombre es demasiado largo'),
   difficulty: DifficultySchema,
+  terrainType: TerrainTypeSchema.optional(),
+  notes: z.string().trim().max(2000, 'La nota es demasiado larga').default(''),
+  weather: WeatherSchema.optional(),
   start: PlannedPointSchema,
   end: PlannedPointSchema,
 });

@@ -44,6 +44,13 @@ export const RouteSchema = z.object({
   difficulty: z.enum(["facil", "moderado", "dificil", "experto"], {
     error: "Dificultad inválida",
   }),
+  terrainType: z
+    .enum(["asfalto", "sendero", "piedra", "arena", "roca", "mixto"])
+    .optional(),
+  notes: z.string().trim().max(2000).default(""),
+  weather: z
+    .enum(["soleado", "nublado", "lluvia", "viento", "nevado", "caliente"])
+    .optional(),
   modality: z.enum(["solo", "acompañado"]).default("acompañado"),
   status: z.enum(["draft", "in_review", "published", "rejected"]),
   isPrivate: z.boolean().default(false),
@@ -51,6 +58,9 @@ export const RouteSchema = z.object({
   updatedAt: z.number(),
   creatorId: z.string().trim().min(1).max(128),
   creatorName: z.string().trim().max(150).default(""),
+  syncStatus: z.boolean().default(false),
+  lastSyncAt: z.number().optional(),
+  remoteId: z.string().trim().max(128).optional(),
   preview: RoutePreviewSchema.optional(),
   waypoints: z.array(coordinateSchema).max(5000).default([]),
   checkpoints: z

@@ -28,8 +28,15 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION"
+        "FOREGROUND_SERVICE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -50,9 +57,8 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "ef9feba1-ae5a-480f-bc38-4fe39f33e2ea"
+        "projectId": "7b5654aa-40c9-45bc-b959-b487eeae20dd"
       }
-    },
-    "owner": "walter_202"
+    }
   }
 }

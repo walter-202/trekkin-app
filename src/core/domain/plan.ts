@@ -1,4 +1,9 @@
-import type { Coordinates, RouteDifficulty } from './types';
+import type {
+  Coordinates,
+  RouteDifficulty,
+  RouteWeather,
+  TerrainType,
+} from './types';
 
 /**
  * Clean Architecture — Dominio Planificación (HU-07).
@@ -24,6 +29,9 @@ export interface RoutePlan {
   endPoint: PlannedPoint | null;
   waypoints: Coordinates[];
   difficulty: RouteDifficulty;
+  terrainType?: TerrainType;
+  notes?: string;
+  weather?: RouteWeather;
   startPointConfirmed: boolean;
   createdAt: number;
   updatedAt: number;

@@ -60,11 +60,23 @@ async function processNativeBatch(
   });
 }
 
-/** Must remain top-level: Expo invokes it from a headless process. */
-TaskManager.defineTask<BackgroundLocationTaskData>(
-  BACKGROUND_LOCATION_TASK_NAME,
-  async ({ data, error }) => {
-    if (error || !data?.locations?.length) return 0;
-    return processNativeBatch(data.locations);
-  },
-);
+/**
+ * Registra el task de ubicación en segundo plano desde el servicio principal.
+ * Esto evita que la tarea se duplique si el módulo se importa de varios puntos
+ * del flujo de arranque, y conserva el guardado local mediante useActivityStore.
+ */
+let backgroundTaskRegistered = false;
+
+export function registerBackgroundLocationTask(): void {
+  if (backgroundTaskRegistered) return;
+  backgroundTaskRegistered = true;
+  TaskManager.defineTask<BackgroundLocationTaskData>(
+    BACKGROUND_LOCATION_TASK_NAME,
+    async ({ data, error }) => {
+      if (error || !data?.locations?.length) return 0;
+      return processNativeBatch(data.locations);
+    },
+  );
+}
+
+registerBackgroundLocationTask();

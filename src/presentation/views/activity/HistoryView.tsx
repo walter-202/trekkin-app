@@ -6,10 +6,18 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { History, ChevronRight, ArrowUp, CloudOff } from "lucide-react-native";
+import {
+  History,
+  ChevronRight,
+  ArrowUp,
+  CloudOff,
+  Share2,
+} from "lucide-react-native";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
+import { shareGpxFromCoordinates } from "../../../infrastructure/share/gpxService";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
 import { AndeanTheme } from "../../theme";
 import { sheetStyles } from "../../components/layout";
@@ -39,6 +47,25 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     if (!uid) return;
     useActivityStore.getState().listActivities(uid);
   }, [currentUser]);
+
+  const handleShareGpx = async (activityId: string) => {
+    const activity = activities.find((item) => item.id === activityId);
+    if (!activity) return;
+
+    try {
+      if (!activity.recordedPoints || activity.recordedPoints.length === 0) {
+        throw new Error("No hay coordenadas guardadas para exportar este recorrido.");
+      }
+
+      await shareGpxFromCoordinates(activity.recordedPoints, {
+        name: activity.routeTitle || "Ruta Trekkin",
+        description: `Recorrido finalizado el ${formatDate(activity.createdAt)}`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo compartir el GPX.";
+      Alert.alert("No se pudo compartir", msg);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -70,62 +97,81 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           renderItem={({ item }) => {
             const completed = item.status === "completed";
             return (
-              <Pressable
-                onPress={() => onSelect(item.id)}
-                style={({ pressed }) => [
-                  styles.card,
-                  pressed && styles.pressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Actividad ${item.routeTitle}`}
-              >
-                <View style={styles.cardBody}>
-                  <View style={styles.cardTop}>
-                    <Text style={styles.routeTitle} numberOfLines={1}>
-                      {item.routeTitle}
-                    </Text>
-                    <View
-                      style={[
-                        styles.badge,
-                        completed
-                          ? styles.badgeCompleted
-                          : styles.badgeIncomplete,
-                      ]}
-                    >
-                      <Text
+              <View style={styles.cardRow}>
+                <Pressable
+                  onPress={() => onSelect(item.id)}
+                  style={({ pressed }) => [
+                    styles.card,
+                    pressed && styles.pressed,
+                    styles.cardExpandable,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Actividad ${item.routeTitle}`}
+                >
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardTop}>
+                      <Text style={styles.routeTitle} numberOfLines={1}>
+                        {item.routeTitle}
+                      </Text>
+                      <View
                         style={[
-                          styles.badgeText,
+                          styles.badge,
                           completed
-                            ? styles.badgeTextCompleted
-                            : styles.badgeTextIncomplete,
+                            ? styles.badgeCompleted
+                            : styles.badgeIncomplete,
                         ]}
                       >
-                        {completed ? "COMPLETA" : "INCOMPLETA"}
+                        <Text
+                          style={[
+                            styles.badgeText,
+                            completed
+                              ? styles.badgeTextCompleted
+                              : styles.badgeTextIncomplete,
+                          ]}
+                        >
+                          {completed ? "COMPLETA" : "INCOMPLETA"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.metaRow}>
+                      <Text style={styles.metaText}>
+                        {formatKm(item.distanceCoveredKm)}
+                      </Text>
+                      <Text style={styles.metaDot}>·</Text>
+                      <Text style={styles.metaText}>
+                        {formatDuration(item.durationSeconds)}
+                      </Text>
+                      <Text style={styles.metaDot}>·</Text>
+                      <Text style={styles.metaText}>
+                        {formatDate(item.createdAt)}
                       </Text>
                     </View>
+                    {!item.isSynced && (
+                      <View style={styles.unsyncedRow}>
+                        <CloudOff size={11} color={AndeanTheme.colors.amber} />
+                        <Text style={styles.unsyncedText}>Sin sincronizar</Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>
-                      {formatKm(item.distanceCoveredKm)}
-                    </Text>
-                    <Text style={styles.metaDot}>·</Text>
-                    <Text style={styles.metaText}>
-                      {formatDuration(item.durationSeconds)}
-                    </Text>
-                    <Text style={styles.metaDot}>·</Text>
-                    <Text style={styles.metaText}>
-                      {formatDate(item.createdAt)}
-                    </Text>
-                  </View>
-                  {!item.isSynced && (
-                    <View style={styles.unsyncedRow}>
-                      <CloudOff size={11} color={AndeanTheme.colors.amber} />
-                      <Text style={styles.unsyncedText}>Sin sincronizar</Text>
-                    </View>
-                  )}
-                </View>
-                <ChevronRight size={16} color={AndeanTheme.colors.fieldIcon} />
-              </Pressable>
+                  <ChevronRight size={16} color={AndeanTheme.colors.fieldIcon} />
+                </Pressable>
+
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void handleShareGpx(item.id);
+                  }}
+                  style={({ pressed }) => [
+                    styles.shareBtn,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Compartir GPX de ${item.routeTitle}`}
+                  disabled={item.recordedPoints.length === 0}
+                >
+                  <Share2 size={14} color={AndeanTheme.colors.white} />
+                </Pressable>
+              </View>
             );
           }}
         />
@@ -150,6 +196,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   headerRow: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 4 },
   list: { paddingHorizontal: 24, gap: 10, paddingBottom: 16 },
+  cardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -159,7 +210,9 @@ const styles = StyleSheet.create({
     borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 14,
+    flex: 1,
   },
+  cardExpandable: { flex: 1 },
   cardBody: { flex: 1, gap: 6 },
   cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   routeTitle: {
@@ -193,6 +246,14 @@ const styles = StyleSheet.create({
     color: AndeanTheme.colors.amber,
     fontSize: 10,
     fontWeight: "700",
+  },
+  shareBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: AndeanTheme.colors.primary,
   },
   center: {
     flex: 1,

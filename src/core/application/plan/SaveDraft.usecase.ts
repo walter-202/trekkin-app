@@ -19,7 +19,7 @@ export function makeDraftId(): string {
 
 export async function SaveDraftUseCase(
   args: { plan: RoutePlan; defaultTitle?: string },
-  ports: SaveDraftPorts
+  ports: SaveDraftPorts,
 ): Promise<RoutePlan> {
   const plan = args.plan;
   if (!plan.startPoint || !plan.endPoint) {
@@ -27,11 +27,16 @@ export async function SaveDraftUseCase(
   }
 
   const title =
-    plan.title.trim() === '' ? (args.defaultTitle?.trim() ?? 'Borrador sin título') : plan.title;
+    plan.title.trim() === ''
+      ? (args.defaultTitle?.trim() ?? 'Borrador sin título')
+      : plan.title;
 
   const parsed = SaveDraftSchema.parse({
     title,
     difficulty: plan.difficulty,
+    terrainType: plan.terrainType,
+    notes: plan.notes ?? '',
+    weather: plan.weather,
     start: plan.startPoint,
     end: plan.endPoint,
   });
@@ -42,7 +47,7 @@ export async function SaveDraftUseCase(
   const route: RouteModel = {
     id,
     title: parsed.title,
-    description: 'Planificación de nueva ruta (HU-07)',
+    description: parsed.notes || 'Planificación de nueva ruta (HU-07)',
     region: '',
     startPoint: {
       name: parsed.start.name ?? 'Inicio provisional',
@@ -57,6 +62,9 @@ export async function SaveDraftUseCase(
     distanceKm: 0,
     durationMinutes: 0,
     difficulty: parsed.difficulty,
+    terrainType: parsed.terrainType,
+    notes: parsed.notes,
+    weather: parsed.weather,
     modality: 'solo',
     status: 'draft',
     isPrivate: true,
@@ -78,6 +86,9 @@ export async function SaveDraftUseCase(
     startPoint: { ...parsed.start },
     endPoint: { ...parsed.end },
     difficulty: parsed.difficulty,
+    terrainType: parsed.terrainType,
+    notes: parsed.notes,
+    weather: parsed.weather,
     waypoints: route.waypoints,
     createdAt: route.createdAt,
     updatedAt: now,

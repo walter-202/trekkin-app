@@ -17,8 +17,7 @@ import {
   calculateElevationDeltaM,
   suggestRouteDifficulty,
 } from "../../../core/domain/calculations";
-import { ExportTrackFileUseCase } from "../../../core/application/activity/ExportTrackFile.usecase";
-import { shareService } from "../../../infrastructure/share/shareService";
+import { shareGpxFromCoordinates } from "../../../infrastructure/share/gpxService";
 import { usePlanStore } from "../../../infrastructure/persistence/usePlanStore";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { routeService } from "../../../infrastructure/database/routeService";
@@ -97,12 +96,19 @@ export const ResultView: React.FC<ResultViewProps> = ({
     setExporting(true);
     setExportError(null);
     try {
-      const file = ExportTrackFileUseCase(saved);
-      await shareService.shareGpxFile(file.fileName, file.content);
+      if (!saved.recordedPoints || saved.recordedPoints.length === 0) {
+        throw new Error("No hay coordenadas guardadas para exportar este recorrido.");
+      }
+
+      await shareGpxFromCoordinates(saved.recordedPoints, {
+        name: saved.routeTitle || "Ruta Trekkin",
+        description: `Recorrido finalizado el ${formatDate(saved.createdAt)}`,
+      });
     } catch (err: unknown) {
-      setExportError(
-        err instanceof Error ? err.message : "No se pudo exportar el GPX.",
-      );
+      const msg =
+        err instanceof Error ? err.message : "No se pudo compartir el GPX.";
+      setExportError(msg);
+      Alert.alert("No se pudo compartir", msg);
     } finally {
       setExporting(false);
     }
@@ -265,12 +271,12 @@ export const ResultView: React.FC<ResultViewProps> = ({
       ) : null}
 
       <Button
-        title={exporting ? "EXPORTANDO…" : "EXPORTAR GPX"}
+        title={exporting ? "COMPARTIENDO…" : "Compartir GPX"}
         onPress={handleExportGpx}
         loading={exporting}
         disabled={saved.recordedPoints.length === 0}
         icon={<Share2 size={16} color={AndeanTheme.colors.white} />}
-        accessibilityLabel="Exportar recorrido GPX"
+        accessibilityLabel="Compartir recorrido GPX"
       />
 
       <Pressable

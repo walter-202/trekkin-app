@@ -12,6 +12,22 @@ export type RouteModality = "solo" | "acompañado";
 
 export type RouteStatus = "draft" | "in_review" | "published" | "rejected";
 
+export type TerrainType =
+  | "asfalto"
+  | "sendero"
+  | "piedra"
+  | "arena"
+  | "roca"
+  | "mixto";
+
+export type RouteWeather =
+  | "soleado"
+  | "nublado"
+  | "lluvia"
+  | "viento"
+  | "nevado"
+  | "caliente";
+
 /** Published route artifacts are metadata only; bytes live in Firebase Storage. */
 export type RouteArtifactKind = "gpx" | "pmtiles";
 
@@ -132,6 +148,9 @@ export interface RouteModel {
   durationMinutes: number;
   elevationGainM?: number;
   difficulty: RouteDifficulty;
+  terrainType?: TerrainType;
+  notes?: string;
+  weather?: RouteWeather;
   modality: RouteModality;
   status: RouteStatus;
   isPrivate: boolean;
@@ -148,6 +167,9 @@ export interface RouteModel {
   reviewedAt?: number;
   createdAt: number;
   updatedAt: number;
+  syncStatus?: boolean;
+  lastSyncAt?: number;
+  remoteId?: string;
   isOfflineCached?: boolean;
   estimatedOfflineSizeMB?: number;
   /** Firestore metadata for the published GPX + PMTiles Storage bundle. */

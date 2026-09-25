@@ -22,6 +22,7 @@ import { AndeanTheme } from "./presentation/theme";
 import { parseShareLink } from "./core/domain/share.schemas";
 import type { RouteModel } from "./core/domain/types";
 import { useActivityStore } from "./infrastructure/persistence/useActivityStore";
+import { routeSyncService } from "./infrastructure/routeSyncService";
 
 type Screen =
   | "explore"
@@ -271,6 +272,11 @@ function Gate() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const stopSync = routeSyncService.start();
+    return () => stopSync();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
