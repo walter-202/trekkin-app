@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Modal,
   ActivityIndicator,
+  Vibration,
 } from "react-native";
 import {
   Pause,
@@ -96,6 +97,7 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
   }, [watchOptions]);
 
   const [compassHeading, setCompassHeading] = useState<number | undefined>(undefined);
+  const wasOffRouteRef = useRef(false);
 
   useEffect(() => {
     let watch: { remove: () => void } | null = null;
@@ -171,8 +173,15 @@ export const TrackingView: React.FC<TrackingViewProps> = ({
     if (!isGuided || !lastPoint) return { isOffRoute: false, meters: 0 };
     const proj = projectOnPolyline(lastPoint, routePolyline);
     const meters = Math.round(haversineKm(lastPoint, proj.projection) * 1000);
-    return { isOffRoute: meters > 50, meters };
+    return { isOffRoute: meters > 15, meters };
   }, [isGuided, lastPoint, routePolyline]);
+
+  useEffect(() => {
+    if (deviation.isOffRoute && !wasOffRouteRef.current) {
+      Vibration.vibrate([0, 500, 200, 500]);
+    }
+    wasOffRouteRef.current = deviation.isOffRoute;
+  }, [deviation.isOffRoute]);
 
   const handlePause = async () => {
     await useActivityStore.getState().pauseActivity();

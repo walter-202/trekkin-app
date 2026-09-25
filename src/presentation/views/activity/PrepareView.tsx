@@ -279,38 +279,42 @@ export const PrepareView: React.FC<PrepareViewProps> = ({ onBegin }) => {
         <Text style={styles.metricRowLabel}>MÉTRICAS</Text>
         <View style={styles.metricRow}>
           <MapPin size={14} color={AndeanTheme.colors.inkSecondary} />
-          <Text style={styles.metricLabel}>Distancia total</Text>
-          <Text style={styles.metricValue}>
-            {route.distanceKm.toFixed(1)} km
-          </Text>
+          <View style={styles.metricTextWrap}>
+            <Text style={styles.metricLabel}>Distancia total</Text>
+            <Text style={styles.metricValue}>{route.distanceKm.toFixed(1)} km</Text>
+          </View>
         </View>
         <View style={styles.metricRow}>
           <Gauge size={14} color={AndeanTheme.colors.inkSecondary} />
-          <Text style={styles.metricLabel}>Tiempo estimado</Text>
-          <Text style={styles.metricValue}>
-            {formatDurationMinutes(route.durationMinutes)}
-          </Text>
+          <View style={styles.metricTextWrap}>
+            <Text style={styles.metricLabel}>Tiempo estimado</Text>
+            <Text style={styles.metricValue}>{formatDurationMinutes(route.durationMinutes)}</Text>
+          </View>
         </View>
         <View style={styles.metricRow}>
           <MapPin size={14} color={AndeanTheme.colors.inkSecondary} />
-          <Text style={styles.metricLabel}>Punto de inicio</Text>
-          <Text style={styles.metricValue}>
-            {route.startPoint.name} · {route.startPoint.lat.toFixed(4)},{" "}
-            {route.startPoint.lng.toFixed(4)}
-          </Text>
+          <View style={styles.metricTextWrap}>
+            <Text style={styles.metricLabel}>Punto de inicio</Text>
+            <Text style={styles.metricValue} numberOfLines={2}>
+              {route.startPoint.name} · {route.startPoint.lat.toFixed(4)}, {route.startPoint.lng.toFixed(4)}
+            </Text>
+          </View>
         </View>
         <View style={styles.metricRow}>
           <Flag size={14} color={AndeanTheme.colors.amber} />
-          <Text style={styles.metricLabel}>Punto final</Text>
-          <Text style={styles.metricValue}>
-            {route.endPoint.name} · {route.endPoint.lat.toFixed(4)},{" "}
-            {route.endPoint.lng.toFixed(4)}
-          </Text>
+          <View style={styles.metricTextWrap}>
+            <Text style={styles.metricLabel}>Punto final</Text>
+            <Text style={styles.metricValue} numberOfLines={2}>
+              {route.endPoint.name} · {route.endPoint.lat.toFixed(4)}, {route.endPoint.lng.toFixed(4)}
+            </Text>
+          </View>
         </View>
         <View style={styles.metricRow}>
           <ListChecks size={14} color={AndeanTheme.colors.inkSecondary} />
-          <Text style={styles.metricLabel}>Checkpoints</Text>
-          <Text style={styles.metricValue}>{route.checkpoints.length}</Text>
+          <View style={styles.metricTextWrap}>
+            <Text style={styles.metricLabel}>Checkpoints</Text>
+            <Text style={styles.metricValue}>{route.checkpoints.length}</Text>
+          </View>
         </View>
       </View>
 
@@ -526,7 +530,7 @@ const styles = StyleSheet.create({
     borderColor: AndeanTheme.colors.fieldBorder,
     borderRadius: 16,
     padding: 12,
-    gap: 8,
+    gap: 10,
   },
   metricRowLabel: {
     fontSize: 9,
@@ -534,9 +538,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: AndeanTheme.colors.fieldHint,
   },
-  metricRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  metricLabel: { flex: 1, color: AndeanTheme.colors.inkSecondary, fontSize: 12 },
-  metricValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "700" },
+  metricRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  metricTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  metricLabel: {
+    color: AndeanTheme.colors.inkSecondary,
+    fontSize: 12,
+    flexShrink: 1,
+  },
+  metricValue: {
+    color: AndeanTheme.colors.ink,
+    fontSize: 12,
+    fontWeight: "700",
+    flexShrink: 1,
+  },
   locationCard: {
     flexDirection: "row",
     alignItems: "center",

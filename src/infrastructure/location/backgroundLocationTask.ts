@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
-import type { GpsPosition } from "./locationService";
+import { isAcceptableGpsAccuracy, type GpsPosition } from "./locationService";
 
 /** Stable name persisted by Expo across app process restarts. */
 export const BACKGROUND_LOCATION_TASK_NAME = "trekkin-background-location";
@@ -42,7 +42,9 @@ export async function processBackgroundLocations(
   if (!restored) return 0;
   let processed = 0;
   for (const location of locations) {
-    await store.recordPoint(locationObjectToGpsPosition(location));
+    const position = locationObjectToGpsPosition(location);
+    if (!isAcceptableGpsAccuracy(position)) continue;
+    await store.recordPoint(position);
     processed += 1;
   }
   return processed;

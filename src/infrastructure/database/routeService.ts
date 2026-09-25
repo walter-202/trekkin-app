@@ -65,6 +65,8 @@ function publishedCatalogConstraints(
   lastDoc?: unknown,
 ) {
   return [
+    // HU-03: catálogo público sin filtro por creador; cualquier usuario puede
+    // ver y realizar rutas con estado `published`.
     where("status", "==", "published"),
     orderBy("createdAt", "desc"),
     orderBy(documentId(), "asc"),
@@ -73,6 +75,13 @@ function publishedCatalogConstraints(
       : []),
     limit(pageSize),
   ];
+}
+
+function buildPublishedCatalogQuery(pageSize: number, lastDoc?: unknown) {
+  return query(
+    collection(db, ROUTES_COLLECTION),
+    ...publishedCatalogConstraints(pageSize, lastDoc),
+  );
 }
 
 /**
@@ -92,10 +101,7 @@ export const routeService = {
   async listPublishedRoutes(limitCount: number = 20): Promise<RouteModel[]> {
     try {
       assertPageSize(limitCount);
-      const q = query(
-        collection(db, ROUTES_COLLECTION),
-        ...publishedCatalogConstraints(limitCount),
-      );
+      const q = buildPublishedCatalogQuery(limitCount);
       const snapshot = await getDocs(q);
       return snapshot.docs.map(toPublishedCatalogRoute);
     } catch (error) {
@@ -112,10 +118,7 @@ export const routeService = {
   ): Promise<{ routes: RouteModel[]; lastVisible: unknown | null; hasMore: boolean }> {
     try {
       assertPageSize(pageSize);
-      const q = query(
-        collection(db, ROUTES_COLLECTION),
-        ...publishedCatalogConstraints(pageSize + 1, lastDoc),
-      );
+      const q = buildPublishedCatalogQuery(pageSize + 1, lastDoc);
       const snapshot = await getDocs(q);
       const hasMore = snapshot.docs.length > pageSize;
       const pageDocs = snapshot.docs.slice(0, pageSize);
@@ -250,6 +253,36 @@ export const routeService = {
         }
       },
     });
+  },
+
+  /**
+   * Publica una ruta para que aparezca en el catálogo público.
+   */
+  async publishRouteById(id: string): Promise<void> {
+    const docPath = `${ROUTES_COLLECTION}/${id}`;
+    try {
+      const docRef = doc(db, ROUTES_COLLECTION, id);
+      await updateDoc(docRef, {
+        status: "published",
+        isPrivate: false,
+        updatedAt: Date.now(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, docPath);
+    }
+  },
+
+  /**
+   * Elimina una ruta del catálogo/local y de su registro remoto.
+   */
+  async deleteRoute(id: string): Promise<void> {
+    const docPath = `${ROUTES_COLLECTION}/${id}`;
+    try {
+      const docRef = doc(db, ROUTES_COLLECTION, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, docPath);
+    }
   },
 
   /**

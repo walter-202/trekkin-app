@@ -112,6 +112,8 @@ export function buildTrekMapHtml(): string {
         style: STYLE,
         center: [${DEFAULT_CENTER[0]}, ${DEFAULT_CENTER[1]}],
         zoom: ${DEFAULT_ZOOM},
+        minZoom: 10,
+        maxZoom: 22,
         attributionControl: true
       });
       var ready = false;
@@ -352,13 +354,19 @@ export function buildTrekMapHtml(): string {
         }
         if (scene.followCurrentLocation && userLoc) {
           try {
-            map.flyTo({ center: [userLoc.lng, userLoc.lat], zoom: 15.2, speed: 1.4, curve: 1.6, essential: true });
+            // Mantener el zoom actual del usuario durante el seguimiento GPS vivo.
+            // Solo movemos el centro para seguir al senderista sin forzar un zoom inicial.
+            map.easeTo({
+              center: [userLoc.lng, userLoc.lat],
+              duration: 750,
+              essential: true
+            });
           } catch (e) {}
           return;
         }
         if (scene.bounds) {
           try {
-            map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+            map.fitBounds(scene.bounds, { padding: 28, duration: 400, maxZoom: 18 });
           } catch (e) {}
         }
       }

@@ -8,6 +8,7 @@ import { routeService } from "../database/routeService";
 import { activityService } from "../database/activityService";
 import {
   locationService,
+  isAcceptableGpsAccuracy,
   type GpsPosition,
   type LocationWatch,
   type LocationAccuracyOptions,
@@ -513,6 +514,7 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
   recordPoint: (p) => enqueue(async () => {
     const live = get().live;
     if (!live || live.phase !== "in_progress") return;
+    if (!isAcceptableGpsAccuracy(p)) return;
     try {
       const point = {
         lat: p.latitude,

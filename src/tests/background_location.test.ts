@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { buildTrekMapScene } from "../presentation/components/map/buildTrekMapScene";
-import type { GpsPosition } from "../infrastructure/location/locationService";
+import { isAcceptableGpsAccuracy, type GpsPosition } from "../infrastructure/location/locationService";
 
 type LocationObject = {
   coords: {
@@ -83,6 +83,10 @@ async function main() {
   });
   assert.equal(count, 0, "restart without a resumable session does not write points");
   assert.equal(rejected.length, 0);
+
+  assert.equal(isAcceptableGpsAccuracy({ accuracy: 25, timestamp: Date.now() } as GpsPosition), true);
+  assert.equal(isAcceptableGpsAccuracy({ accuracy: 45, timestamp: Date.now() } as GpsPosition), false);
+  assert.equal(isAcceptableGpsAccuracy({ accuracy: undefined, timestamp: Date.now() } as GpsPosition), false);
 
   let backgroundStarted = false;
   (location as any).getBackgroundPermissionsAsync = async () => ({ status: "denied" });

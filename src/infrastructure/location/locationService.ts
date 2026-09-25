@@ -53,10 +53,16 @@ export interface BackgroundLocationOptions extends LocationAccuracyOptions {
   deferredUpdatesDistance?: number;
 }
 
+export const MAX_ACCEPTABLE_GPS_ACCURACY_METERS = 30;
+
+export function isAcceptableGpsAccuracy(position: Pick<GpsPosition, "accuracy">): boolean {
+  return typeof position.accuracy === "number" && Number.isFinite(position.accuracy) && position.accuracy >= 0 && position.accuracy < MAX_ACCEPTABLE_GPS_ACCURACY_METERS;
+}
+
 export const RECORDING_WATCH_OPTIONS: LocationAccuracyOptions = {
-  accuracy: Location.Accuracy.High,
-  distanceInterval: 5,
-  timeInterval: 2500,
+  accuracy: Location.Accuracy.BestForNavigation,
+  distanceInterval: 1,
+  timeInterval: 2000,
 };
 
 export const RECORDING_BACKGROUND_OPTIONS: BackgroundLocationOptions = {
@@ -151,9 +157,9 @@ export const locationService = {
     try {
       const sub = await Location.watchPositionAsync(
         {
-          accuracy: options?.accuracy ?? Location.Accuracy.Balanced,
-          distanceInterval: options?.distanceInterval ?? 8,
-          timeInterval: options?.timeInterval ?? 3000,
+          accuracy: options?.accuracy ?? Location.Accuracy.BestForNavigation,
+          distanceInterval: options?.distanceInterval ?? 1,
+          timeInterval: options?.timeInterval ?? 2000,
         },
         (pos) => onUpdate(toGpsPosition(pos)),
       );
@@ -213,9 +219,9 @@ export const locationService = {
         }
         if (lifecycleGeneration !== backgroundLifecycleGeneration) return false;
         await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK_NAME, {
-          accuracy: options?.accuracy ?? Location.Accuracy.High,
-          distanceInterval: options?.distanceInterval ?? 5,
-          timeInterval: options?.timeInterval ?? 2500,
+          accuracy: options?.accuracy ?? Location.Accuracy.BestForNavigation,
+          distanceInterval: options?.distanceInterval ?? 1,
+          timeInterval: options?.timeInterval ?? 2000,
           deferredUpdatesInterval: options?.deferredUpdatesInterval ?? 10_000,
           deferredUpdatesDistance: options?.deferredUpdatesDistance ?? 25,
           pausesUpdatesAutomatically: false,

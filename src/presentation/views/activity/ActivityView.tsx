@@ -29,6 +29,7 @@ import { AndeanTheme } from "../../theme";
 type Step = "boot" | "prepare" | "tracking" | "result" | "history" | "detail";
 
 interface ActivityViewProps {
+  initialStep?: Step;
   onClose: () => void;
 }
 
@@ -41,16 +42,23 @@ const STEP_TITLES: Record<Step, string> = {
   detail: "Detalle de actividad",
 };
 
-export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
+export const ActivityView: React.FC<ActivityViewProps> = ({
+  initialStep = "boot",
+  onClose,
+}) => {
   const { currentUser } = useAuth();
   const live = useActivityStore((s) => s.live);
   const isLoading = useActivityStore((s) => s.isLoading);
   const error = useActivityStore((s) => s.error);
   const catalogRoutes = useActivityStore((s) => s.catalogRoutes);
 
-  const [step, setStep] = useState<Step>("boot");
+  const [step, setStep] = useState<Step>(initialStep);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<TrekkinActivity | null>(null);
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
 
   useEffect(() => {
     const uid = currentUser?.uid;
@@ -219,11 +227,24 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ onClose }) => {
 
       {step === "detail" &&
         (detailId ? (
-          <ActivityDetailView id={detailId} onBack={() => handleBack()} />
+          <ActivityDetailView
+            id={detailId}
+            onBack={() => handleBack()}
+            onPublishAndOpenCatalog={() => {
+              setDetailId(null);
+              setLastSaved(null);
+              onClose();
+            }}
+          />
         ) : lastSaved ? (
           <ActivityDetailView
             activity={lastSaved}
             onBack={() => handleBack()}
+            onPublishAndOpenCatalog={() => {
+              setDetailId(null);
+              setLastSaved(null);
+              onClose();
+            }}
           />
         ) : null)}
       </View>

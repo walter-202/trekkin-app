@@ -90,4 +90,4 @@ export const ONLINE_STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 export const MAP_ATTRIBUTION = "© OpenStreetMap · © OpenFreeMap";
 
 export const DEFAULT_CENTER: [number, number] = [-68.146, -16.499];
-export const DEFAULT_ZOOM = 11;
+export const DEFAULT_ZOOM = 14.8;

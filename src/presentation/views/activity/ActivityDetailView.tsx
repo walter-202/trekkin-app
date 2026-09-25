@@ -6,13 +6,17 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import { CloudOff } from "lucide-react-native";
+import { CloudOff, Share2, Globe, Trash } from "lucide-react-native";
 import { TrekMap } from "../../components/map/TrekMap";
 import { useAuth } from "../../../infrastructure/auth/AuthContext";
 import { useActivityStore } from "../../../infrastructure/persistence/useActivityStore";
 import { formatDuration, formatKm, formatDate } from "../../utils/format";
 import type { TrekkinActivity } from "../../../core/domain/types";
+import { shareGpxFromCoordinates } from "../../../infrastructure/share/gpxService";
+import { routeService } from "../../../infrastructure/database/routeService";
+import { activityService } from "../../../infrastructure/database/activityService";
 import { AndeanTheme } from "../../theme";
 
 /**
@@ -25,12 +29,14 @@ interface ActivityDetailViewProps {
   id?: string;
   activity?: TrekkinActivity;
   onBack: () => void;
+  onPublishAndOpenCatalog?: () => void;
 }
 
 export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
   id,
   activity: initialActivity,
   onBack,
+  onPublishAndOpenCatalog,
 }) => {
   const { currentUser } = useAuth();
   const error = useActivityStore((s) => s.error);
@@ -39,6 +45,8 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     initialActivity ?? null,
   );
   const [loading, setLoading] = useState(initialActivity ? false : true);
+  const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (initialActivity) {
@@ -55,6 +63,11 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     })();
   }, [currentUser, id, initialActivity]);
 
+  const storeActivity = useActivityStore((s) =>
+    activity ? s.activities.find((a) => a.id === activity.id) : null,
+  );
+  const displayActivity = storeActivity ?? activity;
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -63,7 +76,7 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     );
   }
 
-  if (!activity) {
+  if (!activity || !displayActivity) {
     return (
       <View style={styles.center}>
         <CloudOff size={24} color={AndeanTheme.colors.inkSecondary} />
@@ -81,13 +94,82 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
     );
   }
 
-  const storeActivity = useActivityStore((s) =>
-    activity ? s.activities.find((a) => a.id === activity.id) : null
-  );
-  const displayActivity = storeActivity ?? activity;
   const completed = displayActivity.status === "completed";
   const first = displayActivity.recordedPoints[0];
   const last = displayActivity.recordedPoints[displayActivity.recordedPoints.length - 1];
+
+  const handleShareGpx = async () => {
+    if (!displayActivity.recordedPoints.length) {
+      Alert.alert("Sin GPX", "No hay coordenadas guardadas para exportar.");
+      return;
+    }
+
+    try {
+      await shareGpxFromCoordinates(displayActivity.recordedPoints, {
+        name: displayActivity.routeTitle || "Ruta Trekkin",
+        description: `Recorrido finalizado el ${formatDate(displayActivity.createdAt)}`,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "No se pudo compartir el GPX.";
+      Alert.alert("No se pudo compartir", message);
+    }
+  };
+
+  const handlePublish = async () => {
+    if (!displayActivity.routeId) {
+      Alert.alert("Ruta sin identificador", "No hay una ruta asociada para publicar.");
+      return;
+    }
+
+    setPublishing(true);
+    try {
+      await routeService.publishRouteById(displayActivity.routeId);
+      if (onPublishAndOpenCatalog) {
+        onPublishAndOpenCatalog();
+        return;
+      }
+      onBack();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "No se pudo publicar la ruta.";
+      Alert.alert("No se pudo publicar", message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      "Eliminar ruta",
+      "Se eliminará la ruta remota y el historial local asociado. ¿Continuas?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              if (displayActivity.routeId) {
+                await routeService.deleteRoute(displayActivity.routeId);
+              }
+              await activityService.deleteActivity(displayActivity.id);
+              useActivityStore.setState((state) => ({
+                activities: state.activities.filter(
+                  (activityItem) => activityItem.id !== displayActivity.id,
+                ),
+              }));
+              onBack();
+            } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : "No se pudo borrar la ruta.";
+              Alert.alert("No se pudo eliminar", message);
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -169,6 +251,40 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({
           </Text>
         </View>
       </View>
+
+      <View style={styles.actionBlock}>
+        <Pressable
+          onPress={handlePublish}
+          style={[styles.actionBtn, styles.publishBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="Publicar ruta"
+          disabled={publishing}
+        >
+          <Globe size={16} color={AndeanTheme.colors.white} />
+          <Text style={styles.actionText}>{publishing ? "PUBLICANDO..." : "PUBLICAR"}</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleShareGpx}
+          style={[styles.actionBtn, styles.shareBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="Compartir GPX"
+        >
+          <Share2 size={16} color={AndeanTheme.colors.white} />
+          <Text style={styles.actionText}>COMPARTIR GPX</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={handleDelete}
+          style={[styles.actionBtn, styles.deleteBtn]}
+          accessibilityRole="button"
+          accessibilityLabel="Eliminar ruta"
+          disabled={deleting}
+        >
+          <Trash size={16} color={AndeanTheme.colors.white} />
+          <Text style={styles.actionText}>{deleting ? "ELIMINANDO..." : "ELIMINAR"}</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 };
@@ -221,6 +337,38 @@ const styles = StyleSheet.create({
   metricRow: { flexDirection: "row", alignItems: "center" },
   metricKey: { color: AndeanTheme.colors.inkSecondary, fontSize: 12, flex: 1 },
   metricValue: { color: AndeanTheme.colors.ink, fontSize: 12, fontWeight: "800" },
+  actionBlock: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+    flexWrap: "wrap",
+  },
+  actionBtn: {
+    flex: 1,
+    minWidth: 94,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  publishBtn: {
+    backgroundColor: AndeanTheme.colors.primary,
+  },
+  shareBtn: {
+    backgroundColor: AndeanTheme.colors.accentInfo,
+  },
+  deleteBtn: {
+    backgroundColor: AndeanTheme.colors.danger,
+  },
+  actionText: {
+    color: AndeanTheme.colors.white,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+  },
   center: {
     flex: 1,
     alignItems: "center",

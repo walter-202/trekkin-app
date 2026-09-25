@@ -306,7 +306,7 @@ function paintScene(
     return;
   }
   if (scene.bounds) {
-    map.fitBounds(scene.bounds, { padding: 40, duration: 400, maxZoom: 15 });
+    map.fitBounds(scene.bounds, { padding: 28, duration: 400, maxZoom: 18 });
   }
 }
 
@@ -385,6 +385,8 @@ export const TrekMap: React.FC<TrekMapProps> = (props) => {
             : ONLINE_STYLE_URL,
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
+          minZoom: 12,
+          maxZoom: 19,
           attributionControl: true,
         });
         mapRef.current = map;

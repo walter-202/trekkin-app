@@ -14,7 +14,7 @@ function boundsFromPoints(
   points: Array<{ lat: number; lng: number }>,
 ): [[number, number], [number, number]] | null {
   if (points.length === 0) return null;
-  const box = computeBoundingBox(points, 0.2);
+  const box = computeBoundingBox(points, 0.05);
   return [
     [box.minLng, box.minLat],
     [box.maxLng, box.maxLat],

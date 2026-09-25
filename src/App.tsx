@@ -43,6 +43,7 @@ function Gate() {
     useState<Screen | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [catalogKey, setCatalogKey] = useState(0);
+  const [activityInitialStep, setActivityInitialStep] = useState<"boot" | "history">("boot");
 
   // HU-05 C7 — Resolver enlaces compartidos r/{routeId}
   useEffect(() => {
@@ -65,6 +66,7 @@ function Gate() {
       setScreen("explore");
       setCatalogKey((k) => k + 1);
     } else if (route === "record") {
+      setActivityInitialStep("boot");
       if (currentUser) {
         setScreen("record");
       } else {
@@ -72,6 +74,7 @@ function Gate() {
         setAuthOpen(true);
       }
     } else if (route === "free-record") {
+      setActivityInitialStep("boot");
       if (currentUser) {
         setScreen("free-record");
       } else {
@@ -79,7 +82,16 @@ function Gate() {
         setAuthOpen(true);
       }
     } else if (route === "actividad") {
+      setActivityInitialStep("boot");
       if (currentUser) {
+        setScreen("activity");
+      } else {
+        setAuthRedirectScreen("activity");
+        setAuthOpen(true);
+      }
+    } else if (route === "historial") {
+      if (currentUser) {
+        setActivityInitialStep("history");
         setScreen("activity");
       } else {
         setAuthRedirectScreen("activity");
@@ -138,7 +150,9 @@ function Gate() {
         : screen === "free-record"
           ? "free-record"
           : screen === "activity"
-            ? "actividad"
+            ? activityInitialStep === "history"
+              ? "historial"
+              : "actividad"
             : screen === "downloads"
               ? "descargas"
               : screen === "profile"
@@ -181,7 +195,15 @@ function Gate() {
   } else if (screen === "free-record") {
     mainContent = <FreeRecordView onClose={() => setScreen("explore")} />;
   } else if (screen === "activity") {
-    mainContent = <ActivityView onClose={() => setScreen("explore")} />;
+    mainContent = (
+      <ActivityView
+        initialStep={activityInitialStep}
+        onClose={() => {
+          setActivityInitialStep("boot");
+          setScreen("explore");
+        }}
+      />
+    );
   } else if (screen === "downloads") {
     mainContent = <DownloadsView onBack={() => setScreen("explore")} />;
   } else if (screen === "users" && isAdmin) {

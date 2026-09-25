@@ -10,6 +10,7 @@ import {
   HardDrive,
   Activity,
   LocateFixed,
+  History,
 } from "lucide-react-native";
 import type { UserProfile } from "../../../core/domain/types";
 import { AndeanTheme } from "../../theme";
@@ -19,6 +20,7 @@ export type DrawerRoute =
   | "record"
   | "free-record"
   | "actividad"
+  | "historial"
   | "descargas"
   | "perfil"
   | "usuarios"
@@ -234,7 +236,37 @@ export const Drawer: React.FC<DrawerProps> = ({
           </View>
         </Pressable>
 
-        {/* 4. Rutas descargadas (HU-04) */}
+        {/* 4. Mis rutas / historial */}
+        {currentUser ? (
+          <Pressable
+            onPress={() => go("historial")}
+            style={[styles.item, active === "historial" && styles.itemActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Ir a mis rutas guardadas"
+          >
+            <History
+              size={18}
+              color={
+                active === "historial"
+                  ? AndeanTheme.colors.primaryLight
+                  : AndeanTheme.colors.textSecondary
+              }
+            />
+            <View style={styles.itemTextWrap}>
+              <Text
+                style={[
+                  styles.itemTitle,
+                  active === "historial" && styles.itemTitleActive,
+                ]}
+              >
+                MIS RUTAS
+              </Text>
+              <Text style={styles.itemSub}>Historial de recorridos guardados</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {/* 5. Rutas descargadas (HU-04) */}
         <Pressable
           onPress={() => go("descargas")}
           style={[styles.item, active === "descargas" && styles.itemActive]}
@@ -262,7 +294,7 @@ export const Drawer: React.FC<DrawerProps> = ({
           </View>
         </Pressable>
 
-        {/* 3. Perfil o Login */}
+        {/* 6. Perfil o Login */}
         {currentUser ? (
           <Pressable
             onPress={() => go("perfil")}
