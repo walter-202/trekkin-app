@@ -245,9 +245,9 @@ export const routeService = {
       publish: async (_routeId, updates) => {
         try {
           await setDoc(routeRef, {
-          ...updates,
-          waypoints: deleteField(),
-          }, { merge: true });
+  ...route,
+  ...updates
+}, { merge: true });
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, docPath);
         }
