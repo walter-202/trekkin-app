@@ -109,7 +109,6 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
     const ok = await useActivityStore
       .getState()
       .startRoute(uid, currentUser?.displayName ?? "", routeId);
-    if (!ok) return;
     setDetailId(null);
     setLastSaved(null);
     setStep("prepare");
